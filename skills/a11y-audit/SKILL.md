@@ -554,6 +554,61 @@ After delivering the report:
 - If critical findings exist, offer to fix the top 3 immediately
 - If the user has a11y-design-guide skill, suggest using it for redesign work
 
+## Framework-Specific Fix Patterns
+
+When generating `code_before` / `code_after` in findings, tailor the fix to the detected framework:
+
+| Framework | Detection | Fix style |
+|-----------|-----------|-----------|
+| **React/Next.js** | `package.json` has `react` | JSX + hooks (`useRef`, `useEffect` for focus management) |
+| **Vue** | `package.json` has `vue` | SFC template + `v-bind`, `@keydown` handlers |
+| **Angular** | `angular.json` exists | Template + `[attr.aria-*]`, `(keydown)` bindings |
+| **Svelte** | `svelte.config.js` exists | Svelte template + `bind:`, `on:keydown` |
+| **Plain HTML** | No framework detected | Semantic HTML + vanilla JS event listeners |
+
+Always prefer native elements over ARIA overrides. A `<button>` is better than `<div role="button" tabindex="0" @keydown.enter="...">`.
+
+## CI/CD Integration
+
+Offer to generate pipeline config for automated a11y regression checks:
+
+**GitHub Actions:**
+```yaml
+- name: Accessibility check
+  run: npx axe-core-cli --exit --tags wcag2a,wcag2aa ${{ env.URL }}
+```
+
+**GitLab CI:**
+```yaml
+a11y:
+  script:
+    - npx axe-core-cli --exit --tags wcag2a,wcag2aa $URL
+  allow_failure: false
+```
+
+**Pre-commit hook:**
+```bash
+npx eslint --rule 'jsx-a11y/*' --max-warnings 0 src/
+```
+
+Include the appropriate config in the audit report when CI/CD integration is requested.
+
+## Common Pitfalls
+
+| Pitfall | Correct Approach |
+|---------|------------------|
+| `role="button"` on a `<div>` | Use native `<button>` -- includes keyboard handling for free |
+| `tabindex="0"` on everything | Only interactive elements need focus; use native elements |
+| `aria-label` on non-interactive elements | Use `aria-labelledby` pointing to visible text |
+| `display: none` for screen reader hiding | Use `.sr-only` class instead |
+| Color alone to convey meaning | Add icons, text labels, or patterns alongside color |
+| Placeholder as only label | Always provide a visible `<label>` |
+| `outline: none` without replacement | Always provide a visible focus indicator via `focus-visible` |
+| Empty `alt=""` on informational images | Informational images need descriptive alt text |
+| Skipping heading levels (h1 -> h3) | Heading levels must be sequential |
+| `onClick` without `onKeyDown` | Add keyboard support or prefer native elements |
+| Ignoring `prefers-reduced-motion` | Wrap animations in `@media (prefers-reduced-motion: no-preference)` |
+
 ## Scoring Interpretation
 
 | Score | Meaning |
