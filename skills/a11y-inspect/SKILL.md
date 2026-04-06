@@ -1,13 +1,18 @@
 ---
 name: a11y-inspect
 description: >-
-  Run a structured accessibility inspection with quantitative scoring, interactive HTML reports,
-  and before/after comparison. Use when the user asks to inspect, review, or assess accessibility
-  of a project, page, component, or design. Triggers on "accessibility inspect", "a11y inspect",
-  "a11y audit", "WCAG compliance check", "accessibility review", "check accessibility",
-  "a11y score", or similar. Also use when the user wants to compare accessibility improvements
-  over time, generate an accessibility report, or assess legal compliance risk for their website
-  or app. Even if the user just says "how accessible is this?" — that is an inspect request.
+  Lighthouse-style accessibility inspection: 0-100 scoring across 10 categories (contrast,
+  keyboard, screen reader, forms, media, motion, touch, cognitive, responsive, AEO),
+  interactive HTML report with score rings and code diffs, before/after comparison with
+  previous inspections, legal risk scoring for 6 jurisdictions (US ADA, EU EAA, Japan JIS,
+  Taiwan, Canada ACA, Australia DDA), framework-specific fix patterns (React/Vue/Angular/
+  Svelte/HTML), and CI/CD pipeline integration. Calibrated against a 44-site benchmark.
+  Three-tier architecture: static analysis → Playwright browser audit → manual testing
+  recommendations. Handles CSR/SPA detection and pedagogical demo exclusion.
+  Triggers on "accessibility inspect", "a11y inspect", "a11y audit", "a11y score",
+  "WCAG compliance", "check accessibility", "how accessible is this", "accessibility report",
+  "無障礙檢查", "アクセシビリティ", or any request to assess, review, score, or improve
+  the accessibility of a project, page, component, URL, or design.
 ---
 
 # Accessibility Audit v2.1
