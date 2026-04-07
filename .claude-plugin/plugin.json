@@ -18,6 +18,5 @@
     "inspection",
     "inclusive-design"
   ],
-  "skills": ["./commands/"],
-  "hooks": "./hooks/hooks.json"
+  "skills": ["./commands/"]
 }
