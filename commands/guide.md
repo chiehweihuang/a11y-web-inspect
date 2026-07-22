@@ -503,6 +503,17 @@ These rules are blocking at design time:
 Any width showing horizontal overflow, an under-floor text column, or viewport-scale
 dead whitespace blocks delivery. Fix before shipping — no exceptions.
 
+4. **Sans-serif font floor** — every `font-family` declaration is an explicit stack:
+   Latin sans first (Arial-class), then explicit Traditional Chinese sans (e.g.
+   "Noto Sans TC", "Microsoft JhengHei"), then explicit Japanese sans (e.g.
+   "Yu Gothic UI", Meiryo), terminating in `sans-serif`. Code blocks: mono fonts
+   (Consolas etc.) followed by an explicit CJK sans BEFORE the final `monospace`
+   keyword, so CJK inside code never falls back to a Ming/Mincho face. Bare
+   `monospace`, bare `serif`, and any reachable Ming/Mincho family (PMingLiU,
+   MingLiU, MS Mincho, Yu Mincho) are forbidden. Before delivery: grep the artifact
+   for Ming/Mincho names (expect zero) and render-check one Japanese string and one
+   CJK-in-code sample.
+
 ## Responsive Design (RWD) Best Practices
 
 RWD and accessibility are deeply intertwined. A "responsive" site that becomes unusable on mobile for elderly users or breaks at 200% zoom is not truly responsive. Design for adaptation across devices, viewports, zoom levels, and user preferences.
