@@ -13,8 +13,8 @@
     ],
     "platform": "Web",
     "tool_version": "beacon codex static baseline",
-    "engine_fingerprint": "beacon-static-audit@8+ruleset.7b79d5151b72",
-    "confidence_level": "medium",
+    "engine_fingerprint": "beacon-static-audit@9+ruleset.25eeae0aa809",
+    "confidence_level": "low",
     "requires_live_audit": true,
     "audit_tier": "Tier 1 (static file scan only)",
     "audit_methods": [
@@ -24,8 +24,8 @@
     ]
   },
   "summary": {
-    "overall_score": 9,
-    "coverage_percent": 61,
+    "overall_score": 0,
+    "coverage_percent": 23,
     "life_safety_flag": false,
     "score_bands": [
       {
@@ -62,8 +62,8 @@
         "pass": 0,
         "fail": 2,
         "review": 0,
-        "state": "scored",
-        "score": 0
+        "state": "insufficient-evidence",
+        "score": null
       },
       {
         "id": "screenreader",
@@ -80,8 +80,8 @@
         "pass": 0,
         "fail": 1,
         "review": 0,
-        "state": "scored",
-        "score": 0
+        "state": "insufficient-evidence",
+        "score": null
       },
       {
         "id": "responsive",
@@ -89,8 +89,8 @@
         "pass": 1,
         "fail": 1,
         "review": 0,
-        "state": "scored",
-        "score": 45
+        "state": "insufficient-evidence",
+        "score": null
       },
       {
         "id": "touch",

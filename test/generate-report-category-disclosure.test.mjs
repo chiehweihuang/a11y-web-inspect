@@ -21,6 +21,7 @@ test('category summary exposes completed states and inline disclosure controls',
         categories: [
           { id: 'contrast', name: 'Color & Contrast', pass: 0, fail: 0, review: 1, state: 'not-machine-checkable', score: null },
           { id: 'screenreader', name: 'Screen Reader', pass: 1, fail: 0, review: 0, state: 'scored', score: 100 },
+          { id: 'responsive', name: 'Responsive & Reflow', pass: 1, fail: 0, review: 0, state: 'insufficient-evidence', score: null },
         ],
       },
       findings: [],
@@ -33,6 +34,10 @@ test('category summary exposes completed states and inline disclosure controls',
     assert.match(html, /data-category-toggle="contrast"[^>]*aria-expanded="false"/);
     assert.match(html, /id="detail-contrast" hidden/);
     assert.match(html, /已完成靜態掃描 · 需人工驗證/);
+    // insufficient-evidence (engine @9): a text badge, never a ring/number, and the
+    // category still gets its own detail explanation.
+    assert.match(html, /已完成靜態掃描 · 證據不足以計分/);
+    assert.doesNotMatch(html, /<div class="ring-label">[^<]*Responsive/, 'an unscored category must not render a score ring');
     assert.match(html, /受測網頁/);
     assert.match(html, /href="https:\/\/example\.com\/test\?page=1&amp;mode=audit" target="_blank" rel="noopener noreferrer"/);
     assert.match(html, /P0/);

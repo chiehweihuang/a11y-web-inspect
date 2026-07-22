@@ -17,7 +17,11 @@ import { execFileSync } from 'node:child_process';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCANNER = resolve(ROOT, 'core/scripts/static-audit.mjs');
 
-// A clean page that scores 100 on every Tier-1-scorable category.
+// A clean page that scores 100 on every Tier-1-scorable category. Keyboard and forms
+// carry 3 baseline passes each (not 1) so they already meet the engine @9 N=3
+// thin-evidence floor -- otherwise an injected dose-1 failure would land in a category
+// that is still below the floor (insufficient-evidence, excluded from the weighted
+// average) and the dose-response assertion below would see no score movement at all.
 const CLEAN = `<!DOCTYPE html><html lang="en"><head><title>t</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Readable page summary.">
@@ -25,8 +29,10 @@ const CLEAN = `<!DOCTYPE html><html lang="en"><head><title>t</title>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"x"}</script>
 <style>.a{animation: spin 1s;} @media (prefers-reduced-motion: reduce){.a{animation: none;}}</style>
 </head><body><main><h1>x</h1><a href="/x">Home</a>
-<button>OK</button>
+<button>OK</button><button>Cancel</button><button>Close</button>
 <label for="n">Name</label><input id="n" type="text">
+<label for="e">Email</label><input id="e" type="text">
+<label for="p">Phone</label><input id="p" type="text">
 <img alt="Team photo" src="t.png">
 </main></body></html>`;
 

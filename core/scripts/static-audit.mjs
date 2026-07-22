@@ -81,14 +81,20 @@ const SEV_REPEAT_CAP = 3;
 // (axe / capture-recipe components are added when Tier-2 findings are merged with their own
 // engine provenance; the pure static engine here is axe-free, so claiming an axe version would
 // be dishonest.)
-const DETECTOR_VERSION = 'beacon-static-audit@8';
+const DETECTOR_VERSION = 'beacon-static-audit@9';
+
+// A category with 1-2 total machine checks is a coin-flip denominator (a single fail
+// reads identically to a six-check 100). N=3 is a CALIBRATION DECISION, not a physical
+// constant — see VALIDATION.md L2, revisit with data.
+const THIN_EVIDENCE_MIN = 3;
 
 function rulesetHash() {
   const payload = JSON.stringify({
     weights: CATEGORY_WEIGHTS,
     matrix: SEVERITY_MATRIX,
     bands: SCORE_BANDS,
-    formula: 'category=base-12crit-5warn-1tip(cap3/key); states=scored|not-machine-checkable|not-applicable; overall=weighted-over-scored; gate=life-safety-cap-49',
+    thinEvidenceMin: THIN_EVIDENCE_MIN,
+    formula: 'category=base-12crit-5warn-1tip(cap3/key); states=scored|insufficient-evidence|not-machine-checkable|not-applicable; overall=weighted-over-scored; gate=life-safety-cap-49',
   });
   return createHash('sha256').update(payload).digest('hex').slice(0, 12);
 }
@@ -1071,11 +1077,17 @@ function addSiteAgentReadinessFindings(inputPaths, files, root, stats, findings)
 // inspect.md Step 4 category formula (single source): base = pass/auditable, then a
 // severity penalty from confirmed-fail findings. unverifiable (review) is excluded from
 // both auditable and the penalty. A category with no pass/fail evidence gets a STATE,
-// never a number: review-only = not-machine-checkable, empty = not-applicable. Absence
+// never a number: review-only = not-machine-checkable, empty = not-applicable. A category
+// with SOME evidence but fewer than THIN_EVIDENCE_MIN checks is insufficient-evidence: a
+// 1-2 check denominator is a coin flip, indistinguishable in confidence from a six-check
+// 100 if rendered as a number, so it exits scoring (and the weighted-average denominator)
+// the same way the other unscored states already do. Findings are unaffected — this
+// function only decides whether pass/fail evidence becomes a SCORE. Absence (or thinness)
 // of evidence must not read as a score.
 function scoreCategory(cat) {
   const auditable = cat.pass + cat.fail;
   if (auditable === 0) return { state: cat.review > 0 ? 'not-machine-checkable' : 'not-applicable', score: null };
+  if (auditable < THIN_EVIDENCE_MIN) return { state: 'insufficient-evidence', score: null };
   const base = (cat.pass / auditable) * 100;
   const sev = cat.sev || { critical: 0, warning: 0, tip: 0 };
   const score = base - sev.critical * 12 - sev.warning * 5 - sev.tip * 1;

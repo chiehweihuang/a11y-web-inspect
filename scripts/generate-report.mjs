@@ -104,6 +104,7 @@ const I18N = {
     th_score: '結果',
     state_not_machine_checkable: '已完成靜態掃描 · 需人工驗證',
     state_not_applicable: '已完成靜態掃描 · 本頁不適用',
+    state_insufficient_evidence: '已完成靜態掃描 · 證據不足以計分',
     category_summary_note: '所有分類都已執行靜態掃描。只有取得可計分機器證據的分類顯示分數；其餘分類顯示掃描狀態。',
     category_expand_all: '全部展開',
     category_collapse_all: '全部收合',
@@ -112,6 +113,7 @@ const I18N = {
     category_detail_scored: '已取得可計分的機器證據。',
     category_detail_manual: '靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。',
     category_detail_na: '靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。',
+    category_detail_insufficient: '靜態掃描已完成；這個分類的機器可判定證據太少，一兩項結果不足以代表整體，因此不製造分數，但下方仍完整列出所有發現項目。',
     coverage_line: '機測權重涵蓋',
     coverage_note: '其餘部分需人工或即時審查',
     score_na: '—',
@@ -207,6 +209,7 @@ const I18N = {
     th_score: 'Result',
     state_not_machine_checkable: 'Static scan complete · human verification needed',
     state_not_applicable: 'Static scan complete · not applicable here',
+    state_insufficient_evidence: 'Static scan complete · not enough evidence to score',
     category_summary_note: 'Every category was statically scanned. A score appears only when machine-scoreable evidence exists; otherwise the completed scan state is shown.',
     category_expand_all: 'Expand all',
     category_collapse_all: 'Collapse all',
@@ -215,6 +218,7 @@ const I18N = {
     category_detail_scored: 'Machine-scoreable evidence was collected.',
     category_detail_manual: 'The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented.',
     category_detail_na: 'The static scan completed. No applicable content for this category was detected in the audited scope.',
+    category_detail_insufficient: 'The static scan completed. This category has too few machine-checkable results for one or two to represent the whole, so no score is invented, but every finding is still listed in full below.',
     coverage_line: 'Machine-measured weight coverage',
     coverage_note: 'the rest needs human or live review',
     score_na: 'n/a',
@@ -763,6 +767,12 @@ const SCORE_BANDS = audit.summary?.score_bands?.length ? audit.summary.score_ban
 const BAND_COLORS = { pass: 'var(--pass)', 'needs-work': 'var(--mid)', fail: 'var(--fail)' }; // --mid: dedicated clean amber for the rings (not the muddy text --warn)
 const BAND_LABEL_KEYS = { pass: 'verdict_pass', 'needs-work': 'verdict_needs_work', fail: 'verdict_fail' };
 
+// Unscored-category states (score null) each carry a badge + a detail line; 'scored'
+// is handled separately above. Missing entries fall back to the not-machine-checkable
+// text (pre-@9 artifacts never carried insufficient-evidence).
+const STATE_BADGE_KEYS = { 'not-applicable': 'state_not_applicable', 'insufficient-evidence': 'state_insufficient_evidence' };
+const STATE_DETAIL_KEYS = { 'not-applicable': 'category_detail_na', 'insufficient-evidence': 'category_detail_insufficient' };
+
 function bandOf(score) {
   return SCORE_BANDS.find(b => score >= b.min) || SCORE_BANDS[SCORE_BANDS.length - 1];
 }
@@ -798,9 +808,9 @@ function buildCategoryRows(categories, prevCategories, findings) {
     const prevScore = prev ? prev.score : null;
     const detailState = cat.score !== null && cat.score !== undefined
       ? t('category_detail_scored')
-      : cat.state === 'not-applicable' ? t('category_detail_na') : t('category_detail_manual');
+      : t(STATE_DETAIL_KEYS[cat.state] || 'category_detail_manual');
     const resultHtml = cat.score === null || cat.score === undefined
-      ? `<span class="state-badge">${cat.state === 'not-applicable' ? t('state_not_applicable') : t('state_not_machine_checkable')}</span>`
+      ? `<span class="state-badge">${t(STATE_BADGE_KEYS[cat.state] || 'state_not_machine_checkable')}</span>`
       : `<div class="score-bar"><div class="score-fill" style="width:${cat.score}%;background:${scoreColor(cat.score)}"></div><span class="score-text">${cat.score}</span></div>${prevScore !== null && prevScore !== undefined ? `<div class="prev-score">${t('score_was_prefix')} ${prevScore}</div>` : ''}`;
     return `
       <tr class="category-row" data-category="${cat.id}">

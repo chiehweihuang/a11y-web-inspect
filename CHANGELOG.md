@@ -1,5 +1,42 @@
 # Changelog
 
+## [3.2.0] — Workstream A (engine @9): thin-evidence category state
+
+Engine `beacon-static-audit@9`. Score-affecting change from the 2026-07-22 evidence-states
+plan; report IA redesign (Workstream B) tracks separately in the same release.
+
+- **New category state `insufficient-evidence`**: a category that would otherwise be
+  `scored` but has fewer than 3 total machine checks (`pass + fail < 3`) now reports
+  `score: null` and exits the scoring denominator (weight redistributed, same mechanism
+  as `not-machine-checkable`/`not-applicable`). A 1-2 check category is a coin-flip
+  denominator — indistinguishable in confidence from a six-check 100 if rendered as a
+  number. Findings are unaffected: the category's fail(s) are still listed in full;
+  `coverage_percent` drops to carry the honesty signal instead. The N=3 threshold is a
+  **calibration decision** (VALIDATION.md L2), not a physical constant — revisit with data.
+- Report renderer: the new state gets its own text badge and detail line (bilingual,
+  zh/en), rendered the same way as the other unscored states; unscored categories never
+  render a score ring (pre-existing behavior, confirmed unaffected).
+- **Golden vectors regenerated**: `clean.expected.json` keeps `overall_score: 100` (top
+  band still reachable) but `keyboard`/`forms`/`responsive`/`motion` move from `scored`
+  to `insufficient-evidence` (each had exactly 1 native check); coverage 66% → 23%,
+  confidence `medium` → `low`. `dirty.expected.json`: `keyboard`/`forms`/`responsive`
+  move the same way (1-2 checks each); `overall_score` 9 → 0 (the dirty fixture's one
+  above-average category, responsive at 45, was carried by exactly 2 checks and exits
+  the denominator). Every changed line is explained by the N=3 threshold; no other diff.
+- **Benchmark rerun** (`beacon-benchmark-100/run-2026-07-05`, n=71 paired vs Lighthouse):
+  Spearman 0.477 (@8) → **0.468** (@9) — a small decrease; the rank correlation absorbs
+  score movements unevenly across the cohort even though most individual deltas are
+  improvements. Score-delta distribution across 85 comparable sites: median |Δ| = 7,
+  p95 = 19, max = 23 (wayfair.com −23; squarespace.com +21); 18 band flips. Motivating
+  case confirmed: rakuten.co.jp 40 → **54** (`responsive` and `motion` each had exactly
+  1 fail with 0 counterbalancing pass — a naked 0 on a coin-flip denominator — and both
+  now exit the denominator instead of dragging the weighted average down).
+- **GT retention** (finding emission is unaffected by this change — `scoreCategory` never
+  touches the findings array): `total_findings` counts are byte-identical between the
+  archived @8 results and the @9 rerun across all 85 comparable benchmark sites,
+  including all 7 sites in the `gt-remap-6` ground-truth cohort. Ground-truth P/R
+  (1.000 / 0.727, `pr-analysis-v8.json`) stands unchanged — no FP introduced, no TP lost.
+
 ## [3.1.0] — 2026-07-22
 
 Engine @8 + the production improvement loop + public services entry points.

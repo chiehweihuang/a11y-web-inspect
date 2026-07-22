@@ -85,11 +85,24 @@ cause?** Fix the class, not the instance.
   lowers any; adding compliant elements never costs points.
 - Injection dose-response: known violations injected into the clean fixture degrade
   the score monotonically with dose (ground truth is the injection itself).
-- Coverage and score move independently; absence of evidence is a state
-  (`not-machine-checkable` / `not-applicable`, score null), never a number.
+- Coverage and score move independently; absence (or thinness) of evidence is a state
+  (`not-machine-checkable` / `not-applicable` / `insufficient-evidence`, score null),
+  never a number.
 - Life-safety gate (confirmed 2.3.1 critical → overall ≤ 49) beats all weights.
 - Severity repeat-cap (3 per finding key) is a CALIBRATION DECISION, revisit with
   data; the pass/fail base ratio always counts every instance.
+- Thin-evidence floor (engine @9): a category with `pass + fail < 3` reports
+  `insufficient-evidence` (score null) instead of a number, and exits the weighted-average
+  denominator the same way `not-machine-checkable`/`not-applicable` already do. N=3 is a
+  CALIBRATION DECISION (same status as the severity repeat-cap above), not a physical
+  constant — revisit with data. Findings are unaffected; only the category-level score is
+  suppressed. Measured effect (2026-07-22 benchmark rerun, n=71 paired):
+  Spearman 0.477 → 0.468 (small decrease — rank correlation, uneven across the cohort);
+  score-delta distribution across 85 comparable sites: median |Δ| 7, p95 19, max 23, 18
+  band flips (both directions — a thin category exiting the denominator can raise OR
+  lower the overall depending on whether it was scoring below or above the remaining
+  average). Motivating case: rakuten.co.jp 40 → 54 (`responsive`/`motion` each had a
+  single fail with no counterbalancing pass).
 
 ## L3 — external validity protocol
 
@@ -161,15 +174,16 @@ node tools/measure-semantic.mjs --min-precision 1.0 --min-recall 0.4
 
 Record in CHANGELOG: engine version, Spearman, and (when GT re-ran) P/R.
 
-## Measured state (2026-07-22, engine `beacon-static-audit@8`)
+## Measured state (2026-07-22, engine `beacon-static-audit@9`)
 
 | Metric | Value |
 |---|---|
-| Spearman vs Lighthouse a11y (n=71) | 0.354 (@3) → 0.474 (@4) → 0.488 (@5/@6) → 0.480 (@7) → 0.477 (@8) |
-| Ground-truth P/R, pattern-level | @4: 0.600 / 0.591 → @6: 0.979 / 0.712 → @8: **1.000 / 0.727** (48/48 TPs incl. the recovered aria-heading case; FP 0) · Lighthouse 0.811 / 0.462 |
-| Ground-truth recall, instance-level | @4: 0.743 → @6: 0.826 → @8: **0.829** · Lighthouse 0.225 |
+| Spearman vs Lighthouse a11y (n=71) | 0.354 (@3) → 0.474 (@4) → 0.488 (@5/@6) → 0.480 (@7) → 0.477 (@8) → 0.468 (@9) |
+| Ground-truth P/R, pattern-level | @4: 0.600 / 0.591 → @6: 0.979 / 0.712 → @8/@9: **1.000 / 0.727** (48/48 TPs incl. the recovered aria-heading case; FP 0; @9 is category-level-neutral, findings unchanged) · Lighthouse 0.811 / 0.462 |
+| Ground-truth recall, instance-level | @4: 0.743 → @6: 0.826 → @8/@9: **0.829** · Lighthouse 0.225 |
 | @5 re-verification | 14/15 FP classes eliminated, 39/39 TPs retained, 18 new catches |
 | @7 wild input-label FP elimination | 46/57 findings were wrapped-input FPs → 0; only jnto (+20) and spotify (+8) moved |
+| @9 thin-evidence state (`insufficient-evidence`, N=3) | Spearman 0.477 → 0.468 (n=71); score-delta median \|Δ\| 7, p95 19, max 23 across 85 comparable sites, 18 band flips; `total_findings` byte-identical @8→@9 on all 85 sites incl. all 7 `gt-remap-6` sites (finding emission unaffected) |
 | CJK fairness | jp-tw FP 0.214 → ~0.01 residual after @7; no CJK-text-semantics bias found |
 | Score error bar, temporal (same machine, 2-day, n=13) | median 0 / p95 1 / max 1; 0 band flips |
 | Score error bar, cross-machine | NOT YET MEASURED — run the two-machine experiment before quoting scores across machines |
@@ -188,3 +202,8 @@ Record in CHANGELOG: engine version, Spearman, and (when GT re-ran) P/R.
    recorded: the outline detector reports only the FIRST level-skip per document
    (site 90 vi=4 stays missed). Class-based hiding still needs Tier-2 capture
    annotations if future benchmark evidence justifies that larger change.
+6. ~~Engine @9 thin-evidence category state~~ DONE 2026-07-22: `insufficient-evidence`
+   (N=3 floor) ships; benchmark rerun Spearman 0.477 → 0.468 (n=71), score-delta median
+   7 / p95 19 / max 23 across 85 sites, 18 band flips; GT retention confirmed
+   (`total_findings` byte-identical @8→@9 on all 85 sites incl. `gt-remap-6`). N=3 stays
+   an open calibration knob (CHANGELOG 3.2.0).

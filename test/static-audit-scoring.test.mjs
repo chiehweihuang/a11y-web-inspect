@@ -26,8 +26,9 @@ const PAGE = `<!DOCTYPE html><html lang="en"><head><title>t</title>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"x"}</script>
 </head><body><main><h1>x</h1><a href="/x">Home</a></main></body></html>`;
 
-// Everything Tier-1 can verify, verified: named button (keyboard pass), labelled
-// input (forms pass), animation with reduced-motion handling (motion pass).
+// Everything Tier-1 can verify, verified: named buttons (keyboard pass), labelled
+// inputs (forms pass), animation with reduced-motion handling (motion pass). Three of
+// each so keyboard/forms clear the N=3 thin-evidence floor natively (engine @9).
 const RICH_PAGE = `<!DOCTYPE html><html lang="en"><head><title>t</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Readable page summary.">
@@ -35,9 +36,24 @@ const RICH_PAGE = `<!DOCTYPE html><html lang="en"><head><title>t</title>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"x"}</script>
 <style>.a{animation: spin 1s;} @media (prefers-reduced-motion: reduce){.a{animation: none;}}</style>
 </head><body><main><h1>x</h1><a href="/x">Home</a>
-<button>OK</button>
+<button>OK</button><button>Cancel</button><button>Close</button>
 <label for="n">Name</label><input id="n" type="text">
+<label for="e">Email</label><input id="e" type="text">
+<label for="p">Phone</label><input id="p" type="text">
 </main></body></html>`;
+
+// static-audit.mjs's motion/responsive detectors run at most once PER FILE (not per
+// occurrence), so a single fixture can never natively clear N=3 for them; these two
+// categories are boosted the same way contrast/touch/cognitive/media always are: merged
+// external passes. 3 per category crosses the floor (2 native + 1 native check already
+// counts for keyboard/forms; these two get 2 external on top of RICH_PAGE's native 1).
+function fullCoveragePasses() {
+  const three = ['contrast', 'touch', 'cognitive', 'media'].flatMap((category) =>
+    Array.from({ length: 3 }, (_, i) => ({ category, check: 'pass', title: `${category} verified externally #${i}` })));
+  const two = ['responsive', 'motion'].flatMap((category) =>
+    Array.from({ length: 2 }, (_, i) => ({ category, check: 'pass', title: `${category} verified externally #${i}` })));
+  return writeFindings([...three, ...two]);
+}
 
 // Run the scanner; returns { audit, raw } where raw is the exact bytes written.
 function run({ html = PAGE, args = [], env = {} } = {}) {
@@ -69,13 +85,17 @@ function cat(audit, id) {
 
 // ---- category states ----------------------------------------------------------
 
-test('category states: scored / not-machine-checkable / not-applicable, score null when unscored', () => {
+test('category states: scored / insufficient-evidence / not-machine-checkable / not-applicable, score null when unscored', () => {
   const { audit } = run({ args: ['--date', '2020-01-01'] });
-  // Static evidence exists for these on PAGE:
-  for (const id of ['screenreader', 'responsive', 'agent']) {
-    assert.equal(cat(audit, id).state, 'scored', `${id} has pass evidence -> scored`);
+  // Static evidence exists for these on PAGE, at or above the N=3 thin-evidence floor:
+  for (const id of ['screenreader', 'agent']) {
+    assert.equal(cat(audit, id).state, 'scored', `${id} has >=3 checks -> scored`);
     assert.equal(typeof cat(audit, id).score, 'number');
   }
+  // PAGE gives responsive exactly ONE pass check: real evidence, but too thin (< 3) to score.
+  assert.equal(cat(audit, 'responsive').state, 'insufficient-evidence', 'responsive has 1 check, below the N=3 floor');
+  assert.equal(cat(audit, 'responsive').score, null, 'insufficient-evidence must NOT carry a numeric score');
+  assert.equal(cat(audit, 'responsive').pass, 1, 'the thin check is still reported as evidence, not hidden');
   // Static scanning cannot verify these at all (forced review, no pass/fail):
   for (const id of ['contrast', 'touch', 'cognitive', 'media']) {
     assert.equal(cat(audit, id).state, 'not-machine-checkable', `${id} is review-only -> not-machine-checkable`);
@@ -86,6 +106,56 @@ test('category states: scored / not-machine-checkable / not-applicable, score nu
     assert.equal(cat(audit, id).state, 'not-applicable', `${id} has no evidence at all -> not-applicable`);
     assert.equal(cat(audit, id).score, null, `${id} must NOT carry a numeric score`);
   }
+});
+
+// ---- insufficient-evidence: the N=3 thin-evidence boundary (engine @9) ------------------
+
+test('insufficient-evidence boundary: 0/1/2 checks are unscored, 3 checks crosses into scored', () => {
+  // keyboard: 0 buttons -> not-applicable (no evidence at all, unaffected by the floor).
+  assert.equal(cat(run({ args: ['--date', '2020-01-01'] }).audit, 'keyboard').state, 'not-applicable');
+
+  // 1 named button -> real evidence, but below the floor.
+  const one = run({ html: PAGE.replace('</main>', '<button>A</button></main>'), args: ['--date', '2020-01-01'] }).audit;
+  assert.equal(cat(one, 'keyboard').state, 'insufficient-evidence', '1 check is below N=3');
+  assert.equal(cat(one, 'keyboard').score, null);
+
+  // 2 named buttons -> still below the floor.
+  const two = run({ html: PAGE.replace('</main>', '<button>A</button><button>B</button></main>'), args: ['--date', '2020-01-01'] }).audit;
+  assert.equal(cat(two, 'keyboard').state, 'insufficient-evidence', '2 checks is below N=3');
+  assert.equal(cat(two, 'keyboard').score, null);
+
+  // 3 named buttons -> crosses the floor, becomes scored.
+  const three = run({ html: PAGE.replace('</main>', '<button>A</button><button>B</button><button>C</button></main>'), args: ['--date', '2020-01-01'] }).audit;
+  assert.equal(cat(three, 'keyboard').state, 'scored', '3 checks meets N=3, the boundary is inclusive');
+  assert.equal(cat(three, 'keyboard').score, 100);
+});
+
+test('insufficient-evidence categories are excluded from the weighted overall and from coverage, but keep their findings', () => {
+  const { audit } = run({ args: ['--date', '2020-01-01'] });
+  const responsive = cat(audit, 'responsive');
+  assert.equal(responsive.state, 'insufficient-evidence');
+  // Not in the scored set that feeds the overall/coverage denominator:
+  assert.ok(!audit.summary.categories.some((c) => c.id === 'responsive' && c.state === 'scored'));
+  // coverage_percent is screenreader(18) + agent(5) = 23% of total weight -- responsive's
+  // 12 and the review-only categories are excluded either way.
+  assert.equal(audit.summary.coverage_percent, 23);
+});
+
+test('a page whose ONLY failing category is thin still surfaces the finding, even though overall reads high', () => {
+  // screenreader (5 checks) and agent (3 checks) are already >=N=3 and all-pass on PAGE, so
+  // overall is a real, high number. The ONLY failure on this page is a single unnamed button
+  // (keyboard: pass=0, fail=1, auditable=1 -- below the floor).
+  const html = PAGE.replace('</main>', '<button></button></main>');
+  const { audit } = run({ html, args: ['--date', '2020-01-01'] });
+  const kb = cat(audit, 'keyboard');
+  assert.equal(kb.pass, 0);
+  assert.equal(kb.fail, 1);
+  assert.equal(kb.state, 'insufficient-evidence', 'a single fail with no counterbalancing pass is still below N=3');
+  // The design decision (plan 2026-07-22): this is NOT silently hidden -- the finding is
+  // still emitted in full, and coverage (not the score) carries the honesty signal.
+  assert.ok(audit.findings.some((f) => f.key === 'button-name-missing'), 'the button-name finding must still be emitted');
+  assert.equal(audit.summary.overall_score, 100, 'overall is computed only over the categories that DID reach scoring evidence');
+  assert.ok(audit.summary.coverage_percent < 100, 'coverage drops to signal the gap the score itself cannot show');
 });
 
 test('absence of evidence is not a score: no category reports 100 (or 60) without pass/fail evidence', () => {
@@ -107,13 +177,15 @@ test('overall is the weighted average of SCORED categories only, weights renorma
 
 test('coverage_percent reports the scoring-weight share actually measured', () => {
   const { audit } = run({ args: ['--date', '2020-01-01'] });
-  // PAGE: screenreader(18) + responsive(12) + agent(5) scored = 35% of weight.
-  assert.equal(audit.summary.coverage_percent, 35);
+  // PAGE: screenreader(18) + agent(5) scored = 23% of weight. responsive(12) has only
+  // 1 native check (below N=3) and is insufficient-evidence, not scored (engine @9).
+  assert.equal(audit.summary.coverage_percent, 23);
 });
 
 test('coverage and score are different numbers: unmeasured categories change coverage, not overall', () => {
   const base = run({ args: ['--date', '2020-01-01'] }).audit;
-  const pass = writeFindings([{ category: 'contrast', check: 'pass', title: 'contrast verified externally' }]);
+  // 3 merged passes: enough to cross contrast from not-machine-checkable into scored.
+  const pass = writeFindings(Array.from({ length: 3 }, (_, i) => ({ category: 'contrast', check: 'pass', title: `contrast verified externally #${i}` })));
   try {
     const merged = run({ args: ['--date', '2020-01-01', '--merge-findings', pass.file] }).audit;
     assert.ok(merged.summary.coverage_percent > base.summary.coverage_percent, 'verifying a new category raises coverage');
@@ -122,9 +194,7 @@ test('coverage and score are different numbers: unmeasured categories change cov
 });
 
 test('the band top is reachable: fully verified page scores 100 at 100% coverage', () => {
-  const passes = writeFindings(['contrast', 'touch', 'cognitive', 'media'].map((category) => ({
-    category, check: 'pass', title: `${category} verified externally`,
-  })));
+  const passes = fullCoveragePasses();
   try {
     const { audit } = run({ html: RICH_PAGE, args: ['--date', '2020-01-01', '--merge-findings', passes.file] });
     for (const c of audit.summary.categories) assert.equal(c.state, 'scored', `${c.id} must be scored on the fully verified page`);
@@ -200,7 +270,10 @@ test('attribute order does not matter: viewport/description/canonical found with
   for (const key of ['viewport-meta-missing', 'meta-description-missing', 'canonical-missing']) {
     assert.equal(audit.findings.filter((f) => f.key === key).length, 0, `${key} must not fire when the tag exists with reordered attributes`);
   }
-  assert.ok(cat(audit, 'responsive').score > 0, 'responsive must not be zeroed by a phantom viewport failure');
+  // responsive has only 1 native check here (below N=3, insufficient-evidence, score null);
+  // the invariant under test is that it is never zeroed by a phantom failure.
+  const responsive = cat(audit, 'responsive');
+  assert.ok(!(responsive.state === 'scored' && responsive.score === 0), 'responsive must not be zeroed by a phantom viewport failure');
 });
 
 test('images excluded from the accessibility tree are not alt-text failures', () => {
@@ -339,14 +412,26 @@ test('review evidence is not presented as remediation work', () => {
 });
 
 test('merged check:pass counts as a pass and does NOT create a finding', () => {
-  const { file, cleanup } = writeFindings([{ category: 'contrast', check: 'pass', title: 'contrast verified externally' }]);
+  // 3 merged passes: enough to cross the N=3 thin-evidence floor into scored.
+  const { file, cleanup } = writeFindings(Array.from({ length: 3 }, (_, i) => ({ category: 'contrast', check: 'pass', title: `contrast verified externally #${i}` })));
   try {
     const { audit } = run({ args: ['--date', '2020-01-01', '--merge-findings', file] });
     const contrast = cat(audit, 'contrast');
     assert.equal(contrast.state, 'scored', 'an external pass makes the category scored');
-    assert.equal(contrast.pass, 1);
+    assert.equal(contrast.pass, 3);
     assert.equal(contrast.score, 100);
-    assert.equal(audit.findings.filter((f) => f.title === 'contrast verified externally').length, 0, 'passes are evidence, not findings');
+    assert.equal(audit.findings.filter((f) => f.title.startsWith('contrast verified externally')).length, 0, 'passes are evidence, not findings');
+  } finally { cleanup(); }
+});
+
+test('a single merged pass is real evidence but stays insufficient-evidence below N=3', () => {
+  const { file, cleanup } = writeFindings([{ category: 'contrast', check: 'pass', title: 'contrast verified externally' }]);
+  try {
+    const { audit } = run({ args: ['--date', '2020-01-01', '--merge-findings', file] });
+    const contrast = cat(audit, 'contrast');
+    assert.equal(contrast.state, 'insufficient-evidence', '1 merged pass is below N=3');
+    assert.equal(contrast.pass, 1, 'the check itself is still recorded');
+    assert.equal(contrast.score, null);
   } finally { cleanup(); }
 });
 
@@ -381,6 +466,9 @@ test('a confirmed life-safety violation (2.3.1) caps the overall score into the 
     const { audit } = run({ args: ['--date', '2020-01-01', '--merge-findings', file] });
     assert.equal(audit.summary.life_safety_flag, true);
     assert.ok(audit.summary.overall_score <= 49, `seizure risk must force the fail band, weights must not dilute it (got ${audit.summary.overall_score})`);
+    // The gate is set on the CONFIRMED FINDING, independent of scoreCategory: motion has
+    // only 1 auditable check here (below N=3, insufficient-evidence) yet the gate still holds.
+    assert.equal(cat(audit, 'motion').state, 'insufficient-evidence', 'the gate does not depend on motion being scored');
   } finally { cleanup(); }
 });
 
@@ -407,11 +495,9 @@ test('score bands are exported with the artifact (single source for report + doc
 
 test('confidence_level is derived from coverage, not hardcoded', () => {
   const low = run({ args: ['--date', '2020-01-01'] }).audit;
-  assert.equal(low.metadata.confidence_level, 'low', '35% weight coverage -> low');
+  assert.equal(low.metadata.confidence_level, 'low', '23% weight coverage -> low');
 
-  const passes = writeFindings(['contrast', 'touch', 'cognitive', 'media'].map((category) => ({
-    category, check: 'pass', title: `${category} ok`,
-  })));
+  const passes = fullCoveragePasses();
   try {
     const full = run({ html: RICH_PAGE, args: ['--date', '2020-01-01', '--merge-findings', passes.file] }).audit;
     assert.equal(full.metadata.confidence_level, 'medium', 'full coverage in a static pipeline caps at medium');

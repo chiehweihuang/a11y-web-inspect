@@ -26,7 +26,7 @@ Conduct a structured accessibility audit that produces **quantitative scores** a
 4. **Jurisdiction Context** — Per-jurisdiction framing tied to the WCAG criteria found in the audit, without presenting mechanical warning counts as legal risk
 5. **Local Artifacts Only** — Beacon keeps audit artifacts local; detector updates come from maintainer-run offline work and plugin releases
 6. **Confidence Level** — Derived by the script from measured weight coverage, never hardcoded
-7. **Category States** — A category with no machine evidence reports a state (`not-machine-checkable` / `not-applicable`) with `score: null`, never a number; unverifiable items are flagged, not penalized
+7. **Category States** — A category with no machine evidence reports a state (`not-machine-checkable` / `not-applicable`), and a category with fewer than 3 total machine checks reports `insufficient-evidence` (a 1-2 check denominator is a coin flip, not a score) — all with `score: null`, never a number; unverifiable items are flagged, not penalized
 8. **Pedagogical Demo Detection** — Intentionally bad examples in educational content are excluded from scoring
 
 ## Scoring Calibration
@@ -434,10 +434,11 @@ This category covers both assistive technology agents (screen readers) and AI ag
 | `fail` | Evidence confirms violation | +1 to category fail count + finding |
 | `unverifiable` | Cannot confirm from static HTML (e.g., JS-rendered content, runtime behavior, actual contrast) | Excluded from both pass and fail counts. Does NOT reduce score. |
 
-A category's evidence rolls up to a **state** in the artifact: `scored` (has pass/fail
-evidence), `not-machine-checkable` (review-only), or `not-applicable` (no evidence at all).
-Unscored categories carry `score: null` — absence of evidence is reported as a state, never
-as a number, and never as 100.
+A category's evidence rolls up to a **state** in the artifact: `scored` (3+ pass/fail
+checks), `insufficient-evidence` (1-2 pass/fail checks — too thin a denominator to read as
+a score), `not-machine-checkable` (review-only), or `not-applicable` (no evidence at all).
+Unscored categories carry `score: null` — absence (or thinness) of evidence is reported as
+a state, never as a number, and never as 100.
 
 This system prevents penalizing CSR/SPA sites for things that simply cannot be verified from static HTML. It also reduces inter-auditor variance by eliminating the "probably fails" gray area.
 
@@ -732,7 +733,7 @@ Beacon keeps these results local unless the user explicitly shares them outside 
 **Cumulative usage ledger (local-only).** In addition to the per-project summary, append ONE line to `~/.beacon/usage.jsonl` (create the directory if missing):
 
 ```json
-{"type":"inspect","date":"2026-07-22","engine":"beacon-static-audit@8+ruleset.…","project":"<project dir basename>","score":72,"coverage":55,"states":{"contrast":"not-machine-checkable"},"finding_keys":{"image-alt-missing":4,"link-name-missing":2}}
+{"type":"inspect","date":"2026-07-22","engine":"beacon-static-audit@9+ruleset.…","project":"<project dir basename>","score":72,"coverage":55,"states":{"contrast":"not-machine-checkable"},"finding_keys":{"image-alt-missing":4,"link-name-missing":2}}
 ```
 
 This file never leaves the machine and is never transmitted by Beacon. Its purpose is local: across many inspects it shows which detectors fire most in this user's real work and accumulates evidence for detector improvement. The user can delete it at any time with no effect on Beacon.
