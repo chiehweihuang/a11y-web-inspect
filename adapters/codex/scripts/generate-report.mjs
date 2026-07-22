@@ -547,6 +547,15 @@ function findingText(f, field) {
   return bi(escapeHtml(zh), escapeHtml(en));
 }
 
+/** Raw (unescaped-language, plain-string) title/description/fix text for one
+ * language — used when composing a natural-language sentence around a finding
+ * (e.g. "N critical findings: {title}, {title}"), where findingText()'s
+ * bundled bilingual span pair can't be spliced mid-sentence. */
+function findingLangText(f, field, lang) {
+  const keyed = f?.key ? FINDING_I18N[f.key] : null;
+  return keyed?.[lang]?.[field] || f?.[field] || '';
+}
+
 function localizedText(value) {
   if (value && typeof value === 'object') {
     return bi(escapeHtml(value.zh || value.en || ''), escapeHtml(value.en || value.zh || ''));
@@ -755,7 +764,6 @@ const reportCounts = {
   tips: reportFindings.filter(f => f.severity === 'tip').length,
 };
 
-
 // Score bands come from the audit artifact (summary.score_bands — static-audit.mjs is
 // the single source); the fallback mirrors it for pre-@3 artifacts. A null score means
 // "no machine evidence" and must never paint as a colour band.
@@ -787,9 +795,13 @@ function scoreLabel(score) {
   return t(BAND_LABEL_KEYS[bandOf(score).id] || 'verdict_fail');
 }
 
-function riskColor(level) {
-  const map = { critical: '#8b1a1a', high: '#8b1a1a', medium: '#6b4000', low: '#155a1e' };
-  return map[level] || '#888';
+// Short class-name-friendly band tone ('pass' | 'warn' | 'crit'), only ever called
+// on a real (non-null) score — callers gate on state === 'scored' first, same
+// discipline scoreColor()/scoreLabel() already rely on (bandOf(null) would
+// misfire via JS's `null >= 0 === true` coercion).
+function bandTone(score) {
+  const id = bandOf(score).id;
+  return id === 'fail' ? 'crit' : id === 'needs-work' ? 'warn' : 'pass';
 }
 
 function deltaArrow(current, prev) {
@@ -800,130 +812,396 @@ function deltaArrow(current, prev) {
   return '<span class="delta neutral">--</span>';
 }
 
-function buildCategoryRows(categories, prevCategories, findings) {
-  return categories.map(cat => {
-    const prev = prevCategories?.find(p => p.id === cat.id);
-    const prevPass = prev ? prev.pass : null;
-    const prevFail = prev ? prev.fail : null;
-    const prevScore = prev ? prev.score : null;
-    const detailState = cat.score !== null && cat.score !== undefined
-      ? t('category_detail_scored')
-      : t(STATE_DETAIL_KEYS[cat.state] || 'category_detail_manual');
-    const resultHtml = cat.score === null || cat.score === undefined
-      ? `<span class="state-badge">${t(STATE_BADGE_KEYS[cat.state] || 'state_not_machine_checkable')}</span>`
-      : `<div class="score-bar"><div class="score-fill" style="width:${cat.score}%;background:${scoreColor(cat.score)}"></div><span class="score-text">${cat.score}</span></div>${prevScore !== null && prevScore !== undefined ? `<div class="prev-score">${t('score_was_prefix')} ${prevScore}</div>` : ''}`;
-    return `
-      <tr class="category-row" data-category="${cat.id}">
-        <td class="cat-name"><div class="category-cell"><strong>${catName(cat)}</strong>${catDesc(cat) ? `<span class="category-desc">${catDesc(cat)}</span>` : ''}<button type="button" class="category-toggle" data-category-toggle="${cat.id}" aria-expanded="false" aria-controls="detail-${cat.id}">${t('category_show_details')}</button></div></td>
-        <td class="num pass"><span class="mobile-label">${t('th_pass')}</span><span>${cat.pass} ${deltaArrow(cat.pass, prevPass)}</span></td>
-        <td class="num fail"><span class="mobile-label">${t('th_fail')}</span><span>${cat.fail} ${deltaArrow(cat.fail, prevFail)}</span></td>
-        <td class="num review"><span class="mobile-label">${t('th_review')}</span><span>${cat.review || 0}</span></td>
-        <td class="result-cell">
-          <span class="mobile-label">${t('th_score')}</span>
-${resultHtml}
-        </td>
-      </tr>
-      <tr class="category-detail-row" id="detail-${cat.id}" hidden>
-        <td colspan="5">
-          <div class="category-detail">
-            <h3>${catName(cat)}</h3>
-            <p class="category-status-note">${detailState}</p>
-${catDesc(cat) ? `<p class="category-desc">${catDesc(cat)}</p>` : ''}
-${cat.id === 'agent' ? buildAeoDisclaimer() : ''}
-${buildFindingsHTML(findings.filter(f => f.category === cat.id))}
-          </div>
-        </td>
-      </tr>`;
-  }).join('');
-}
-
-function buildFindingsHTML(findings) {
-  if (!findings || findings.length === 0) return `<p class="empty">${t('finding_empty')}</p>`;
-  return findings.map(f => {
-    const severityClass = f.severity === 'critical' ? 'critical' : f.severity === 'warning' ? 'warning' : 'tip';
-    const icon = f.severity === 'critical' ? '&#x1F534;' : f.severity === 'warning' ? '&#9888;' : '&#x1F4A1;';
-    const evidenceOpen = f.instances?.length ? ' open' : '';
-    return `
-      <div class="finding ${severityClass}">
-        <div class="finding-header">
-          <span class="severity-icon">${icon}</span>
-          <strong>${findingText(f, 'title')}</strong>
-          <span class="wcag-tag">${escapeHtml(f.wcag || '')}</span>
-          <span class="level-tag">${escapeHtml(f.level || '')}</span>
-        </div>
-        <div class="finding-body">
-          <p><strong>${t('finding_affected')}:</strong> ${escapeHtml(f.affected_users || 'N/A')}</p>
-          <p><strong>${t('finding_location')}:</strong> <code>${escapeHtml(f.location || 'N/A')}</code></p>
-          <p>${findingText(f, 'description')}</p>
-          ${f.fix ? `<div class="fix"><strong>${t('finding_fix')}:</strong> ${findingText(f, 'fix')}</div>` : ''}
-          ${f.legal_exposure ? `<div class="legal"><strong>${t('finding_legal')}:</strong> ${escapeHtml(f.legal_exposure)}</div>` : ''}
-          ${buildLearnMoreHTML(f)}
-          ${f.instances?.length || f.code_before ? `<details${evidenceOpen}><summary>${t('finding_before_after')}</summary>${buildAffectedElementsHTML(f)}${f.code_before ? `<div class="code-compare"><div class="code-before"><div class="code-label">${t('finding_before')}</div><pre><code>${escapeHtml(f.code_before)}</code></pre></div><div class="code-after"><div class="code-label">${t('finding_after')}</div><pre><code>${escapeHtml(f.code_after || '')}</code></pre></div></div>` : ''}</details>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-}
-
 function escapeHtml(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function buildAffectedElementsHTML(f) {
-  if (!f.instances?.length) return '';
+// ============================================================================
+// Finding groups — "one group is one thing to do". A static detector emits one
+// finding object per instance (88 separate image-alt-missing findings); an axe
+// rule emits one object with N .instances. Both collapse to the same shape here
+// so the report never repeats a fix action 88 times.
+// ============================================================================
+
+const SEVERITY_ORDER = { critical: 0, warning: 1, tip: 2 };
+
+function slugify(key) {
+  return String(key || 'finding').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'finding';
+}
+
+function buildFindingGroups(findings) {
+  const groups = new Map();
+  for (const f of findings) {
+    const key = f.key || f.axe_rule_id || f.id || f.title || 'finding';
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        category: f.category,
+        severity: f.severity,
+        wcag: f.wcag,
+        level: f.level,
+        affected_users: f.affected_users,
+        fix: f.fix,
+        sample: f,
+        locations: [],
+        count: 0,
+      });
+    }
+    const g = groups.get(key);
+    if (f.instances?.length) {
+      g.count += f.instances.length;
+      for (const inst of f.instances) if (inst?.selector) g.locations.push(inst.selector);
+    } else {
+      g.count += 1;
+      if (f.location) g.locations.push(f.location);
+    }
+    if (!g.sample.code_before && f.code_before) g.sample = f;
+  }
+  // Severity first (critical > warning > tip), then instance count — the same
+  // ordering "fix these next" uses to rank actions, so both views agree.
+  return [...groups.values()].sort((a, b) =>
+    (SEVERITY_ORDER[a.severity] ?? 3) - (SEVERITY_ORDER[b.severity] ?? 3) || b.count - a.count
+  );
+}
+
+function groupByCategory(groups) {
+  const map = new Map();
+  for (const g of groups) {
+    if (!map.has(g.category)) map.set(g.category, []);
+    map.get(g.category).push(g);
+  }
+  return map;
+}
+
+// Evidence-density meter width: log2 scale so a several-hundred-check category
+// reads as full and a single-check category reads as a sliver, with no hardcoded
+// max. Calibrated against the rakuten specimen (992 checks -> 100%, 6 -> 28%,
+// 3 -> 20%, 1 -> 10%); revisit with more benchmark data if it stops reading
+// correctly on other sites.
+function evidenceWidth(count) {
+  if (count <= 0) return 0;
+  return Math.min(100, Math.round(10 * Math.log2(count + 1)));
+}
+
+// ponytail: "high" evidence threshold is a calibration constant, same spirit as
+// static-audit.mjs's THIN_EVIDENCE_MIN — revisit with more benchmark data.
+const EVIDENCE_HIGH_MIN = 30;
+
+function evidenceTier(cat) {
+  if (cat.state === 'not-machine-checkable' || cat.state === 'not-applicable') return 'nmc';
+  if (cat.state === 'insufficient-evidence') return 'low';
+  return (cat.pass + cat.fail) >= EVIDENCE_HIGH_MIN ? 'high' : 'mod';
+}
+
+function evidenceTierLabelHTML(cat) {
+  const labels = {
+    high: ['高證據量', 'high'],
+    mod: ['中等證據', 'moderate'],
+    low: ['證據不足', 'insufficient'],
+    nmc: ['未自動檢測', 'not machine-checkable'],
+  };
+  const [zh, en] = labels[evidenceTier(cat)];
+  return bi(zh, en);
+}
+
+function dominantCauseHTML(g) {
+  return `${bi('主因：', 'Dominant cause: ')}<b>${findingText(g.sample, 'title')}</b>`;
+}
+
+function tensionLineHTML(cat, passRatePct, criticalCount) {
+  const zh = `<b>${passRatePct}% 通過率，分數卻是 ${cat.score}</b> — 由 ${criticalCount} 個確認的嚴重問題觸發嚴重度扣分。`;
+  const en = `<b>${passRatePct}% pass rate; score of ${cat.score}</b> is driven by severity penalties on ${criticalCount} confirmed finding${criticalCount === 1 ? '' : 's'}.`;
+  return bi(zh, en);
+}
+
+function noIssuesHTML(cat) {
+  const zh = `本次靜態掃描未發現${I18N.zh[`cat_${cat.id}`] || cat.name}問題。`;
+  const en = `No ${I18N.en[`cat_${cat.id}`] || cat.name} issues found in this static scan.`;
+  return bi(zh, en);
+}
+
+// One evidence-density card per category. Scored categories get a number;
+// every unscored state (not-machine-checkable / not-applicable /
+// insufficient-evidence) gets a text badge — a state, never a painted zero.
+function buildCategoryCardHTML(cat, prevCat, groupsByCat) {
+  const groups = groupsByCat.get(cat.id) || [];
+  const scored = cat.state === 'scored';
+  const auditable = cat.pass + cat.fail;
+  const cardClass = scored ? 'catcard' : cat.state === 'insufficient-evidence' ? 'catcard thin' : 'catcard nmc';
+  const linkHref = groups.length ? `#fg-${slugify(groups[0].key)}` : '#layer-findings';
+  const isLink = scored || groups.length > 0;
+
+  const topRight = scored
+    ? `<div class="score-badge"><b class="s-${bandTone(cat.score)}">${cat.score}</b><small>/ 100</small>${prevCat?.score != null ? deltaArrow(cat.score, prevCat.score) : ''}</div>`
+    : `<div class="state-badge"><span class="chip ${cat.state === 'insufficient-evidence' ? 'thin' : 'review'}">${t(STATE_BADGE_KEYS[cat.state] || 'state_not_machine_checkable')}</span></div>`;
+
+  const showMeter = scored || cat.state === 'insufficient-evidence';
+  const reviewSuffix = cat.review ? bi(`，另 ${cat.review} 待複審`, `, ${cat.review} pending review`) : '';
+  const evi = showMeter
+    ? `<div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:${evidenceWidth(auditable)}%"></span></div>
+        <div class="evi-label"><span class="tier ${evidenceTier(cat)}">${evidenceTierLabelHTML(cat)}</span><span>${bi(`${auditable} 次檢查（${cat.pass} 通過 · ${cat.fail} 失敗）`, `${auditable} check${auditable === 1 ? '' : 's'} (${cat.pass} pass · ${cat.fail} fail)`)}${reviewSuffix}</span></div>
+      </div>`
+    : `<div class="evi"><div class="evi-label"><span class="tier nmc">${evidenceTierLabelHTML(cat)}</span></div></div>`;
+
+  const passRate = auditable ? cat.pass / auditable : 0;
+  const isTension = scored && passRate >= 0.5 && bandOf(cat.score).id === SCORE_BANDS[SCORE_BANDS.length - 1].id;
+  let causeHtml;
+  let causeClass = 'cat-cause';
+  if (isTension) {
+    causeClass = 'tension';
+    const criticalCount = groups.filter(g => g.severity === 'critical').reduce((s, g) => s + g.count, 0);
+    causeHtml = tensionLineHTML(cat, Math.round(passRate * 100), criticalCount);
+  } else if (groups.length) {
+    causeHtml = dominantCauseHTML(groups[0]);
+  } else if (scored) {
+    causeHtml = noIssuesHTML(cat);
+  } else {
+    causeHtml = t(STATE_DETAIL_KEYS[cat.state] || 'category_detail_manual');
+  }
+
+  const inner = `<div class="cat-top"><div class="cat-name">${catName(cat)}</div>${topRight}</div>${evi}<p class="${causeClass}">${causeHtml}</p>`;
+  const catAttr = ` data-category="${escapeHtml(cat.id)}"`;
+  return isLink ? `<a class="${cardClass}"${catAttr} href="${linkHref}">${inner}</a>` : `<div class="${cardClass}"${catAttr}>${inner}</div>`;
+}
+
+function buildCategoryGridHTML(categories, previousCategories, groupsByCat) {
+  const cards = categories.map(cat => {
+    const prevCat = previousCategories?.find(p => p.id === cat.id) || null;
+    return buildCategoryCardHTML(cat, prevCat, groupsByCat);
+  }).join('');
+  // AEO disclaimer sits right under the grid — it's the same epistemic caveat
+  // for the 'agent' category regardless of whether that category has findings.
+  return `<div class="catgrid">${cards}</div>${buildAeoDisclaimer()}`;
+}
+
+// Mirrors static-audit.mjs's `coverage >= 60 ? 'medium' : 'low'` rule — shown here
+// so the report explains its own confidence label instead of asserting it bare.
+const CONFIDENCE_COVERAGE_THRESHOLD = 60;
+function confidenceLine(audit) {
+  const level = escapeHtml(audit.metadata?.confidence_level || 'low');
+  const coverage = audit.summary?.coverage_percent ?? 0;
+  return bi(
+    `信心 ${level}（評分覆蓋 ${coverage}%，門檻 ${CONFIDENCE_COVERAGE_THRESHOLD}%）`,
+    `confidence ${level} (coverage ${coverage}%, threshold ${CONFIDENCE_COVERAGE_THRESHOLD}%)`
+  );
+}
+
+function catNameCompact(cat) {
+  const zh = I18N.zh[`cat_${cat.id}`] || cat.name || cat.id;
+  const en = I18N.en[`cat_${cat.id}`] || cat.name || cat.id;
+  return zh === en ? escapeHtml(zh) : `${escapeHtml(zh)} · ${escapeHtml(en)}`;
+}
+
+// Severity chip: 'review'-check findings (uncertain, needs human confirmation)
+// get a review chip regardless of severity; severity words themselves stay raw
+// English tokens, matching this file's existing convention for WCAG level/tag text.
+function severityChipHTML(g) {
+  const cls = g.sample.check === 'review' ? 'review' : ({ critical: 'crit', warning: 'warn', tip: 'review' }[g.severity] || 'review');
+  const text = g.sample.check === 'review' ? '待複審 · review' : escapeHtml(g.severity || 'tip');
+  return `<span class="chip ${cls}">${text}</span>`;
+}
+
+function buildLocationListHTML(locations) {
+  const MAX_LOC = 12;
+  const locs = (locations || []).filter(Boolean);
+  if (!locs.length) return '';
+  const shown = locs.slice(0, MAX_LOC).map(l => `<span>${escapeHtml(l)}</span>`).join('');
+  const more = locs.length > MAX_LOC
+    ? `<span>${bi(`及另外 ${locs.length - MAX_LOC} 處`, `and ${locs.length - MAX_LOC} more`)}</span>`
+    : '';
+  return `<div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0">${shown}${more}</div>`;
+}
+
+function buildFindingGroupHTML(g) {
+  const anchor = `fg-${slugify(g.key)}`;
+  const diffHtml = g.sample.code_before
+    ? `<div class="diff" aria-label="code snippet / 程式碼片段"><div class="scroll"><pre class="before"><span class="tag">&minus;</span>${escapeHtml(g.sample.code_before)}</pre></div></div>`
+    : '';
   return `
-    <div class="affected-elements">
-      <h4>${t('finding_affected_elements')} <span class="count">(${f.instances.length})</span></h4>
-      <ol>
-        ${f.instances.map((item, idx) => `
-          <li>
-            <div><strong>${t('finding_selector')} #${idx + 1}:</strong> <code>${escapeHtml(item.selector || 'N/A')}</code></div>
-            ${item.html ? `<div class="dom-snippet"><strong>${t('finding_snippet')}:</strong><pre><code>${escapeHtml(item.html)}</code></pre></div>` : ''}
-            ${item.reason ? `<div class="node-reason"><strong>${t('finding_reason')}:</strong><pre>${escapeHtml(item.reason)}</pre></div>` : ''}
-          </li>
-        `).join('')}
-      </ol>
+    <article class="fgroup" id="${anchor}" data-category="${escapeHtml(g.category || 'other')}">
+      <div class="fg-head">
+        <div class="fg-title">${findingText(g.sample, 'title')}</div>
+        <span class="fg-count">&times;${g.count}</span>
+        <div class="meta-row">${severityChipHTML(g)}${g.wcag ? `<span class="chip wcag">${escapeHtml(g.wcag)}</span>` : ''}</div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge">${t('finding_affected')}:</span> ${escapeHtml(g.affected_users || 'N/A')}</p>
+        ${diffHtml}
+        ${buildLocationListHTML(g.locations)}
+        ${g.fix ? `<p class="fix-line"><strong>${t('finding_fix')}:</strong> ${findingText(g.sample, 'fix')}</p>` : ''}
+        ${buildLearnMoreHTML(g.sample)}
+      </div>
+    </article>`;
+}
+
+function buildFindingsSectionHTML(audit, groups) {
+  const categories = audit.summary.categories;
+  const countByCat = new Map();
+  for (const g of groups) countByCat.set(g.category, (countByCat.get(g.category) || 0) + 1);
+  const presentCats = categories.filter(c => countByCat.has(c.id));
+  const filterButtons = presentCats.map(c =>
+    `<button class="fbtn" type="button" data-filter="${escapeHtml(c.id)}" aria-pressed="false">${catNameCompact(c)}（${countByCat.get(c.id)}）</button>`
+  ).join('');
+  const groupsHtml = groups.length
+    ? groups.map(buildFindingGroupHTML).join('')
+    : `<p class="empty">${t('finding_empty')}</p>`;
+  return `
+    <section id="layer-findings" aria-labelledby="h-findings">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">03</span> ${bi('問題層', 'Findings')}</p>
+        <h2 class="layer-h" id="h-findings">${bi('依「修正動作」分組，一組就是一個可執行單位', 'Grouped by fix action — one group is one thing to do')}</h2>
+        <p class="layer-sub">${bi('同一種修法的所有發現項合併為一組，不是一列一列重複同一件事。每組附上受影響對象、程式碼線索、檔案位置與 WCAG 對照。', 'All findings sharing one fix are merged into a single group, not repeated row by row. Each group carries the affected users, a code clue, file locations, and its WCAG mapping.')}</p>
+        ${groups.length > 1 ? `<div class="filters" role="group" aria-label="Filter by category / 依分類篩選"><span class="flabel">${bi('篩選', 'Filter')}</span><button class="fbtn" type="button" data-filter="all" aria-pressed="true">全部 · All（${groups.length}）</button>${filterButtons}</div>` : ''}
+        ${groupsHtml}
+        ${buildAxeEvidenceHTML(audit)}
+      </div>
+    </section>`;
+}
+
+// ============================================================================
+// Hero (01 decision layer) + "fix these next" (severity x instance count,
+// effort held constant — no per-finding effort estimate exists in the schema).
+// ============================================================================
+
+function buildFixcardHTML(g, rank) {
+  return `
+    <div class="fixcard">
+      <span class="rank">${rank}</span>
+      <h3>${findingText(g.sample, 'title')}<span style="font-variant-numeric:tabular-nums;font-weight:700">${bi(`（&times;${g.count}）`, ` (&times;${g.count})`)}</span></h3>
+      <p class="who">${escapeHtml(g.affected_users || '')}</p>
+      <div class="foot">${severityChipHTML(g)}${g.wcag ? `<span class="chip wcag">${escapeHtml(g.wcag)}</span>` : ''}</div>
     </div>`;
 }
 
-function buildLearnMoreHTML(f) {
-  const links = learnMoreLinks(f);
-  if (!links.length) return '';
-  return `
-    <p class="learn-more"><strong>${t('finding_learn_more')}:</strong>
-      ${links.map(link => `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.label)}</a>`).join(' ')}
-    </p>`;
-}
+function buildHeroHTML(audit, previous, groups) {
+  const overall = audit.summary.overall_score;
+  const tone = overall != null ? bandTone(overall) : 'review';
+  const ringColor = overall != null ? `var(--${tone})` : 'var(--review)';
+  const circumference = 2 * Math.PI * 56;
+  const offset = overall != null ? circumference * (1 - overall / 100) : circumference;
+  const bandLabel = scoreLabel(overall);
+  const coverage = audit.summary.coverage_percent ?? 0;
+  const reviewCount = audit.summary.categories.filter(c => c.state === 'not-machine-checkable' || c.state === 'not-applicable').length;
+  const thinCount = audit.summary.categories.filter(c => c.state === 'insufficient-evidence').length;
+  const prevLine = previous?.summary?.overall_score != null
+    ? `<p class="coverage" style="margin-top:.3rem">${t('cmp_previous')}: ${previous.summary.overall_score} ${deltaArrow(overall, previous.summary.overall_score)}</p>`
+    : '';
 
-function buildLegalRiskHTML(legal, findings) {
-  const criteria = collectCriteria(findings);
-  const criteriaText = criteria.length ? criteriaLabel(criteria) : 'No WCAG criteria were mapped by this audit.';
-  const jurisdictions = buildJurisdictions(legal);
+  const top3 = groups.slice(0, 3);
+  const covered = top3.reduce((s, g) => s + g.count, 0);
+  const pct = reportCounts.total ? Math.round((covered / reportCounts.total) * 100) : 0;
+
+  const fixNextInner = top3.length
+    ? `<p class="clear-line">${bi(
+        `完成前 ${top3.length} 項修正，可涵蓋 <b>${covered}</b> 個發現項（占全站發現的 ${pct}%）。`,
+        `These ${top3.length} action${top3.length === 1 ? '' : 's'} cover <b>${covered}</b> finding${covered === 1 ? '' : 's'} — ${pct}% of everything found.`
+      )}</p>
+      <div class="fixlist">${top3.map((g, i) => buildFixcardHTML(g, i + 1)).join('')}</div>`
+    : `<p class="clear-line">${bi('這次靜態掃描沒有發現需要優先處理的問題。', 'This static scan found nothing that needs priority attention.')}</p>`;
+
   return `
-    <div class="legal-risk-panel">
-      <h3>${t('h2_legal_risk')}</h3>
-      <div class="legal-context-note">
-        <div class="lang-zh" lang="zh-Hant">
-          本頁提供的是<strong>法域脈絡與 WCAG 技術準則對照</strong>，不是法律意見，也不是依 warning 數量計算的法律風險分數。
-          本次 findings 對應的準則：<strong>${escapeHtml(criteriaText)}</strong>。
-        </div>
-        <div class="lang-en" lang="en">
-          This page provides <strong>jurisdiction context and WCAG technical mapping</strong>, not legal advice and not a warning-count-derived legal conclusion.
-          Criteria mapped by this audit: <strong>${escapeHtml(criteriaText)}</strong>.
-        </div>
-      </div>
-      <div class="risk-grid">
-        ${jurisdictions.map(j => `
-          <div class="risk-card">
-            <div class="risk-header">
-              <strong>${escapeHtml(j.name || '')}</strong>
-              <span class="context-badge">Context</span>
+    <section class="hero" id="layer-decision" aria-labelledby="h-decision">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">01</span> ${bi('決策層', 'Decision')}</p>
+        <h1 class="layer-h" id="h-decision">${bi('一眼看懂結論，一步知道下一步做什麼', 'The whole verdict, and what to do next, on one screen')}</h1>
+
+        <div class="verdict">
+          <div class="overall">
+            <div class="ring" role="img" aria-label="overall score ${overall ?? 'n/a'} of 100">
+              <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
+                <circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
+                <circle cx="66" cy="66" r="56" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+              </svg>
+              <div class="val"><b>${overall ?? '—'}</b><span>/ 100</span></div>
             </div>
-            <p>${escapeHtml(j.law || '')} &mdash; ${escapeHtml(j.detail || '')}</p>
-            ${j.deadline ? `<p class="deadline">${t('legal_deadline')}: ${escapeHtml(j.deadline)}</p>` : ''}
-            <p class="criteria-map"><strong>WCAG:</strong> ${escapeHtml(criteriaText)}</p>
-          </div>`).join('')}
+            <div>
+              <span class="band" style="background:var(--${tone}-bg);color:var(--${tone});border-color:var(--${tone}-line)">${bandLabel}</span>
+              <p class="coverage">${t('coverage_line')} <b>${coverage}%</b> · ${confidenceLine(audit)}<br>
+                <span style="font-size:.85rem;color:var(--ink-muted)">${bi(
+                  `${reviewCount} 個分類僅供人工複審、${thinCount} 個分類證據不足未計分`,
+                  `${reviewCount} review-only, ${thinCount} with insufficient evidence`
+                )}</span></p>
+              ${prevLine}
+            </div>
+          </div>
+
+          <div>
+            <div class="honesty">${bi(
+              '自動化工具約涵蓋 <b>30&ndash;40%</b> 的 WCAG 項目；其餘 60&ndash;70%（認知負荷、真實螢幕閱讀器達成率、標籤是否真的易懂）需與障礙使用者一同測試。<strong>高分不代表網站完全可達。</strong>',
+              'Automated tools cover ~<b>30&ndash;40%</b> of WCAG criteria. The remaining 60&ndash;70% needs testing alongside disabled users. A high score does not mean fully accessible.'
+            )}
+              <p style="margin-top:.4rem"><a href="#layer-methodology">${bi('查看完整方法論與限制 &rarr;', 'See full methodology &amp; limits &rarr;')}</a></p>
+            </div>
+            ${audit.summary.life_safety_flag
+              ? buildLifeSafetyBanner()
+              : `<p class="safe-flag">${bi('&#10003; 未觸發生命安全旗標（無閃爍/癲癇風險）', '&#10003; No life-safety flags raised')}</p>`}
+          </div>
+        </div>
+
+        <div class="fixnext" aria-labelledby="h-fix">
+          <h2 id="h-fix">${bi('接下來先修這三項', 'Fix these next')}</h2>
+          ${fixNextInner}
+        </div>
       </div>
-    </div>`;
+    </section>`;
+}
+
+// ============================================================================
+// 04 Client / executive summary — print-ready, always visible (no mode toggle).
+// ============================================================================
+
+function buildExecSummaryHTML(audit, groups) {
+  const total = reportCounts.total;
+  const critical = reportCounts.critical;
+  const top3 = groups.slice(0, 3);
+  const scopeRaw = audit.metadata?.url || audit.metadata?.scope || '';
+  const scopeLabel = escapeHtml(scopeRaw);
+
+  const zhList = top3.map(g => `${escapeHtml(findingLangText(g.sample, 'title', 'zh'))}（${g.count}）`).join('、');
+  const enList = top3.map(g => `${escapeHtml(findingLangText(g.sample, 'title', 'en'))} (${g.count})`).join(', ');
+
+  const execLeadZh = `本次檢測在${scopeLabel || '受測頁面'}上發現 <b>${total} 個問題，其中 ${critical} 個為嚴重等級</b>。${top3.length ? `多數問題集中在可批次修正的模式 — ${zhList}。` : ''}`;
+  const execLeadEn = `This audit found <b>${total} issue${total === 1 ? '' : 's'}, ${critical} of them critical</b>, on ${scopeLabel || 'the audited page'}.${top3.length ? ` Most are batch-fixable patterns: ${enList}.` : ''}`;
+
+  const prioItems = top3.map(g => `<li>${findingText(g.sample, 'title')}${g.wcag ? ` (${escapeHtml(g.wcag)})` : ''}</li>`).join('');
+
+  const jurisdictions = buildJurisdictions(audit.legal_risk);
+  const jurisdictionChips = jurisdictions.map(j => `<span class="chip review">${escapeHtml(j.name)}</span>`).join('');
+
+  const nmcCats = audit.summary.categories.filter(c => c.state === 'not-machine-checkable');
+  const nmcZh = nmcCats.map(c => I18N.zh[`cat_${c.id}`] || c.name).join('、');
+  const nmcEn = nmcCats.map(c => I18N.en[`cat_${c.id}`] || c.name).join(', ');
+
+  return `
+    <section class="section-alt" id="layer-client" aria-labelledby="h-client">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">04</span> ${bi('客戶層', 'Client Summary')}</p>
+        <h2 class="layer-h" id="h-client">${bi('給非技術讀者的執行摘要（可直接列印）', 'Plain-language executive summary — print-ready')}</h2>
+        <p class="layer-sub">${bi('這一節永遠可見，並附有列印樣式。不需切換模式，直接送印或轉 PDF 就是給客戶的一頁摘要。', 'Always visible, with print styles. Print or export to PDF for a client-ready one-pager — no mode toggle.')}</p>
+
+        <div class="exec">
+          <div class="exec-head">
+            <h3>${escapeHtml(audit.metadata?.scope || scopeLabel || 'Accessibility Audit')} ${bi('無障礙檢測 · 執行摘要', '&middot; Executive Summary')}</h3>
+            <p>${scopeLabel ? `${scopeLabel} &middot; ` : ''}${escapeHtml(audit.metadata?.date || '')} &middot; ${escapeHtml(audit.metadata?.standard || '')} &middot; ${escapeHtml(audit.metadata?.audit_tier || '')}</p>
+          </div>
+          <div class="exec-body">
+            <p class="exec-lead"><span class="lang-zh" lang="zh-Hant">${execLeadZh}</span><span class="lang-en" lang="en">${execLeadEn}</span></p>
+
+            ${top3.length ? `<h3>${bi('優先處理順序', 'Remediation priorities')}</h3><ol class="prio">${prioItems}</ol>` : ''}
+
+            <h3>${bi('法規範圍', 'Jurisdiction exposure')}</h3>
+            <p style="font-size:.92rem;color:var(--ink-soft);margin:.2rem 0 .5rem">${bi('此靜態基線所示問題可能影響下列司法管轄區的無障礙要求（視實際部署情境而定）：', 'This static baseline may affect accessibility expectations in:')}</p>
+            <div class="expose">${jurisdictionChips}</div>
+
+            <div class="exec-note">
+              <span class="lang-zh" lang="zh-Hant"><strong>如何解讀這份報告：</strong> 這是 AI 輔助的自動化基線，約涵蓋 30&ndash;40% 的 WCAG 項目。分數是起點不是終點；上線前建議與障礙使用者實測核心流程。${nmcCats.length ? `${escapeHtml(nmcZh)} 等 ${nmcCats.length} 個分類本次僅標記為待人工複審。` : ''}</span>
+              <span class="lang-en" lang="en" style="display:block;margin-top:.35rem">How to read this: an AI-assisted baseline covering ~30&ndash;40% of WCAG. The score is a starting point &mdash; test core flows with disabled users before launch.${nmcCats.length ? ` ${escapeHtml(nmcEn)} ${nmcCats.length === 1 ? 'was' : 'were'} flagged for human review this pass.` : ''}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>`;
 }
 
 // Life-safety gate notice — rendered before any score so a confirmed seizure risk is
@@ -933,57 +1211,19 @@ function buildLifeSafetyBanner() {
     <section class="life-safety-banner" aria-label="Life-safety warning / 生命安全警示">
       <div class="lang-zh" lang="zh-Hant">
         <div class="banner-title">生命安全警示（WCAG 2.3.1 閃爍／癲癇風險）</div>
-        <p>本次審查含已確認的閃爍／癲癇風險發現。總分已強制封頂至紅色帶；請先處理此項，再解讀其他分數。詳見 Findings 分頁的 critical 項目。</p>
+        <p>本次審查含已確認的閃爍／癲癇風險發現。總分已強制封頂至紅色帶；請先處理此項，再解讀其他分數。詳見「問題層」中的 critical 項目。</p>
       </div>
       <div class="lang-en" lang="en">
         <div class="banner-title">Life-safety warning (WCAG 2.3.1 flashing / seizure risk)</div>
-        <p>This audit contains a confirmed flashing / seizure-risk finding. The overall score is capped into the fail band; address this before reading any other score. See the critical items in the Findings tab.</p>
+        <p>This audit contains a confirmed flashing / seizure-risk finding. The overall score is capped into the fail band; address this before reading any other score. See the critical items in the Findings layer.</p>
       </div>
     </section>`;
 }
 
-function buildContextBanner() {
-  return `
-    <div class="audit-context-banner" role="note" aria-label="Audit limitations notice">
-      <div class="lang-zh" lang="zh-Hant">
-        <div class="banner-title">&#9888; 閱讀分數前的脈絡說明</div>
-        <p>
-          這是一份<strong>AI 輔助的自動化基線審查</strong>。依目前的業界資料（包含 axe-core 團隊自己的說明），自動化工具大約能涵蓋
-          <strong>30&ndash;40% 的 WCAG 項目</strong>。其餘 60&ndash;70%&mdash;例如認知負荷、真實螢幕閱讀器任務達成率、
-          動態互動品質、瀏覽器深色模式覆寫下的效能體驗、以及標籤文字是否<em>真的易懂</em>&mdash;
-          較適合透過<strong>與障礙使用者一同測試</strong>來確認，不能交給 AI 單獨判定。
-        </p>
-        <p class="banner-cta">
-          較高的分數，本身還不足以充分代表網站完全可達。可一併參閱 <strong>Methodology &amp; Limits</strong> 分頁，
-          了解本審查擅長與不擅長的範疇、以及建議的工作流程。Beacon 產生的 audit artifacts 會留在本機，除非你明確分享；detector 的進步來自維護者離線迭代與 plugin 更新。
-        </p>
-      </div>
-      <div class="lang-en" lang="en">
-        <div class="banner-title">&#9888; Context Before Reading the Score</div>
-        <p>
-          This is an <strong>AI-assisted automated baseline audit</strong>. Based on current industry data
-          (including statements from the axe-core team itself), automated tools cover roughly
-          <strong>30&ndash;40% of WCAG criteria</strong>. The remaining 60&ndash;70% &mdash; cognitive load,
-          real screen-reader task completion, dynamic interaction quality, performance experience
-          under user-agent dark-mode overrides, whether labels are actually <em>understandable</em>
-          &mdash; are better confirmed through <strong>testing alongside disabled users</strong>, not by AI alone.
-        </p>
-        <p class="banner-cta">
-          A high score, on its own, does not yet fully demonstrate accessibility. You can pair this
-          report with the <strong>Methodology &amp; Limits</strong> tab to see what this audit
-          is well-suited and less-suited for, plus the recommended workflow. Beacon keeps audit
-          artifacts local unless you explicitly share them; detector improvements come from
-          maintainer-run offline iteration and plugin updates.
-        </p>
-      </div>
-    </div>`;
-}
-
-// AEO sub-score honesty note. Echoes buildContextBanner()'s epistemic stance but
-// scoped to the Agent/AEO category detail — it appears exactly where the reader
-// sees the AEO sub-score, not at report top. AEO findings are actionable
-// structural recommendations; the score remains an eligibility proxy, never
-// proof of actual citation outcomes.
+// AEO sub-score honesty note. Scoped to the Agent/AEO category, rendered right
+// under the evidence grid — AEO findings are actionable structural
+// recommendations; the score remains an eligibility proxy, never proof of
+// actual citation outcomes.
 function buildAeoDisclaimer() {
   return `
     <div class="aeo-disclaimer" role="note" aria-label="AEO sub-score interpretation note">
@@ -1102,8 +1342,8 @@ function buildAxeEvidenceHTML(audit) {
       <h3>${bi('Live audit evidence', 'Live Audit Evidence')}</h3>
       <p class="section-intro">
         ${bi(
-          '以下清單直接來自 axe 結果；違規項的 DOM nodes 會在 findings 中逐一列出。',
-          'The lists below come directly from axe results; violating DOM nodes are listed inside each finding.'
+          '以下清單直接來自 axe 結果；違規項的 DOM nodes 會在對應的問題群組中逐一列出。',
+          'The lists below come directly from axe results; violating DOM nodes are listed inside each finding group.'
         )}
       </p>
       ${buildAxeRuleList(axe.passes, axe.counts.passes, 'h2_passed_checks', bi('此 JSON 未提供通過項清單。', 'This JSON did not include a passed-check list.'))}
@@ -1133,12 +1373,10 @@ function buildLimitationsHTML(audit) {
     <div class="methodology-panel">
 
       <div class="lang-zh" lang="zh-Hant">
-        <h2>方法論與限制</h2>
         <p class="meta-note">審查層級：<strong>${escapeHtml(tier)}</strong> &middot;
           信心水準：<strong>${escapeHtml(confidence)}</strong></p>
       </div>
       <div class="lang-en" lang="en">
-        <h2>Methodology &amp; Limits</h2>
         <p class="meta-note">Audit tier: <strong>${escapeHtml(tier)}</strong> &middot;
           Confidence level: <strong>${escapeHtml(confidence)}</strong></p>
       </div>
@@ -1319,7 +1557,71 @@ function buildLimitationsHTML(audit) {
     </div>`;
 }
 
-// Performance Signals tab — rendered ONLY when audit.lighthouse is present.
+function buildMethodologySectionHTML(audit) {
+  return `
+    <section id="layer-methodology" aria-labelledby="h-methodology">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">05</span> ${bi('方法論層', 'Methodology')}</p>
+        <h2 class="layer-h" id="h-methodology">${bi('這份審查擅長什麼、不擅長什麼', 'What this audit is good at, and where it stops')}</h2>
+        ${buildLimitationsHTML(audit)}
+        <h3>${t('h2_testing_recommendations')}</h3>
+        ${audit.testing_recommendations?.length ? `<ul>${audit.testing_recommendations.map(rec => `<li>${localizedText(rec)}</li>`).join('')}</ul>` : `<p class="empty">${t('rem_empty')}</p>`}
+      </div>
+    </section>`;
+}
+
+function buildLegalSectionHTML(audit) {
+  return `
+    <section class="section-alt" id="layer-legal" aria-labelledby="h-legal">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">06</span> ${bi('法規層', 'Jurisdiction')}</p>
+        <h2 class="layer-h" id="h-legal">${bi('完整法規對照與 WCAG 準則清單', 'Full jurisdiction mapping and WCAG criteria list')}</h2>
+        ${buildLegalRiskHTML(audit.legal_risk, reportFindings)}
+      </div>
+    </section>`;
+}
+
+function buildLegalRiskHTML(legal, findings) {
+  const criteria = collectCriteria(findings);
+  const criteriaText = criteria.length ? criteriaLabel(criteria) : 'No WCAG criteria were mapped by this audit.';
+  const jurisdictions = buildJurisdictions(legal);
+  return `
+    <div class="legal-risk-panel">
+      <div class="legal-context-note">
+        <div class="lang-zh" lang="zh-Hant">
+          本頁提供的是<strong>法域脈絡與 WCAG 技術準則對照</strong>，不是法律意見，也不是依 warning 數量計算的法律風險分數。
+          本次 findings 對應的準則：<strong>${escapeHtml(criteriaText)}</strong>。
+        </div>
+        <div class="lang-en" lang="en">
+          This page provides <strong>jurisdiction context and WCAG technical mapping</strong>, not legal advice and not a warning-count-derived legal conclusion.
+          Criteria mapped by this audit: <strong>${escapeHtml(criteriaText)}</strong>.
+        </div>
+      </div>
+      <div class="risk-grid">
+        ${jurisdictions.map(j => `
+          <div class="risk-card">
+            <div class="risk-header">
+              <strong>${escapeHtml(j.name || '')}</strong>
+              <span class="context-badge">Context</span>
+            </div>
+            <p>${escapeHtml(j.law || '')} &mdash; ${escapeHtml(j.detail || '')}</p>
+            ${j.deadline ? `<p class="deadline">${t('legal_deadline')}: ${escapeHtml(j.deadline)}</p>` : ''}
+            <p class="criteria-map"><strong>WCAG:</strong> ${escapeHtml(criteriaText)}</p>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function buildLearnMoreHTML(f) {
+  const links = learnMoreLinks(f);
+  if (!links.length) return '';
+  return `
+    <p class="learn-more"><strong>${t('finding_learn_more')}:</strong>
+      ${links.map(link => `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.label)}</a>`).join(' ')}
+    </p>`;
+}
+
+// Performance Signals section — rendered ONLY when audit.lighthouse is present.
 // Lighthouse covers the categories axe-core does not (performance / best-practices
 // / seo). This is a SUPPLEMENTARY signal, never folded into the a11y score. The
 // headline is the cross-cutting section: one root cause (e.g. an oversized DOM)
@@ -1427,960 +1729,593 @@ function buildPerformanceHTML(audit) {
     ${issueList(bi('SEO 問題', 'SEO issues'), lh.seo_issues)}`;
 }
 
+function buildPerformanceSectionHTML(audit) {
+  if (!audit.lighthouse) return '';
+  return `
+    <section id="layer-performance" aria-labelledby="h-performance">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">07</span> ${bi('效能訊號', 'Performance')}</p>
+        <h2 class="layer-h" id="h-performance">${bi('Lighthouse 效能訊號（補充，不併入無障礙分數）', 'Lighthouse performance signals (supplementary, never folded into the a11y score)')}</h2>
+        ${buildPerformanceHTML(audit)}
+      </div>
+    </section>`;
+}
+
+function buildMastheadHTML(audit) {
+  const pageLine = audit.metadata?.url
+    ? `<span><b>${t('meta_url')}</b> <a href="${escapeHtml(audit.metadata.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(audit.metadata.url)}</a></span>`
+    : audit.metadata?.scope
+      ? `<span><b>${t('meta_scope')}</b> ${escapeHtml(audit.metadata.scope)}</span>`
+      : '';
+  return `
+    <header class="masthead">
+      <div class="wrap">
+        <div class="brand">
+          <span class="beacon-mark" aria-hidden="true"></span>
+          <span>Beacon <span style="color:var(--ink-muted);font-weight:600">${bi('無障礙檢測報告', 'Accessibility Audit')}</span></span>
+        </div>
+        <div class="metagrid">
+          ${pageLine}
+          <span><b>${t('meta_date')}</b> ${escapeHtml(audit.metadata?.date || 'N/A')}</span>
+          <span><b>${t('meta_standard')}</b> ${escapeHtml(audit.metadata?.standard || 'WCAG 2.2 AA')}</span>
+          <span><b>${bi('層級', 'Tier')}</b> ${escapeHtml(audit.metadata?.audit_tier || 'Tier 1')} &middot; ${confidenceLine(audit)}</span>
+        </div>
+        <div class="engine-tag">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')}</div>
+      </div>
+    </header>`;
+}
+
+function buildJumpNavHTML(hasLighthouse) {
+  const items = [
+    ['#layer-decision', '01 決策 &middot; Decision'],
+    ['#layer-evidence', '02 證據 &middot; Evidence'],
+    ['#layer-findings', '03 問題 &middot; Findings'],
+    ['#layer-client', '04 摘要 &middot; Summary'],
+    ['#layer-methodology', '05 方法論 &middot; Methodology'],
+    ['#layer-legal', '06 法規 &middot; Legal'],
+  ];
+  if (hasLighthouse) items.push(['#layer-performance', '07 效能 &middot; Performance']);
+  return `
+    <nav class="jump" aria-label="Report sections / 報告章節">
+      <ul>${items.map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join('')}</ul>
+    </nav>`;
+}
+
+function buildToolbarHTML() {
+  return `
+    <div class="report-toolbar" role="toolbar" aria-label="Report preferences / 報告偏好設定">
+      <div class="tb-group" role="group" aria-label="Language / 語言">
+        <button type="button" data-lang-btn="zh" aria-pressed="true">中文</button>
+        <button type="button" data-lang-btn="en" aria-pressed="false">EN</button>
+      </div>
+      <div class="tb-group" role="group" aria-label="Theme / 主題">
+        <button type="button" data-theme-btn="light" aria-pressed="false" aria-label="Light mode / 淺色" title="Light mode / 淺色">&#9728;</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="false" aria-label="Dark mode / 深色" title="Dark mode / 深色">&#9790;</button>
+        <button type="button" data-theme-btn="auto" aria-pressed="true" aria-label="Follow system / 跟隨系統" title="Follow system / 跟隨系統">A</button>
+      </div>
+    </div>`;
+}
+
+function buildFooterHTML(audit) {
+  return `
+    <footer>
+      <div class="wrap">
+        <p><span class="lang-zh" lang="zh-Hant">Beacon 是免費開源工具，評分背後的驗證資料全數公開。維護者提供無障礙 AI 檢測與修復的顧問服務：<a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span><span class="lang-en" lang="en">Beacon is free and open source, and the validation data behind its scores is public. The maintainer offers accessibility consulting for AI-assisted development: <a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span></p>
+        <p style="margin-top:.6rem;font-size:.82rem;color:var(--ink-muted)">${bi('Beacon 產生的 audit artifacts 留在本機，除非你明確分享。', 'Beacon keeps audit artifacts local unless you explicitly share them.')}</p>
+        <p class="foot-engine">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')} &middot; ${escapeHtml(audit.metadata?.audit_tier || '')} &middot; confidence ${escapeHtml(audit.metadata?.confidence_level || '')}</p>
+      </div>
+    </footer>`;
+}
+
+const allGroups = buildFindingGroups(reportFindings);
+const groupsByCat = groupByCategory(allGroups);
+
 const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Accessibility Audit Report — ${audit.metadata?.scope || 'Project'}</title>
+<title>Accessibility Audit Report &mdash; ${escapeHtml(audit.metadata?.scope || audit.metadata?.url || 'Project')}</title>
 <style>
-  /* Beacon Eval Design System v0.1 token mapping. Light is the default; auto mode can follow OS preference. */
-  :root {
-    --bg: #ffffff;
-    --surface: #ffffff;
-    --surface-2: #f1f5f9;
-    --text: #0f172a;
-    --text-muted: #475569;
-    --text-soft: #64748b;
-    --border: #cbd5e1;
-    --border-soft: #e2e8f0;
-    --accent: #1a5cb0;
-    --accent-hover: #0e3d7a;
-    --accent-bg: #eff6ff;
-    --accent-text: #ffffff;
-    --pass: #15803d;
-    --pass-bg: #dcfce7;
-    --warn: #92400e;
-    --warn-bg: #fef3c7;
-    --mid: #d97706;
-    --fail: #b91c1c;
-    --fail-bg: #fee2e2;
-    --tip: #1a5cb0;
-    --tip-bg: #eff6ff;
-    --info: #334155;
-    --info-bg: #f1f5f9;
-    --info-border: #1a5cb0;
-    --font: 'Inter', 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-    color-scheme: light;
-  }
+/* ============================================================
+   Beacon report — v3.2.0 information architecture.
+   Signature: evidence-density meter — a score's weight is shown
+   next to the score, so "0 on 1 check" never reads like "100 on 6".
+   ============================================================ */
 
-  /* Respect OS preference in auto mode. */
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #111116;
-      --surface: #1e1e28;
-      --surface-2: #1c1c24;
-      --text: #ededf0;
-      --text-muted: #b8b8c0;
-      --text-soft: #88889a;
-      --border: #38383f;
-      --border-soft: #2a2a32;
-      --accent: #6aadff;
-      --accent-hover: #9eceff;
-      --accent-bg: #1a2e45;
-      --accent-text: #0a0a10;
-      --pass: #7ee89a;
-      --pass-bg: #0e2e16;
-      --warn: #ffd97d;
-      --warn-bg: #2a1f00;
-      --fail: #ff8a8a;
-      --fail-bg: #2e0e0e;
-      --tip: #6aadff;
-      --tip-bg: #1a2e45;
-      --info: #ffd97d;
-      --info-bg: #2a200a;
-      --info-border: #ffd97d;
-      --shadow: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
-      color-scheme: dark;
-    }
-  }
+/* ---- font stacks: explicit CJK-safe everywhere; no legacy serif fallback ---- */
+:root{
+  /* Arial-first Latin sans; explicit TC + JP sans cover every CJK glyph so
+     no Ming/Mincho serif is ever reachable (esp. Japanese on Windows). */
+  --sans:Arial,"Segoe UI",system-ui,-apple-system,"Noto Sans TC","Noto Sans JP",
+         "Yu Gothic UI","Yu Gothic",Meiryo,"Hiragino Sans","Microsoft JhengHei",sans-serif;
+  /* mono Latin for code; CJK inside code falls to CJK SANS (never PMingLiU)
+     before the final monospace keyword. */
+  --mono:ui-monospace,"Cascadia Code",Consolas,"SFMono-Regular","Noto Sans Mono",
+         "Noto Sans TC","Yu Gothic UI",Meiryo,"Microsoft JhengHei",monospace;
 
-  /* User-explicit override via toolbar button (wins over media query) */
-  :root[data-theme="light"] {
-    --bg: #ffffff;
-    --surface: #ffffff;
-    --surface-2: #f1f5f9;
-    --text: #0f172a;
-    --text-muted: #475569;
-    --text-soft: #64748b;
-    --border: #cbd5e1;
-    --border-soft: #e2e8f0;
-    --accent: #1a5cb0;
-    --accent-hover: #0e3d7a;
-    --accent-bg: #eff6ff;
-    --accent-text: #ffffff;
-    --pass: #15803d;
-    --pass-bg: #dcfce7;
-    --warn: #92400e;
-    --warn-bg: #fef3c7;
-    --mid: #d97706;
-    --fail: #b91c1c;
-    --fail-bg: #fee2e2;
-    --tip: #1a5cb0;
-    --tip-bg: #eff6ff;
-    --info: #334155;
-    --info-bg: #f1f5f9;
-    --info-border: #1a5cb0;
-    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-    color-scheme: light;
-  }
-  :root[data-theme="dark"] {
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --surface-2: #182338;
-    --text: #e8edf4;
-    --text-muted: #b8c2d0;
-    --text-soft: #8b97a8;
-    --border: #334155;
-    --border-soft: #273449;
-    --accent: #6aadff;
-    --accent-hover: #9eceff;
-    --accent-bg: #1a2e45;
-    --accent-text: #0a0a10;
-    --pass: #5ee08a;
-    --pass-bg: #0f2e1c;
-    --warn: #fcd34d;
-    --warn-bg: #2b2410;
-    --mid: #fbbf24;
-    --fail: #ff8a8a;
-    --fail-bg: #2e1414;
-    --tip: #6aadff;
-    --tip-bg: #1a2e45;
-    --info: #93c5fd;
-    --info-bg: #16263f;
-    --info-border: #6aadff;
-    --shadow: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
-    color-scheme: dark;
-  }
+  /* light (default) */
+  --bg:#ffffff;
+  --surface:#f5f7fb;
+  --surface-2:#ecf0f7;
+  --ink:#17203a;
+  --ink-soft:#454f6b;
+  --ink-muted:#56607e;
+  --border:#d6dce8;
+  --border-strong:#b8c0d3;
 
-  /* Language switching: hide inactive language. Default ZH; switched by toolbar. */
-  body[data-active-lang="zh"] .lang-en,
-  body:not([data-active-lang]) .lang-en { display: none; }
-  body[data-active-lang="en"] .lang-zh { display: none; }
+  --beacon:#b4530a;        /* accent — the beacon light; 5.4:1 on white */
+  --beacon-soft:#f7efe4;
+  --beacon-line:#e7d3b8;
 
-  /* Report toolbar (lang + theme switch) */
-  .report-toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-    padding: 0.5rem 0;
-    margin: -2rem -2rem 1rem;
-    padding: 0.6rem 2rem;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(8px);
-  }
-  .toolbar-group {
-    display: inline-flex;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 2px;
-    box-shadow: var(--shadow);
-  }
-  .toolbar-group button {
-    background: transparent;
-    border: 0;
-    color: var(--text-muted);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    line-height: 1.2;
-    transition: background 0.15s, color 0.15s;
-  }
-  .toolbar-group button:hover { color: var(--text); }
-  .toolbar-group button[aria-pressed="true"] {
-    background: var(--accent);
-    color: var(--accent-text);
-  }
-  .toolbar-group button:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: var(--font);
-    font-size: clamp(1rem, 0.95rem + 0.3vw, 1.125rem);
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.6;
-    padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
-    -webkit-font-smoothing: antialiased;
-  }
-  h1 { font-size: clamp(1.6rem, 1.3rem + 1.5vw, 2.2rem); margin-bottom: 0.5rem; }
-  h2 { font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.5rem); margin: 2rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-  h3 { font-size: clamp(1.05rem, 1rem + 0.3vw, 1.2rem); margin: 1.5rem 0 0.5rem; }
-  .meta { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
-  .meta span { margin-right: 1.5rem; }
+  --crit:#b3261e;   --crit-bg:#fbeceb;  --crit-line:#f0c9c6;
+  --warn:#8a5a00;   --warn-bg:#fbf3e1;  --warn-line:#ecdcb2;
+  --pass:#1f7a43;   --pass-bg:#e7f4ec;  --pass-line:#bfe3cd;
+  --review:#465166; --review-bg:#eef1f6;--review-line:#d3dae6;
+  --thin:#544bc0;   --thin-bg:#efedfb;  --thin-line:#d3cdf3;
 
-  /* Score Ring */
-  .score-ring-container {
-    display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
-    margin: 1.5rem 0;
-  }
-  .score-ring {
-    text-align: center;
-    min-width: 120px;
-  }
-  .score-ring svg { width: 100px; height: 100px; }
-  .score-ring .ring-bg { fill: none; stroke: var(--border); stroke-width: 8; }
-  .score-ring .ring-fg { fill: none; stroke-width: 8; stroke-linecap: round;
-    transform: rotate(-90deg); transform-origin: 50% 50%;
-    transition: stroke-dashoffset 1s ease; }
-  .score-ring .ring-text { font-size: 22px; font-weight: 700; fill: var(--text); }
-  .score-ring .ring-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem; }
-  .score-ring .ring-prev { font-size: 0.75rem; color: var(--text-muted); }
+  --shadow:0 1px 2px rgba(23,32,58,.06),0 6px 18px rgba(23,32,58,.06);
+  --radius:14px;
+  --maxw:1080px;
+  color-scheme:light;
 
-  /* Summary Table */
-  .summary-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-  .summary-table th { text-align: left; padding: 0.6rem; border-bottom: 2px solid var(--border);
-    color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  .summary-table td { padding: 0.6rem; border-bottom: 1px solid var(--border); }
-  .summary-table .num { text-align: center; font-variant-numeric: tabular-nums; }
-  .category-cell { display: grid; gap: 0.25rem; }
-  .category-desc { color: var(--text-muted); font-size: 0.8rem; line-height: 1.45; max-width: 48rem; }
-  .summary-table .pass { color: var(--pass); }
-  .summary-table .fail { color: var(--fail); }
-  .category-summary-tools { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 0.5rem 0; }
-  .category-summary-note { color: var(--text-muted); margin: 0; max-width: 60rem; }
-  .category-toggle, .category-expand-all { width: fit-content; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--accent); padding: 0.35rem 0.6rem; font: inherit; font-size: 0.8rem; cursor: pointer; }
-  .category-toggle:hover, .category-expand-all:hover { background: var(--surface-2); }
-  .category-toggle:focus-visible, .category-expand-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .mobile-label { display: none; color: var(--text-muted); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; }
+  /* ---- compatibility aliases: let the pre-v3.2 CSS blocks below (methodology,
+     legal risk, axe evidence, manual checks, AEO/life-safety banners, delta,
+     lighthouse) keep working unchanged against the new token names. Declared
+     ONCE here (never re-declared in the dark/theme blocks) so they keep
+     following --ink/--beacon/--crit/etc. through every override. ---- */
+  --text:var(--ink); --text-muted:var(--ink-soft); --text-soft:var(--ink-muted);
+  --border-soft:var(--border);
+  --accent:var(--beacon); --accent-hover:var(--beacon); --accent-bg:var(--beacon-soft); --accent-text:var(--bg);
+  --fail:var(--crit); --fail-bg:var(--crit-bg);
+  --tip:var(--beacon); --tip-bg:var(--beacon-soft);
+  --info:var(--review); --info-bg:var(--review-bg); --info-border:var(--review-line);
+  --font:var(--sans); --font-mono:var(--mono);
+  --mid:var(--warn);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0f141d;
+    --surface:#171f2c;
+    --surface-2:#1e2839;
+    --ink:#e8edf6;
+    --ink-soft:#b4bdd0;
+    --ink-muted:#8c96ac;
+    --border:#2b3547;
+    --border-strong:#3d4860;
 
-  .score-bar { height: 20px; background: var(--surface-2); border-radius: 10px; position: relative; overflow: hidden; min-width: 100px; }
-  .score-fill { height: 100%; border-radius: 10px; transition: width 0.8s ease; }
-  .score-text { position: absolute; right: 6px; top: 2px; line-height: 16px; font-size: 0.75rem; font-weight: 600; color: var(--text); background: var(--surface); padding: 0 4px; border-radius: 6px; }
-  .prev-score { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+    --beacon:#f0a24c;
+    --beacon-soft:#241a10;
+    --beacon-line:#4a3719;
 
-  .delta { font-size: 0.75rem; margin-left: 4px; }
-  .delta.positive { color: var(--pass); }
-  .delta.negative { color: var(--fail); }
-  .delta.neutral { color: var(--text-muted); }
+    --crit:#f4877f; --crit-bg:#2b1513; --crit-line:#4a221f;
+    --warn:#e8b55c; --warn-bg:#271f0f; --warn-line:#463713;
+    --pass:#5fc98a; --pass-bg:#122619; --pass-line:#1f4630;
+    --review:#9aa6bc;--review-bg:#1a2230;--review-line:#303c50;
+    --thin:#a29cf0; --thin-bg:#191634; --thin-line:#312a5e;
 
-  /* Findings */
-  .finding { background: var(--surface); border-radius: 8px; margin: 0.8rem 0; padding: 1rem;
-    border-left: 4px solid var(--border); }
-  .finding.critical { border-left-color: var(--fail); }
-  .finding.warning { border-left-color: var(--warn); }
-  .finding.tip { border-left-color: var(--tip); }
-  .finding-header { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-  .severity-icon { font-size: 1.1rem; }
-  .wcag-tag, .level-tag { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px;
-    background: var(--surface-2); color: var(--accent); }
-  .finding-body { margin-top: 0.8rem; font-size: 0.9rem; }
-  .finding-body p { margin: 0.3rem 0; }
-  .fix { background: var(--pass-bg); padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; }
-  .legal { background: var(--fail-bg); padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; }
-  .learn-more { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-  .learn-more a,
-  .axe-outcome-list a {
-    color: var(--accent);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+    color-scheme:dark;
   }
-  .affected-elements {
-    margin: 0.8rem 0;
-    padding: 0.8rem;
-    background: var(--surface-2);
-    border-radius: 6px;
-  }
-  .affected-elements h4 {
-    margin: 0 0 0.6rem;
-    color: var(--text);
-    font-size: 0.95rem;
-  }
-  .affected-elements .count { color: var(--text-muted); font-weight: 500; }
-  .affected-elements ol { margin-left: 1.2rem; }
-  .affected-elements li { margin: 0.8rem 0; }
-  .dom-snippet pre,
-  .node-reason pre {
-    margin-top: 0.3rem;
-    padding: 0.55rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
-    color: var(--text);
-    overflow-x: auto;
-    white-space: pre-wrap;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-  }
+}
 
-  .code-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; }
-  .code-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; }
-  .code-before pre, .code-after pre { background: var(--bg); padding: 0.5rem; border-radius: 4px;
-    overflow-x: auto; font-size: 0.8rem; font-family: var(--font-mono); }
-  .code-before pre { border: 1px solid var(--fail); }
-  .code-after pre { border: 1px solid var(--pass); }
+/* ---- user-explicit theme override via toolbar; wins over the media query ---- */
+:root[data-theme="light"]{
+  --bg:#ffffff;--surface:#f5f7fb;--surface-2:#ecf0f7;
+  --ink:#17203a;--ink-soft:#454f6b;--ink-muted:#56607e;
+  --border:#d6dce8;--border-strong:#b8c0d3;
+  --beacon:#b4530a;--beacon-soft:#f7efe4;--beacon-line:#e7d3b8;
+  --crit:#b3261e;--crit-bg:#fbeceb;--crit-line:#f0c9c6;
+  --warn:#8a5a00;--warn-bg:#fbf3e1;--warn-line:#ecdcb2;
+  --pass:#1f7a43;--pass-bg:#e7f4ec;--pass-line:#bfe3cd;
+  --review:#465166;--review-bg:#eef1f6;--review-line:#d3dae6;
+  --thin:#544bc0;--thin-bg:#efedfb;--thin-line:#d3cdf3;
+  --shadow:0 1px 2px rgba(23,32,58,.06),0 6px 18px rgba(23,32,58,.06);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#0f141d;--surface:#171f2c;--surface-2:#1e2839;
+  --ink:#e8edf6;--ink-soft:#b4bdd0;--ink-muted:#8c96ac;
+  --border:#2b3547;--border-strong:#3d4860;
+  --beacon:#f0a24c;--beacon-soft:#241a10;--beacon-line:#4a3719;
+  --crit:#f4877f;--crit-bg:#2b1513;--crit-line:#4a221f;
+  --warn:#e8b55c;--warn-bg:#271f0f;--warn-line:#463713;
+  --pass:#5fc98a;--pass-bg:#122619;--pass-line:#1f4630;
+  --review:#9aa6bc;--review-bg:#1a2230;--review-line:#303c50;
+  --thin:#a29cf0;--thin-bg:#191634;--thin-line:#312a5e;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
 
-  /* Jurisdiction context */
-  .risk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1rem 0; }
-  .risk-card { background: var(--surface); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--accent); }
-  .risk-header { display: flex; justify-content: space-between; align-items: center; }
-  .risk-badge { color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-  .context-badge { color: var(--accent); background: var(--accent-bg); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
-  .deadline { color: var(--warn); font-weight: 600; }
-  .risk-score { font-variant-numeric: tabular-nums; }
-  .overall-risk { text-align: center; padding: 0.8rem; border-radius: 8px; color: white;
-    font-size: 1.1rem; font-weight: 700; }
-  .risk-summary { margin-top: 1rem; }
-  .legal-context-note {
-    background: var(--info-bg);
-    border: 1px solid var(--info-border);
-    border-left: 6px solid var(--info-border);
-    border-radius: 8px;
-    padding: 0.9rem 1rem;
-    margin: 0.8rem 0 1rem;
-  }
-  .criteria-map {
-    color: var(--text-muted);
-    font-size: 0.86rem;
-  }
+/* ---- language switch: default zh. .lang-en/.lang-zh toggle by body[data-active-lang];
+   compact inline "中文 · English" labels (chips, filter buttons) stay bilingual always. ---- */
+body[data-active-lang="zh"] .lang-en,
+body:not([data-active-lang]) .lang-en{display:none!important}
+body[data-active-lang="en"] .lang-zh{display:none!important}
+body[data-active-lang="en"] .lang-en{display:block;color:inherit;font-size:1em;
+  font-weight:inherit;line-height:1.5;margin:0}
 
-  /* Tabs */
-  .tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 2px solid var(--border);
-    margin: 2rem 0 1rem;
-    flex-wrap: wrap;
-  }
-  .tab {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    font: inherit;
-    text-align: left;
-    padding: 0.65rem 1.2rem;
-    cursor: pointer;
-    color: var(--text-muted);
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    border-radius: 6px 6px 0 0;
-    position: relative;
-    user-select: none;
-    transition:
-      color 0.18s ease,
-      background-color 0.18s ease,
-      transform 0.18s ease,
-      box-shadow 0.18s ease;
-  }
-  /* Animated underline that grows from center on hover */
-  .tab::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    right: 50%;
-    bottom: -2px;
-    height: 2px;
-    background: var(--accent);
-    opacity: 0;
-    transition: left 0.22s ease, right 0.22s ease, opacity 0.18s ease;
-    pointer-events: none;
-    border-radius: 2px;
-  }
-  .tab:hover {
-    color: var(--text);
-    background-color: var(--surface-2);
-    transform: translateY(-1px);
-    box-shadow: inset 0 0 0 1.5px var(--accent);
-  }
-  .tab:hover::after {
-    left: 12%;
-    right: 12%;
-    opacity: 0.55;
-  }
-  .tab:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
-  }
-  .tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-    background-color: transparent;
-    transform: none;
-    box-shadow: none;
-    font-weight: 600;
-  }
-  .tab.active::after {
-    left: 0;
-    right: 0;
-    opacity: 1;
-  }
-  /* Respect users with motion sensitivity (our own report's a11y dog-food) */
-  @media (prefers-reduced-motion: reduce) {
-    .tab, .tab::after { transition: color 0.01s; }
-    .tab:hover { transform: none; }
-  }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
+/* ---- report toolbar (language + theme); static so the sticky jump-nav keeps top:0 ---- */
+.report-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end;
+  max-width:var(--maxw);margin:0 auto;padding:.6rem 20px .4rem}
+.tb-group{display:inline-flex;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:2px;box-shadow:var(--shadow)}
+.tb-group button{background:transparent;border:0;color:var(--ink-soft);font:inherit;
+  font-size:.85rem;font-weight:600;cursor:pointer;padding:.4rem .8rem;min-height:44px;
+  min-width:44px;border-radius:8px;display:inline-flex;align-items:center;
+  justify-content:center;line-height:1.2;transition:background .15s,color .15s}
+.tb-group button:hover{color:var(--ink)}
+.tb-group button[aria-pressed="true"]{background:var(--beacon);color:var(--bg)}
 
-  /* Remediation */
-  .priority-section { margin: 1rem 0; }
-  .priority-tag { display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 0.75rem; font-weight: 600; color: white; }
-  .priority-tag.p0 { background: var(--fail); }
-  .priority-tag.p1 { background: var(--warn); }
-  .priority-tag.p2 { background: var(--tip); }
-  .remediation-item { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0; }
-  .effort-tag { font-size: 0.75rem; color: var(--text-muted); }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.6;
+  color:var(--ink);
+  background:var(--bg);
+  overflow-x:hidden;
+}
+img{max-width:100%;height:auto}
+/* UA sets pre/code to bare monospace, defeating .diff's var(--mono); force the
+   explicit stack so CJK in code never reaches a legacy font. */
+pre,code,kbd,samp{font-family:var(--mono)}
+a{color:var(--beacon);text-underline-offset:2px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--beacon);outline-offset:2px;border-radius:4px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+h1,h2,h3{line-height:1.25;letter-spacing:-.01em}
+code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-size:.9em}
+.skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:0 0 8px 0;z-index:100}
+.skip:focus{left:0}
 
-  .empty { color: var(--text-muted); font-style: italic; }
+/* ---- eyebrow / layer labels: the numbered layers are a real reading sequence ---- */
+.eyebrow{display:flex;align-items:baseline;gap:.6rem;margin:0 0 .35rem;
+  font-size:.82rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--beacon)}
+.eyebrow .num{font-variant-numeric:tabular-nums;font-size:1rem;
+  color:var(--ink-muted);letter-spacing:0}
+.layer-h{font-size:1.5rem;margin:.1rem 0 .2rem}
+.layer-sub{color:var(--ink-soft);margin:.1rem 0 1.4rem;max-width:62ch}
 
-  /* Category detail rows sit directly below their summary row. */
-  .category-detail-row[hidden] { display: none; }
-  .category-detail-row td { padding: 0 0 1rem; }
-  .category-detail { padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 8px 8px; white-space: normal; }
-  .category-detail h3 { margin-top: 0; }
-  .category-status-note { color: var(--text-muted); }
+/* =========================== HEADER =========================== */
+.masthead{background:var(--surface);border-bottom:1px solid var(--border)}
+.masthead .wrap{padding-top:1.4rem;padding-bottom:1.4rem}
+.brand{display:flex;align-items:center;gap:.7rem;font-weight:700;font-size:1.05rem}
+.beacon-mark{width:26px;height:26px;flex:0 0 auto;border-radius:50%;
+  background:radial-gradient(circle at 50% 42%,#fff 0 14%,var(--beacon) 20% 46%,transparent 52%),
+             conic-gradient(from 200deg,var(--beacon) 0 22deg,transparent 22deg 90deg,
+             var(--beacon) 90deg 112deg,transparent 112deg);
+  box-shadow:0 0 0 1px var(--beacon-line) inset}
+.metagrid{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin-top:.9rem;
+  font-size:.9rem;color:var(--ink-soft)}
+.metagrid b{color:var(--ink);font-weight:600}
+.engine-tag{font-family:var(--mono);font-size:.78rem;color:var(--ink-muted)}
 
-  @media (max-width: 720px) {
-    body { padding: 1rem; }
-    .report-toolbar {
-      margin: -1rem -1rem 1rem;
-      padding: 0.5rem 1rem;
-      justify-content: flex-start;
-      flex-wrap: wrap;
-    }
-    .comparison-banner,
-    .score-ring-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.8rem;
-    }
-    .summary-table { display: block; overflow: visible; white-space: normal; }
-    .summary-table thead { display: none; }
-    .summary-table tbody { display: grid; gap: 0.75rem; }
-    .summary-table .category-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .summary-table .category-row td { border: 0; min-width: 0; }
-    .summary-table .cat-name, .summary-table .result-cell { grid-column: 1 / -1; }
-    .summary-table .num { display: grid; gap: 0.15rem; text-align: left; }
-    .summary-table .result-cell { display: grid; gap: 0.35rem; }
-    .mobile-label { display: block; }
-    .state-badge { white-space: normal; width: fit-content; }
-    .category-detail-row { display: block; }
-    .category-detail-row[hidden] { display: none; }
-    .category-detail-row td { display: block; padding: 0; }
-    .category-summary-tools { align-items: flex-start; flex-direction: column; }
-    .code-compare {
-      grid-template-columns: 1fr;
-    }
-    .axe-outcome-list li {
-      display: block;
-    }
-    .rule-id,
-    .rule-criteria {
-      display: block;
-      margin-top: 0.15rem;
-    }
-  }
+/* jump nav */
+.jump{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.jump ul{display:flex;gap:.2rem;margin:0;padding:.4rem 20px;list-style:none;
+  overflow-x:auto;max-width:var(--maxw);margin:0 auto;-webkit-overflow-scrolling:touch}
+.jump a{white-space:nowrap;text-decoration:none;color:var(--ink-soft);font-size:.86rem;
+  font-weight:600;padding:.5rem .7rem;border-radius:8px;min-height:44px;display:flex;
+  align-items:center}
+.jump a:hover{background:var(--surface-2);color:var(--ink)}
 
-  /* Print */
-  @media print {
-    body { background: white; color: #333; }
-    .score-ring .ring-text { fill: #333; }
-    .finding { break-inside: avoid; }
-  }
+/* =========================== 01 DECISION / HERO =========================== */
+.hero{padding:2.4rem 0 2rem;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-40% -10% auto auto;width:70vw;height:70vw;
+  max-width:640px;max-height:640px;pointer-events:none;
+  background:radial-gradient(closest-side,var(--beacon-soft),transparent 70%);
+  opacity:.9;z-index:0}
+.hero .wrap{position:relative;z-index:1}
+.verdict{display:grid;grid-template-columns:1fr;gap:1.6rem;align-items:start}
+/* two-col only when both fit at a readable measure: left capped so a long
+   coverage line can't balloon it; right floored so CJK never collapses. */
+@media(min-width:820px){.verdict{grid-template-columns:minmax(auto,26rem) minmax(20rem,1fr)}}
+.overall{display:flex;align-items:center;gap:1.1rem}
+.overall .ring{position:relative;width:132px;height:132px;flex:0 0 auto}
+.overall svg{transform:rotate(-90deg)}
+.overall .val{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center}
+.overall .val b{font-size:2.6rem;font-weight:800;font-variant-numeric:tabular-nums;
+  line-height:1;letter-spacing:-.03em}
+.overall .val span{font-size:.78rem;color:var(--ink-muted);letter-spacing:.08em}
+.band{display:inline-flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:999px;
+  font-size:.84rem;font-weight:700;border:1px solid transparent}
+.coverage{margin-top:.55rem;font-size:.92rem;color:var(--ink-soft)}
+.coverage b{color:var(--ink);font-variant-numeric:tabular-nums}
+.honesty{margin-top:.9rem;padding:.85rem 1rem;border-left:4px solid var(--beacon);
+  background:var(--beacon-soft);border-radius:0 10px 10px 0;font-size:.92rem;color:var(--ink)}
+.safe-flag{display:inline-flex;gap:.4rem;align-items:center;margin-top:.7rem;font-size:.86rem;
+  color:var(--pass);font-weight:600}
 
-  /* Comparison banner */
-  .comparison-banner {
-    background: var(--surface-2);
-    border: 1px solid var(--accent);
-    border-radius: 8px;
-    padding: 1rem;
-    margin: 1rem 0;
-    display: flex;
-    justify-content: space-around;
-    text-align: center;
-  }
-  .comparison-stat { }
-  .comparison-stat .value { font-size: 1.5rem; font-weight: 700; }
-  .comparison-stat .label { font-size: 0.8rem; color: var(--text-muted); }
+/* fix these next */
+.fixnext{margin-top:2rem;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:1.3rem 1.3rem 1.4rem;box-shadow:var(--shadow)}
+.fixnext > h2{margin:0;font-size:1.12rem;display:flex;align-items:center;gap:.5rem}
+.fixnext .clear-line{margin:.5rem 0 1.1rem;font-size:.95rem;color:var(--ink-soft)}
+.fixnext .clear-line b{color:var(--crit);font-variant-numeric:tabular-nums}
+.fixlist{display:grid;gap:.8rem;grid-template-columns:1fr}
+/* 3-across only once each card clears a readable CJK measure (~264px here);
+   below that the ranked cards stack rather than squeeze. */
+@media(min-width:900px){.fixlist{grid-template-columns:repeat(3,1fr)}}
+.fixcard{position:relative;background:var(--bg);border:1px solid var(--border);
+  border-radius:12px;padding:1rem 1rem 1.05rem;display:flex;flex-direction:column;gap:.5rem}
+.fixcard .rank{position:absolute;top:-12px;left:14px;width:26px;height:26px;border-radius:50%;
+  background:var(--beacon);color:#fff;font-weight:800;font-size:.85rem;display:flex;
+  align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+@media (prefers-color-scheme:dark){.fixcard .rank{color:#1a1206}}
+.fixcard h3{margin:.35rem 0 0;font-size:1rem;line-height:1.35;font-weight:700}
+.fixcard .who{font-size:.86rem;color:var(--ink-soft)}
+.fixcard .foot{margin-top:auto;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;
+  font-size:.76rem}
 
-  /* Life-safety gate banner (rendered only when summary.life_safety_flag) */
-  .life-safety-banner {
-    background: var(--surface-2);
-    border: 2px solid var(--fail);
-    border-left: 8px solid var(--fail);
-    border-radius: 8px;
-    padding: 1.1rem 1.3rem;
-    margin: 1.5rem 0;
-    font-size: 0.95rem;
-    line-height: 1.7;
-  }
-  .life-safety-banner .banner-title { font-size: 1.1rem; font-weight: 700; color: var(--fail); }
+/* chips / badges */
+.chip{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .55rem;border-radius:999px;
+  font-size:.75rem;font-weight:600;line-height:1.4;border:1px solid transparent}
+.chip.crit{background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)}
+.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.chip.pass{background:var(--pass-bg);color:var(--pass);border-color:var(--pass-line)}
+.chip.review{background:var(--review-bg);color:var(--review);border-color:var(--review-line)}
+.chip.thin{background:var(--thin-bg);color:var(--thin);border-color:var(--thin-line)}
+.chip.wcag{background:var(--surface-2);color:var(--ink-soft);border-color:var(--border);
+  font-family:var(--mono);font-size:.72rem}
 
-  /* Category state badge (score column when no machine evidence exists) */
-  .state-badge {
-    display: inline-block;
-    padding: 0.15rem 0.55rem;
-    border: 1px solid var(--text-muted);
-    border-radius: 999px;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-  .coverage-line { text-align: center; color: var(--text-muted); margin: 0.25rem 0 1rem; font-size: 0.9rem; }
+/* =========================== 02 EVIDENCE / CATEGORIES =========================== */
+section{padding:2.2rem 0}
+.section-alt{background:var(--surface);border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border)}
+.catgrid{display:grid;gap:1rem;grid-template-columns:1fr}
+@media(min-width:600px){.catgrid{grid-template-columns:1fr 1fr}}
+@media(min-width:960px){.catgrid{grid-template-columns:1fr 1fr 1fr}}
+.catcard{display:flex;flex-direction:column;gap:.6rem;background:var(--bg);
+  border:1px solid var(--border);border-radius:12px;padding:1rem 1.05rem;
+  text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+.catcard:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.catcard.thin{background:var(--surface);border-style:dashed;opacity:.94}
+.catcard.nmc{background:var(--surface);opacity:.9}
+.cat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem}
+.cat-name{font-weight:700;font-size:1.02rem;line-height:1.3}
+.score-badge{flex:0 0 auto;text-align:center;min-width:52px}
+.score-badge b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;
+  line-height:1;letter-spacing:-.02em}
+.score-badge b.s-crit{color:var(--crit)}
+.score-badge b.s-warn{color:var(--warn)}
+.score-badge b.s-pass{color:var(--pass)}
+.score-badge small{display:block;font-size:.68rem;color:var(--ink-muted)}
+.state-badge{flex:0 0 auto;font-size:.74rem;font-weight:700;text-align:right;max-width:120px}
 
-  /* Audit context banner (epistemic warning, always visible) */
-  .audit-context-banner {
-    background: var(--info-bg);
-    border: 1px solid var(--info-border);
-    border-left: 6px solid var(--info-border);
-    border-radius: 8px;
-    padding: 1.1rem 1.3rem;
-    margin: 1.5rem 0;
-    font-size: 0.92rem;
-    line-height: 1.7;
-  }
-  .audit-context-banner .banner-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--info);
-    margin-bottom: 0.5rem;
-    letter-spacing: 0.01em;
-  }
-  .audit-context-banner p { margin-bottom: 0.5rem; }
-  .audit-context-banner p:last-child { margin-bottom: 0; }
-  .audit-context-banner .banner-cta {
-    color: var(--text-muted);
-    font-size: 0.88rem;
-    border-top: 1px dashed var(--info-border);
-    padding-top: 0.5rem;
-    margin-top: 0.5rem;
-  }
-  .audit-context-banner strong { color: var(--text); }
-  .audit-context-banner em { font-style: italic; color: var(--info); }
+/* evidence-density meter — THE signature */
+.evi{margin-top:.1rem}
+.evi-track{height:8px;border-radius:5px;background:var(--surface-2);overflow:hidden;
+  border:1px solid var(--border)}
+.evi-fill{height:100%;background:linear-gradient(90deg,var(--beacon),var(--beacon-line))}
+.catcard.thin .evi-track{border-style:dashed}
+.catcard.thin .evi-fill{background:repeating-linear-gradient(90deg,var(--thin) 0 4px,transparent 4px 8px)}
+.evi-label{margin-top:.4rem;font-size:.8rem;color:var(--ink-soft);
+  display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.evi-label .tier{font-weight:700}
+.evi-label .tier.high{color:var(--pass)}
+.evi-label .tier.mod{color:var(--ink)}
+.evi-label .tier.low{color:var(--thin)}
+.evi-label .tier.nmc{color:var(--review)}
+.cat-cause{font-size:.87rem;color:var(--ink-soft);margin:0}
+.cat-cause b{color:var(--ink)}
+.tension{font-size:.83rem;background:var(--crit-bg);border:1px solid var(--crit-line);
+  color:var(--ink);border-radius:8px;padding:.5rem .6rem;margin:0}
+.tension b{color:var(--crit)}
 
-  /* AEO sub-score disclaimer — scoped to the Agent/AEO category detail */
-  .aeo-disclaimer {
-    background: var(--accent-bg);
-    border: 1px solid var(--accent);
-    border-left: 6px solid var(--accent);
-    border-radius: 8px;
-    padding: 0.9rem 1.1rem;
-    margin: 0 0 1rem;
-    font-size: 0.88rem;
-    line-height: 1.65;
-  }
-  .aeo-disclaimer-title {
-    font-size: 0.98rem;
-    font-weight: 700;
-    color: var(--accent);
-    margin-bottom: 0.4rem;
-  }
-  .aeo-disclaimer p { margin-bottom: 0.45rem; }
-  .aeo-disclaimer p:last-child { margin-bottom: 0; }
-  .aeo-disclaimer-cta {
-    color: var(--text-muted);
-    font-size: 0.84rem;
-    border-top: 1px dashed rgba(79,195,247,0.3);
-    padding-top: 0.45rem;
-    margin-top: 0.45rem;
-  }
-  .aeo-disclaimer strong { color: var(--text); }
+/* =========================== 03 FINDINGS =========================== */
+.filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1.5rem}
+.filters .flabel{font-size:.85rem;color:var(--ink-soft);align-self:center;margin-right:.2rem}
+.fbtn{font:inherit;font-size:.83rem;font-weight:600;cursor:pointer;padding:.4rem .75rem;
+  border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--ink-soft);
+  min-height:44px}
+.fbtn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.fbtn:hover{border-color:var(--border-strong)}
+.fgroup{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1.1rem;
+  background:var(--bg);box-shadow:var(--shadow);overflow:hidden}
+.fgroup.is-hidden{display:none}
+.fg-head{padding:1.05rem 1.15rem;display:flex;flex-wrap:wrap;gap:.6rem 1rem;
+  align-items:baseline;border-bottom:1px solid var(--border)}
+.fg-head .fg-title{font-size:1.08rem;font-weight:700;flex:1 1 260px;line-height:1.3}
+.fg-count{font-variant-numeric:tabular-nums;font-weight:800;font-size:1.05rem}
+.fg-body{padding:1.05rem 1.15rem 1.2rem}
+.who-line{margin:0 0 .85rem;font-size:.93rem;color:var(--ink)}
+.who-line .who-badge{font-weight:700;color:var(--beacon)}
+.meta-row{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
+.diff{font-family:var(--mono);font-size:.82rem;line-height:1.55;border-radius:10px;
+  border:1px solid var(--border);overflow:hidden;margin:.2rem 0 1rem}
+.diff .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.diff pre{margin:0;padding:.7rem .9rem;white-space:pre;min-width:min-content}
+.diff .before{background:var(--crit-bg);color:var(--ink)}
+.diff .tag{display:inline-block;font-weight:700;margin-right:.5rem;user-select:none;color:var(--crit)}
+.loclist{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;
+  margin:0 0 .6rem;max-height:8.5rem;overflow:auto;-webkit-overflow-scrolling:touch}
+.loclist span{display:inline-block;margin:.1rem .5rem .1rem 0}
+.fix-line{font-size:.92rem;margin:.2rem 0 0}
+.fix-line strong{color:var(--pass)}
 
-  /* Methodology & Limits tab */
-  .methodology-panel { font-size: 0.92rem; line-height: 1.7; }
-  .methodology-panel h2 { margin-top: 0; }
-  .methodology-panel h3 {
-    margin-top: 1.8rem;
-    color: var(--accent);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0.3rem;
-  }
-  .methodology-panel .meta-note {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    background: var(--surface);
-    padding: 0.5rem 0.8rem;
-    border-radius: 6px;
-    margin: 0.5rem 0 1rem;
-  }
-  .methodology-panel .section-intro {
-    color: var(--text-muted);
-    font-size: 0.88rem;
-    margin: 0.3rem 0 0.6rem;
-  }
-  .methodology-panel ul, .methodology-panel ol {
-    margin: 0.4rem 0 0.8rem 1.4rem;
-  }
-  .methodology-panel li { margin: 0.35rem 0; }
-  .methodology-panel code {
-    background: var(--surface-2);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 0.85em;
-  }
-  .capability-list li::marker { color: var(--pass); }
-  .limitation-list li::marker { color: var(--warn); }
-  .workflow-list li::marker { color: var(--accent); font-weight: 700; }
-  .usage-list li::marker { color: var(--text-muted); }
+/* =========================== 04 CLIENT / EXEC SUMMARY =========================== */
+.exec{border:1px solid var(--border-strong);border-radius:var(--radius);
+  background:var(--bg);box-shadow:var(--shadow);overflow:hidden}
+.exec-head{padding:1.1rem 1.3rem;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.exec-head h3{margin:0;font-size:1.35rem}
+.exec-head p{margin:.3rem 0 0;color:var(--ink-soft);font-size:.9rem}
+.exec-body{padding:1.3rem}
+.exec-body h3{font-size:1.02rem;margin:1.3rem 0 .5rem}
+.exec-body h3:first-child{margin-top:0}
+.exec-lead{font-size:1.05rem;line-height:1.6}
+.exec-lead b{color:var(--crit)}
+.prio{counter-reset:p;list-style:none;padding:0;margin:.4rem 0}
+.prio li{position:relative;padding:.55rem 0 .55rem 2.2rem;border-bottom:1px dashed var(--border)}
+.prio li::before{counter-increment:p;content:counter(p);position:absolute;left:0;top:.5rem;
+  width:1.6rem;height:1.6rem;border-radius:50%;background:var(--beacon-soft);color:var(--beacon);
+  font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+.expose{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .2rem}
+.exec-note{margin-top:1.2rem;padding:.85rem 1rem;background:var(--beacon-soft);
+  border-left:4px solid var(--beacon);border-radius:0 10px 10px 0;font-size:.9rem}
 
-  .methods-details {
-    background: var(--surface);
-    border-radius: 6px;
-    padding: 0.6rem 0.9rem;
-    margin: 0.5rem 0 1rem;
-    border-left: 3px solid var(--accent);
-  }
-  .methods-details summary {
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-  }
-  .methods-list {
-    margin-top: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-  }
-  .live-audit-note {
-    background: var(--warn-bg);
-    border: 1px solid var(--warn);
-    border-left: 6px solid var(--warn);
-    border-radius: 8px;
-    padding: 0.8rem 1rem;
-    margin: 0.8rem 0 1rem;
-    color: var(--text);
-  }
-  .manual-checks,
-  .axe-evidence {
-    margin: 1.2rem 0;
-  }
-  .manual-check-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 0.8rem;
-    margin-top: 0.8rem;
-  }
-  .manual-check-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.9rem;
-  }
-  .manual-check-card h4 {
-    margin: 0.2rem 0 0.45rem;
-    font-size: 0.98rem;
-  }
-  .manual-check-card p {
-    margin: 0.35rem 0;
-    font-size: 0.86rem;
-  }
-  .manual-check-meta {
-    color: var(--text-soft);
-    font-size: 0.74rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .axe-outcome-list {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.65rem 0.85rem;
-    margin: 0.6rem 0;
-  }
-  .axe-outcome-list summary {
-    cursor: pointer;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .axe-outcome-list ul {
-    margin-top: 0.6rem;
-  }
-  .axe-outcome-list li {
-    display: grid;
-    grid-template-columns: minmax(12rem, 1fr) auto auto;
-    gap: 0.5rem;
-    align-items: baseline;
-    padding: 0.45rem 0;
-    border-top: 1px solid var(--border-soft);
-  }
-  .rule-id,
-  .rule-criteria {
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
+/* =========================== FOOTER =========================== */
+footer{border-top:1px solid var(--border);background:var(--surface);margin-top:1rem}
+footer .wrap{padding:1.5rem 20px 2.6rem;font-size:.88rem;color:var(--ink-soft)}
+footer p{margin:.2rem 0}
+footer a{font-weight:600}
+.foot-engine{font-family:var(--mono);font-size:.76rem;color:var(--ink-muted);margin-top:.7rem}
 
-  .traps-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0.8rem 0;
-    font-size: 0.9rem;
-  }
-  .traps-table th {
-    text-align: left;
-    padding: 0.6rem 0.8rem;
-    background: var(--surface-2);
-    color: var(--accent);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
-  }
-  .traps-table td {
-    padding: 0.6rem 0.8rem;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-  }
-  .traps-table tr:hover td { background: rgba(255,255,255,0.02); }
-  .traps-table td:first-child {
-    color: var(--text-muted);
-    font-style: italic;
-    width: 38%;
-  }
+/* =========================== ported from v3.1: methodology / legal / axe / AEO / life-safety / delta =========================== */
+.methodology-panel{font-size:.92rem;line-height:1.7}
+.methodology-panel h3{margin-top:1.8rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:.3rem}
+.methodology-panel .meta-note{color:var(--text-muted);font-size:.85rem;background:var(--surface);padding:.5rem .8rem;border-radius:6px;margin:.5rem 0 1rem}
+.methodology-panel .section-intro{color:var(--text-muted);font-size:.88rem;margin:.3rem 0 .6rem}
+.methodology-panel ul,.methodology-panel ol{margin:.4rem 0 .8rem 1.4rem}
+.methodology-panel li{margin:.35rem 0}
+.capability-list li::marker{color:var(--pass)}
+.limitation-list li::marker{color:var(--warn)}
+.workflow-list li::marker{color:var(--accent);font-weight:700}
+.usage-list li::marker{color:var(--text-muted)}
+.methods-details{background:var(--surface);border-radius:6px;padding:.6rem .9rem;margin:.5rem 0 1rem;border-left:3px solid var(--accent)}
+.methods-details summary{cursor:pointer;color:var(--text-muted);font-size:.9rem}
+.methods-list{margin-top:.5rem;font-size:.85rem;color:var(--text-muted)}
+.live-audit-note{background:var(--warn-bg);border:1px solid var(--warn);border-left:6px solid var(--warn);border-radius:8px;padding:.8rem 1rem;margin:.8rem 0 1rem;color:var(--text)}
+.manual-checks{margin:1.2rem 0}
+.manual-check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:.8rem;margin-top:.8rem}
+.manual-check-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9rem}
+.manual-check-card h4{margin:.2rem 0 .45rem;font-size:.98rem}
+.manual-check-card p{margin:.35rem 0;font-size:.86rem}
+.manual-check-meta{color:var(--text-soft);font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+.axe-evidence{margin:1.2rem 0}
+.axe-outcome-list{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem .85rem;margin:.6rem 0}
+.axe-outcome-list summary{cursor:pointer;font-weight:700;color:var(--text)}
+.axe-outcome-list ul{margin-top:.6rem}
+.axe-outcome-list li{display:grid;grid-template-columns:minmax(12rem,1fr) auto auto;gap:.5rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--border-soft)}
+.rule-id,.rule-criteria{color:var(--text-muted);font-size:.78rem}
+.learn-more a,.axe-outcome-list a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.traps-table{width:100%;border-collapse:collapse;margin:.8rem 0;font-size:.9rem}
+.traps-table th{text-align:left;padding:.6rem .8rem;background:var(--surface-2);color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)}
+.traps-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top}
+.traps-table td:first-child{color:var(--text-muted);font-style:italic;width:38%}
+.legal-risk-panel{font-size:.92rem}
+.legal-context-note{background:var(--info-bg);border:1px solid var(--info-border);border-left:6px solid var(--info-border);border-radius:8px;padding:.9rem 1rem;margin:.8rem 0 1rem}
+.risk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:1rem;margin:1rem 0}
+.risk-card{background:var(--surface);padding:1rem;border-radius:8px;border-left:4px solid var(--accent)}
+.risk-header{display:flex;justify-content:space-between;align-items:center}
+.context-badge{color:var(--accent);background:var(--accent-bg);padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700}
+.deadline{color:var(--warn);font-weight:600}
+.criteria-map{color:var(--text-muted);font-size:.86rem}
+.aeo-disclaimer{background:var(--accent-bg);border:1px solid var(--accent);border-left:6px solid var(--accent);border-radius:8px;padding:.9rem 1.1rem;margin:1rem 0 0;font-size:.88rem;line-height:1.65}
+.aeo-disclaimer-title{font-size:.98rem;font-weight:700;color:var(--accent);margin-bottom:.4rem}
+.aeo-disclaimer p{margin-bottom:.45rem}
+.aeo-disclaimer p:last-child{margin-bottom:0}
+.aeo-disclaimer-cta{color:var(--text-muted);font-size:.84rem;border-top:1px dashed var(--border);padding-top:.45rem;margin-top:.45rem}
+.aeo-disclaimer strong{color:var(--text)}
+.life-safety-banner{background:var(--surface-2);border:2px solid var(--fail);border-left:8px solid var(--fail);border-radius:8px;padding:1.1rem 1.3rem;margin:.9rem 0;font-size:.95rem;line-height:1.7}
+.life-safety-banner .banner-title{font-size:1.1rem;font-weight:700;color:var(--fail)}
+.delta{font-size:.75rem;margin-left:4px}
+.delta.positive{color:var(--pass)}
+.delta.negative{color:var(--fail)}
+.delta.neutral{color:var(--text-muted)}
+.empty{color:var(--text-muted);font-style:italic}
+
+/* =========================== MOTION / PRINT =========================== */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;
+    scroll-behavior:auto!important}
+}
+@media print{
+  :root{--bg:#fff!important;--ink:#000!important;--surface:#fff!important;--surface-2:#fff!important}
+  body{font-size:12pt;color:#000}
+  .jump,.masthead .engine-tag,.filters,.beacon-mark,.report-toolbar{display:none!important}
+  .hero::before,.honesty,.fixnext{box-shadow:none}
+  .lang-zh,.lang-en{color:#333}
+  a{color:#000;text-decoration:underline}
+  section{padding:.6rem 0;break-inside:avoid}
+  .exec{break-before:page;border:1px solid #000;box-shadow:none}
+  .fgroup,.catcard,.fixcard{break-inside:avoid;box-shadow:none}
+  .loclist,.diff .scroll{overflow:visible;max-height:none}
+  .diff pre{white-space:pre-wrap}
+}
 </style>
 </head>
 <body>
+<a class="skip" href="#main-content">跳到主要內容 · Skip to main content</a>
 
-<div class="report-toolbar" role="toolbar" aria-label="Report preferences">
-  <div class="toolbar-group" role="group" aria-label="Language / 語言">
-    <button type="button" data-lang-btn="zh" aria-pressed="true">中文</button>
-    <button type="button" data-lang-btn="en" aria-pressed="false">EN</button>
+${buildToolbarHTML()}
+${buildMastheadHTML(audit)}
+${buildJumpNavHTML(!!audit.lighthouse)}
+
+<main id="main-content" tabindex="-1">
+${buildHeroHTML(audit, previous, allGroups)}
+
+<section class="section-alt" id="layer-evidence" aria-labelledby="h-evidence">
+  <div class="wrap">
+    <p class="eyebrow"><span class="num">02</span> ${bi('證據層', 'Evidence')}</p>
+    <h2 class="layer-h" id="h-evidence">${bi('每個分數旁邊都標出它背後有多少證據', 'Every score shows how much evidence stands behind it')}</h2>
+    <p class="layer-sub">${bi('一個低分從大量檢查算出來，是確鑿的問題；一個低分只從一次檢查算出來，只是證據不足的旗標。密度條讓兩者一眼可辨。', 'A low score from many checks is a proven problem; a low score from one check is a thin-evidence flag, not a verdict. The density meter makes the difference visible at a glance.')}</p>
+    ${buildCategoryGridHTML(audit.summary.categories, previous?.summary?.categories, groupsByCat)}
   </div>
-  <div class="toolbar-group" role="group" aria-label="Theme / 主題">
-    <button type="button" data-theme-btn="light" aria-pressed="false" title="Light mode">&#9728;</button>
-    <button type="button" data-theme-btn="dark" aria-pressed="false" title="Dark mode">&#9790;</button>
-    <button type="button" data-theme-btn="auto" aria-pressed="true" title="Follow system / 跟隨系統">A</button>
-  </div>
-</div>
+</section>
 
-<main id="main-content">
-<h1>Accessibility Audit Report</h1>
-<div class="meta">
-  <span>${t('meta_date')}: ${audit.metadata?.date || 'N/A'}</span>
-  <span>${t('meta_scope')}: ${escapeHtml(audit.metadata?.scope || 'N/A')}</span>
-  ${audit.metadata?.url ? `<span>${t('meta_url')}: <a href="${escapeHtml(audit.metadata.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(audit.metadata.url)}</a></span>` : ''}
-  <span>${t('meta_standard')}: ${escapeHtml(audit.metadata?.standard || 'WCAG 2.2 AA')}</span>
-  <span>${t('meta_auditor')}: Claude Code (a11y-audit)</span>
-</div>
-
-${previous ? `
-<div class="comparison-banner">
-  <div class="comparison-stat">
-    <div class="value" style="color:${scoreColor(audit.summary.overall_score)}">${audit.summary.overall_score ?? '—'}</div>
-    <div class="label">${t('cmp_current')}</div>
-  </div>
-  <div class="comparison-stat">
-    <div class="value" style="color:${scoreColor(previous.summary.overall_score)}">${previous.summary.overall_score ?? '—'}</div>
-    <div class="label">${t('cmp_previous')}</div>
-  </div>
-  ${audit.summary.overall_score != null && previous.summary.overall_score != null ? `
-  <div class="comparison-stat">
-    <div class="value" style="color:${audit.summary.overall_score > previous.summary.overall_score ? 'var(--pass)' : 'var(--fail)'}">
-      ${audit.summary.overall_score > previous.summary.overall_score ? '+' : ''}${audit.summary.overall_score - previous.summary.overall_score}
-    </div>
-    <div class="label">${t('cmp_delta')}</div>
-  </div>` : ''}
-  <div class="comparison-stat">
-    <div class="value">${audit.summary.total_findings} / ${previous.summary.total_findings}</div>
-    <div class="label">${t('cmp_issues')}</div>
-  </div>
-</div>
-` : ''}
-
-<!-- Audit context banner: always shown before scores, sets epistemic frame -->
-${buildContextBanner()}
-${audit.summary.life_safety_flag ? buildLifeSafetyBanner() : ''}
-
-<!-- Score Rings (scored categories only — unscored ones carry a state, not a number) -->
-<div class="score-ring-container">
-  ${buildScoreRing(t('ring_overall'), audit.summary.overall_score, previous?.summary?.overall_score)}
-  ${audit.summary.categories.filter(cat => cat.score !== null && cat.score !== undefined).map(cat => {
-    const prev = previous?.summary?.categories?.find(p => p.id === cat.id);
-    return buildScoreRing(catName(cat), cat.score, prev?.score);
-  }).join('')}
-</div>
-${audit.summary.coverage_percent !== undefined ? `
-<p class="coverage-line">${t('coverage_line')}: <strong>${audit.summary.coverage_percent}%</strong> · ${t('coverage_note')}</p>` : ''}
-
-<!-- Verdict -->
-<div style="text-align:center;margin:1.5rem 0">
-  <span style="font-size:1.3rem;font-weight:700;color:${scoreColor(audit.summary.overall_score)}">
-    ${scoreLabel(audit.summary.overall_score)}
-  </span>
-  <span style="color:var(--text-muted);margin-left:0.5rem">
-    ${reportCounts.total} ${t('verdict_issues_found')}
-    (${reportCounts.critical} ${t('verdict_critical')}, ${reportCounts.warnings} ${t('verdict_warnings')}, ${reportCounts.tips} ${t('verdict_tips')})
-  </span>
-</div>
-
-<!-- Tabs -->
-<div class="tabs" role="tablist" aria-label="Report sections">
-  <button type="button" role="tab" class="tab active" data-tab-btn="overview" aria-selected="true" aria-controls="tab-overview">${t('tab_overview')}</button>
-  <button type="button" role="tab" class="tab" data-tab-btn="findings" aria-selected="false" aria-controls="tab-findings">${t('tab_findings')}</button>
-  <button type="button" role="tab" class="tab" data-tab-btn="legal" aria-selected="false" aria-controls="tab-legal">${t('tab_legal')}</button>
-  <button type="button" role="tab" class="tab" data-tab-btn="methodology" aria-selected="false" aria-controls="tab-methodology">${t('tab_methodology')}</button>
-  <button type="button" role="tab" class="tab" data-tab-btn="remediation" aria-selected="false" aria-controls="tab-remediation">${t('tab_remediation')}</button>
-  ${audit.lighthouse ? `<button type="button" role="tab" class="tab" data-tab-btn="performance" aria-selected="false" aria-controls="tab-performance">${bi('效能訊號', 'Performance')}</button>` : ''}
-</div>
-
-<!-- Overview Tab -->
-<div id="tab-overview" class="tab-content active" role="tabpanel">
-  <h2>${t('h2_category_summary')}</h2>
-  <div class="category-summary-tools">
-    <p class="category-summary-note">${t('category_summary_note')}</p>
-    <button type="button" class="category-expand-all" data-expand-categories aria-pressed="false">${t('category_expand_all')}</button>
-  </div>
-  <table class="summary-table">
-    <thead>
-      <tr>
-        <th>${t('th_category')}</th>
-        <th class="num">${t('th_pass')}</th>
-        <th class="num">${t('th_fail')}</th>
-        <th class="num">${t('th_review')}</th>
-        <th>${t('th_score')}</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${buildCategoryRows(audit.summary.categories, previous?.summary?.categories, reportFindings)}
-    </tbody>
-  </table>
-</div>
-
-<!-- Findings Tab -->
-<div id="tab-findings" class="tab-content" role="tabpanel">
-  <h2>${t('h2_critical')}</h2>
-  ${buildFindingsHTML(reportFindings.filter(f => f.severity === 'critical'))}
-
-  <h2>${t('h2_warnings')}</h2>
-  ${buildFindingsHTML(reportFindings.filter(f => f.severity === 'warning'))}
-
-  <h2>${t('h2_tips')}</h2>
-  ${buildFindingsHTML(reportFindings.filter(f => f.severity === 'tip'))}
-
-  ${buildAxeEvidenceHTML(audit)}
-</div>
-
-<!-- Legal Tab -->
-<div id="tab-legal" class="tab-content" role="tabpanel">
-  ${buildLegalRiskHTML(audit.legal_risk, reportFindings)}
-</div>
-
-<!-- Methodology & Limits Tab -->
-<div id="tab-methodology" class="tab-content" role="tabpanel">
-  ${buildLimitationsHTML(audit)}
-</div>
-
-<!-- Remediation Tab -->
-<div id="tab-remediation" class="tab-content" role="tabpanel">
-  <h2>${t('h2_remediation_priority')}</h2>
-  ${['p0', 'p1', 'p2'].map(priority => {
-    const items = audit.remediation?.filter(r => String(r.priority).toLowerCase() === priority) || [];
-    if (items.length === 0) return '';
-    const labelKey = priority === 'p0' ? 'rem_p0' : priority === 'p1' ? 'rem_p1' : 'rem_p2';
-    return `
-      <div class="priority-section">
-        <h3><span class="priority-tag ${priority}">${priority.toUpperCase()}</span> ${t(labelKey)}</h3>
-        ${items.map(r => `
-          <div class="remediation-item">
-            <div>
-              <strong>${findingText(r, 'title')}</strong>${r.wcag ? ` <span class="wcag-tag">${escapeHtml(r.wcag)}</span>` : ''}
-              ${r.location ? `<div><code>${escapeHtml(r.location)}</code></div>` : ''}
-              ${r.fix ? `<div class="fix"><strong>${t('finding_fix')}:</strong> ${findingText(r, 'fix')}</div>` : ''}
-            </div>
-            ${r.effort ? `<span class="effort-tag">${escapeHtml(r.effort)}</span>` : ''}
-          </div>
-        `).join('')}
-      </div>`;
-  }).join('')}
-
-  <h2>${t('h2_testing_recommendations')}</h2>
-${audit.testing_recommendations?.length ? `<ul>${audit.testing_recommendations.map(rec => `<li>${localizedText(rec)}</li>`).join('')}</ul>` : `<p class="empty">${t('rem_empty')}</p>`}
-</div>
-
-${audit.lighthouse ? `<!-- Performance Signals Tab -->
-<div id="tab-performance" class="tab-content" role="tabpanel">
-  <h2>${bi('效能訊號 (Lighthouse)', 'Performance Signals (Lighthouse)')}</h2>
-  ${buildPerformanceHTML(audit)}
-</div>` : ''}
+${buildFindingsSectionHTML(audit, allGroups)}
+${buildExecSummaryHTML(audit, allGroups)}
+${buildMethodologySectionHTML(audit)}
+${buildLegalSectionHTML(audit)}
+${buildPerformanceSectionHTML(audit)}
 </main>
 
-<footer style="max-width:1080px;margin:0 auto;padding:1.25rem 24px 2.5rem;color:var(--text-soft);border-top:1px solid var(--border-soft);font-size:0.85rem;">
-  <p>${bi('Beacon 是免費開源工具，評分背後的驗證資料全數公開。維護者提供無障礙 AI 檢測與修復的顧問服務：', 'Beacon is free and open source, and the validation data behind its scores is public. The maintainer offers accessibility consulting for AI-assisted development: ')}<a href="https://chiehweihuang.github.io/beacon/#services" style="color:var(--accent);">chiehweihuang.github.io/beacon#services</a></p>
-</footer>
+${buildFooterHTML(audit)}
 
 <script>
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach(t => {
-    t.classList.remove('active');
-    t.setAttribute('aria-selected', t.dataset.tabBtn === name ? 'true' : 'false');
+/* Per-category finding filter. Progressive enhancement — without JS every
+   group is visible. Native <button> = keyboard-accessible. */
+(function(){
+  var btns = document.querySelectorAll('.fbtn');
+  var groups = document.querySelectorAll('.fgroup');
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var f = btn.dataset.filter;
+      btns.forEach(function(b){ b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+      groups.forEach(function(g){
+        g.classList.toggle('is-hidden', f !== 'all' && g.dataset.category !== f);
+      });
+    });
   });
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelector(\`.tab[data-tab-btn="\${name}"]\`).classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
-}
-document.querySelectorAll('[data-tab-btn]').forEach(tab => {
-  // Native <button> tabs provide keyboard activation for this click handler.
-  tab.addEventListener('click', () => switchTab(tab.dataset.tabBtn));
-});
-function setCategoryOpen(button, open) {
-  const detail = document.getElementById('detail-' + button.dataset.categoryToggle);
-  if (!detail) return;
-  detail.hidden = !open;
-  button.setAttribute('aria-expanded', open ? 'true' : 'false');
-  button.querySelector('.lang-zh').textContent = open ? ${JSON.stringify(I18N.zh.category_hide_details)} : ${JSON.stringify(I18N.zh.category_show_details)};
-  button.querySelector('.lang-en').textContent = open ? ${JSON.stringify(I18N.en.category_hide_details)} : ${JSON.stringify(I18N.en.category_show_details)};
-}
-document.querySelectorAll('[data-category-toggle]').forEach(button => {
-  button.addEventListener('click', () => setCategoryOpen(button, button.getAttribute('aria-expanded') !== 'true'));
-});
-const expandAll = document.querySelector('[data-expand-categories]');
-expandAll?.addEventListener('click', () => {
-  const buttons = [...document.querySelectorAll('[data-category-toggle]')];
-  const open = buttons.some(button => button.getAttribute('aria-expanded') !== 'true');
-  buttons.forEach(button => setCategoryOpen(button, open));
-  expandAll.setAttribute('aria-pressed', open ? 'true' : 'false');
-  expandAll.querySelector('.lang-zh').textContent = open ? ${JSON.stringify(I18N.zh.category_collapse_all)} : ${JSON.stringify(I18N.zh.category_expand_all)};
-  expandAll.querySelector('.lang-en').textContent = open ? ${JSON.stringify(I18N.en.category_collapse_all)} : ${JSON.stringify(I18N.en.category_expand_all)};
-});
+})();
 
-/* Language + theme toggles
-   Demonstrates the "correct" dark-mode pattern this report's methodology recommends:
-   - prefers-color-scheme media query for fast CSS-variable swap (no JS needed for OS sync)
-   - Button override that wins via data-theme attribute
-   - localStorage persistence so the choice survives reloads
-   - Default for language is zh; user can switch to en */
+/* Language + theme toggles:
+   - default language zh; switch to en, localStorage-persisted
+   - theme default auto (prefers-color-scheme) until a manual light/dark override
+   - native <button> = keyboard-operable, >=44px targets, visible focus (global :focus-visible). */
 (function () {
-  const STORE_LANG = 'beacon-report-lang';
-  const STORE_THEME = 'beacon-report-theme';
-  const root = document.documentElement;
-  const body = document.body;
+  var STORE_LANG = 'beacon-report-lang';
+  var STORE_THEME = 'beacon-report-theme';
+  var root = document.documentElement;
+  var body = document.body;
 
   function setLang(lang) {
     body.dataset.activeLang = lang;
-    document.querySelectorAll('[data-lang-btn]').forEach(b => {
+    document.querySelectorAll('[data-lang-btn]').forEach(function (b) {
       b.setAttribute('aria-pressed', b.dataset.langBtn === lang ? 'true' : 'false');
     });
     try { localStorage.setItem(STORE_LANG, lang); } catch (e) {}
   }
 
   function setTheme(theme) {
-    // theme: 'light' | 'dark' | 'auto'
-    if (theme === 'auto') {
-      root.removeAttribute('data-theme');
-    } else {
-      root.setAttribute('data-theme', theme);
-    }
-    document.querySelectorAll('[data-theme-btn]').forEach(b => {
+    if (theme === 'auto') { root.removeAttribute('data-theme'); }
+    else { root.setAttribute('data-theme', theme); }
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
       b.setAttribute('aria-pressed', b.dataset.themeBtn === theme ? 'true' : 'false');
     });
     try { localStorage.setItem(STORE_THEME, theme); } catch (e) {}
   }
 
-  // Restore from localStorage (defaults: zh + auto)
-  let savedLang = 'zh';
-  let savedTheme = 'auto';
+  var savedLang = 'zh';
+  var savedTheme = 'auto';
   try {
     savedLang = localStorage.getItem(STORE_LANG) || 'zh';
     savedTheme = localStorage.getItem(STORE_THEME) || 'auto';
@@ -2388,43 +2323,16 @@ expandAll?.addEventListener('click', () => {
   setLang(savedLang);
   setTheme(savedTheme);
 
-  // Wire up buttons
-  document.querySelectorAll('[data-lang-btn]').forEach(b => {
-    // Native <button> controls provide keyboard activation for this click handler.
-    b.addEventListener('click', () => setLang(b.dataset.langBtn));
+  document.querySelectorAll('[data-lang-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { setLang(b.dataset.langBtn); });
   });
-  document.querySelectorAll('[data-theme-btn]').forEach(b => {
-    // Native <button> controls provide keyboard activation for this click handler.
-    b.addEventListener('click', () => setTheme(b.dataset.themeBtn));
+  document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { setTheme(b.dataset.themeBtn); });
   });
 })();
 </script>
-
 </body>
 </html>`;
 
 writeFileSync(outputPath, html, 'utf8');
 console.log(`Report written to: ${outputPath}`);
-
-function buildScoreRing(label, score, prevScore) {
-  const circumference = 2 * Math.PI * 40;
-  const value = score === null || score === undefined ? null : score;
-  const offset = circumference * (1 - (value ?? 0) / 100);
-  const color = scoreColor(value);
-  const prevText = prevScore !== null && prevScore !== undefined
-    ? `<div class="ring-prev">${t('ring_was')} ${prevScore}</div>`
-    : '';
-  return `
-    <div class="score-ring">
-      <svg viewBox="0 0 100 100">
-        <circle class="ring-bg" cx="50" cy="50" r="40"/>
-        <circle class="ring-fg" cx="50" cy="50" r="40"
-          stroke="${color}"
-          stroke-dasharray="${circumference}"
-          stroke-dashoffset="${offset}"/>
-        <text class="ring-text" x="50" y="55" text-anchor="middle">${value ?? '—'}</text>
-      </svg>
-      <div class="ring-label">${label}</div>
-      ${prevText}
-    </div>`;
-}

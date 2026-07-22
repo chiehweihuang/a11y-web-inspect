@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-test('category summary exposes completed states and inline disclosure controls', () => {
+test('category cards expose completed states as text (never a painted score), and findings render grouped by fix action', () => {
   const dir = mkdtempSync(join(tmpdir(), 'beacon-report-disclosure-'));
   try {
     const audit = join(dir, 'audit.json');
@@ -16,36 +16,45 @@ test('category summary exposes completed states and inline disclosure controls',
     writeFileSync(audit, JSON.stringify({
       metadata: { date: '2026-01-01', scope: 'test', url: 'https://example.com/test?page=1&mode=audit', standard: 'WCAG 2.2 AA' },
       summary: {
-        overall_score: 100, coverage_percent: 10, total_findings: 0,
-        critical: 0, warnings: 0, tips: 0,
+        overall_score: 100, coverage_percent: 10, total_findings: 1,
+        critical: 1, warnings: 0, tips: 0,
         categories: [
           { id: 'contrast', name: 'Color & Contrast', pass: 0, fail: 0, review: 1, state: 'not-machine-checkable', score: null },
-          { id: 'screenreader', name: 'Screen Reader', pass: 1, fail: 0, review: 0, state: 'scored', score: 100 },
+          { id: 'screenreader', name: 'Screen Reader', pass: 1, fail: 1, review: 0, state: 'scored', score: 100 },
           { id: 'responsive', name: 'Responsive & Reflow', pass: 1, fail: 0, review: 0, state: 'insufficient-evidence', score: null },
         ],
       },
-      findings: [],
-      remediation: [{ priority: 'P0', key: 'html-lang-missing', title: 'Page language is missing', location: 'index.html:1', wcag: 'WCAG 2.2: 3.1.1', fix: 'Add lang.' }],
+      findings: [
+        { key: 'html-lang-missing', category: 'screenreader', severity: 'critical', wcag: 'WCAG 2.2: 3.1.1', title: 'Page language is missing', location: 'index.html:1', fix: 'Add lang.', check: 'fail' },
+      ],
+      legal_risk: {},
       testing_recommendations: [{ zh: '中文測試建議', en: 'English testing recommendation' }],
     }));
     execFileSync('node', [join(ROOT, 'core/scripts/generate-report.mjs'), audit, '--output', report]);
     const html = readFileSync(report, 'utf8');
-    assert.match(html, /data-expand-categories/);
-    assert.match(html, /data-category-toggle="contrast"[^>]*aria-expanded="false"/);
-    assert.match(html, /id="detail-contrast" hidden/);
-    assert.match(html, /已完成靜態掃描 · 需人工驗證/);
-    // insufficient-evidence (engine @9): a text badge, never a ring/number, and the
-    // category still gets its own detail explanation.
-    assert.match(html, /已完成靜態掃描 · 證據不足以計分/);
-    assert.doesNotMatch(html, /<div class="ring-label">[^<]*Responsive/, 'an unscored category must not render a score ring');
+
+    // Unscored categories carry a text badge, never a score/ring — engine @9's
+    // not-machine-checkable and insufficient-evidence states both render as text.
+    assert.match(html, /data-category="contrast"[\s\S]*?已完成靜態掃描 · 需人工驗證/);
+    assert.match(html, /data-category="responsive"[\s\S]*?已完成靜態掃描 · 證據不足以計分/);
+    assert.doesNotMatch(
+      html,
+      /data-category="responsive"[\s\S]{0,400}score-badge/,
+      'an insufficient-evidence category must not render a score badge'
+    );
+
+    // Masthead: page URL escaped, bilingual label present.
     assert.match(html, /受測網頁/);
     assert.match(html, /href="https:\/\/example\.com\/test\?page=1&amp;mode=audit" target="_blank" rel="noopener noreferrer"/);
-    assert.match(html, /P0/);
+
+    // Findings render grouped by fix action (the remediation tab this superseded
+    // read the same content from a separate `remediation` array).
     assert.match(html, /index\.html:1/);
     assert.match(html, /加入正確的語言 attribute/);
+
+    // Testing recommendations stay bilingual.
     assert.match(html, /中文測試建議/);
     assert.match(html, /English testing recommendation/);
-    assert.doesNotMatch(html, /category-row[^>]*role="button"/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
