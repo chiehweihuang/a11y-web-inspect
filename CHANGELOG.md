@@ -37,6 +37,24 @@ plan; report IA redesign (Workstream B) tracks separately in the same release.
   including all 7 sites in the `gt-remap-6` ground-truth cohort. Ground-truth P/R
   (1.000 / 0.727, `pr-analysis-v8.json`) stands unchanged — no FP introduced, no TP lost.
 
+### Workstream B — report information architecture redesign
+
+- Replaced the tabbed table/expand-detail report layout with a single scrolling read:
+  a decision hero (overall score, coverage/confidence derivation, life-safety-or-safe
+  flag, and a "fix these next" panel ranking the top 3 remediation actions by
+  severity × instance count), evidence-density category cards (a log-scaled meter
+  showing how many checks stand behind each score or unscored state), findings grouped
+  by fix action rather than repeated per instance (with per-category filter chips), and
+  an always-visible, print-ready client executive summary. Methodology, jurisdiction
+  mapping, and optional Lighthouse performance signals remain as a deep-dive tail
+  (sections 05-07) behind the same jump nav.
+- Everything renders from the audit artifact at generation time — no mockup-era numbers
+  hardcoded into the generator.
+- Carries forward the existing zh/en language toggle and light/dark/auto theme toolbar
+  (localStorage-persisted), plus the Layout Integrity Gate and sans-serif font-floor
+  rules (explicit CJK-safe stacks on every `font-family`, including `pre`/`code`, so
+  CJK text never falls back to a legacy Ming/Mincho face).
+
 ## [3.1.0] — 2026-07-22
 
 Engine @8 + the production improvement loop + public services entry points.
