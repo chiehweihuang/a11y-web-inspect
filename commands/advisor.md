@@ -102,6 +102,8 @@ These patterns are worth reviewing promptly. Confirm the actual context before a
 | `grid-template-columns: minmax(Npx, 1fr)` without `min()` | Overflows at narrow viewports. Use `minmax(min(Npx, 100%), 1fr)` for WCAG 1.4.10 reflow. |
 | `position: fixed` buttons at same corner | Overlap at zoom. Stack vertically with ≥24px gap (WCAG 2.5.8). |
 | `transition: all` with CSS custom properties | Causes visual lag during theme switches. Use specific properties. |
+| Grid/flex text column without a min-width floor (bare `1fr`/`auto` track holding running text) | Collapses text to 2-5 chars/line at some viewport widths (incl. WIDE ones). Floor every text column: `minmax(20rem, 1fr)`-style; wrap instead of squeeze. Sweep 320-1920 + a non-breakpoint width before shipping. |
+| `min-height: 100vh` (or any vh/dvh height) on content sections | Viewport-scale dead whitespace when content doesn't fill. Height must come from content. |
 
 ## When to Read References
 

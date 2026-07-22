@@ -480,6 +480,29 @@ For stacked buttons (e.g., fixed-position actions), maintain >= 24px gap between
 
 Key rule: use `minmax(min(Npx, 100%), 1fr)` instead of `minmax(Npx, 1fr)` — the latter overflows when the viewport is narrower than Npx, violating WCAG 1.4.10 (Reflow).
 
+### Layout Integrity Gate (blocking)
+
+Wide viewports break layouts as readily as narrow ones. Incident 2026-07-22: a page
+verified at 320/768/1280 collapsed at 1742px — a grid text column with no width floor
+rendered CJK at 2-5 characters per line beside a viewport-scale dead-white region.
+These rules are blocking at design time:
+
+1. **Text-measure floor** — every grid/flex column containing running text declares an
+   explicit minimum width (`minmax(<floor>, …)` or `min-width`), sized so body text
+   never drops below ~15 CJK full-width characters (≈20rem) or ~40 Latin characters
+   per line. When space runs short, the layout wraps or stacks — it never squeezes.
+   Bare `1fr` or `auto` tracks holding running text are forbidden.
+2. **Content-driven height** — no viewport-height units (`100vh`/`dvh`/`svh`,
+   `min-height: 100vh`) on content sections. Section height comes from content;
+   viewport-scale empty regions at any width are a failure.
+3. **Full-width sweep, not breakpoints** — before delivery, render and screenshot at
+   320 / 768 / 1024 / 1280 / 1440 / 1920 AND at least one non-breakpoint width
+   (e.g. 1742). Verifying only the widths the CSS was designed around is not
+   verification; that is exactly how the incident escaped.
+
+Any width showing horizontal overflow, an under-floor text column, or viewport-scale
+dead whitespace blocks delivery. Fix before shipping — no exceptions.
+
 ## Responsive Design (RWD) Best Practices
 
 RWD and accessibility are deeply intertwined. A "responsive" site that becomes unusable on mobile for elderly users or breaks at 200% zoom is not truly responsive. Design for adaptation across devices, viewports, zoom levels, and user preferences.
@@ -689,6 +712,9 @@ When designing responsive layouts:
 - [ ] Safe area insets respected on notched devices
 - [ ] Orientation works in both portrait and landscape
 - [ ] Performance budget < 500KB initial load
+- [ ] Text columns keep readable measure at ALL widths 320-1920 (minmax floors; wrap, never squeeze)
+- [ ] No viewport-height content sections; no viewport-scale dead whitespace at wide widths
+- [ ] Swept at 320/768/1024/1280/1440/1920 + one non-breakpoint width — not only designed breakpoints
 
 ## Data Boundary
 
