@@ -34,7 +34,7 @@ and `test/golden/dirty.html` (must land in the fail band with criticals). Expect
 JSONs are committed. After an INTENTIONAL scoring change:
 
 ```
-node test/golden/regen.mjs
+node tools/regen-golden.mjs
 git diff test/golden/     # every changed line must be explained by your change
 ```
 
@@ -156,7 +156,7 @@ node tools/measure-semantic.mjs --min-precision 1.0 --min-recall 0.4
 # benchmark re-run (needs local snapshots; see benchmark/2026-07-05/README.md):
 #   node capture-audit.mjs --audit-only && node analyze.mjs
 # GT re-verify on detector changes: FP-elimination kept, TPs retained
-# if scoring changed intentionally: node test/golden/regen.mjs + explain the diff
+# if scoring changed intentionally: node tools/regen-golden.mjs + explain the diff
 ```
 
 Record in CHANGELOG: engine version, Spearman, and (when GT re-ran) P/R.

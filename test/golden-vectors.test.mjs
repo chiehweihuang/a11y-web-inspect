@@ -1,7 +1,7 @@
 // Beacon validation charter L0 — golden test vectors (see VALIDATION.md).
 // Same committed input MUST produce the same committed output on every OS and Node
 // version: any diff is either cross-machine nondeterminism (a bug) or an intentional
-// scoring change (regenerate with `node test/golden/regen.mjs` and explain the diff).
+// scoring change (regenerate with `node tools/regen-golden.mjs` and explain the diff).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
