@@ -104,7 +104,7 @@ These patterns are worth reviewing promptly. Confirm the actual context before a
 | `transition: all` with CSS custom properties | Causes visual lag during theme switches. Use specific properties. |
 | Grid/flex text column without a min-width floor (bare `1fr`/`auto` track holding running text) | Collapses text to 2-5 chars/line at some viewport widths (incl. WIDE ones). Floor every text column: `minmax(20rem, 1fr)`-style; wrap instead of squeeze. Sweep 320-1920 + a non-breakpoint width before shipping. |
 | `min-height: 100vh` (or any vh/dvh height) on content sections | Viewport-scale dead whitespace when content doesn't fill. Height must come from content. |
-| Bare `monospace`/`serif`, or a font stack not covering zh + ja glyph ranges | On Windows, uncovered CJK glyphs (esp. Japanese) fall back to PMingLiU/Mincho — low-legibility serif. Every stack: Latin sans → explicit zh-TW sans → explicit ja sans → `sans-serif`; in code stacks put an explicit CJK sans before the final `monospace`. |
+| Bare `monospace`/`serif`, or a font stack not covering zh + ja glyph ranges | On Windows, uncovered CJK glyphs (esp. Japanese) fall back to PMingLiU — banned, low-legibility. Every stack: Latin sans → explicit zh-TW sans → explicit ja sans → `sans-serif`; in code stacks put an explicit CJK sans before the final `monospace`. Deliberate, user-reviewed serif faces (Noto Serif TC etc.) are fine; accidental fallback is not. |
 
 ## When to Read References
 

@@ -508,11 +508,13 @@ dead whitespace blocks delivery. Fix before shipping — no exceptions.
    "Noto Sans TC", "Microsoft JhengHei"), then explicit Japanese sans (e.g.
    "Yu Gothic UI", Meiryo), terminating in `sans-serif`. Code blocks: mono fonts
    (Consolas etc.) followed by an explicit CJK sans BEFORE the final `monospace`
-   keyword, so CJK inside code never falls back to a Ming/Mincho face. Bare
-   `monospace`, bare `serif`, and any reachable Ming/Mincho family (PMingLiU,
-   MingLiU, MS Mincho, Yu Mincho) are forbidden. Before delivery: grep the artifact
-   for Ming/Mincho names (expect zero) and render-check one Japanese string and one
-   CJK-in-code sample.
+   keyword, so CJK inside code never falls back to an unintended Ming/Mincho face.
+   Bare `monospace` and bare `serif` are forbidden. PMingLiU/MingLiU must never be
+   reachable by any glyph — grep for them, expect zero. Other serif/Ming faces
+   (Noto Serif TC, Yu Mincho, …) are allowed only as a deliberate, explicitly
+   declared design choice reviewed with the user — never as an accidental fallback;
+   the default is sans-serif. Before delivery, render-check one Japanese string and
+   one CJK-in-code sample.
 
 ## Responsive Design (RWD) Best Practices
 
