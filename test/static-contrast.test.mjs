@@ -246,7 +246,7 @@ test('contrast category stays not-machine-checkable / unscored regardless of sta
   assert.equal(contrastCat.fail, 0); // check:'review' never bumps fail
 });
 
-test('engine_fingerprint reports @10 (Workstream B bumped the detector version)', () => {
+test('engine_fingerprint reports a beacon-static-audit@N+ruleset hash (version-agnostic)', () => {
   const audit = runScanner(page('<p>plain</p>'));
-  assert.match(audit.metadata.engine_fingerprint, /^beacon-static-audit@10\+/);
+  assert.match(audit.metadata.engine_fingerprint, /^beacon-static-audit@\d+\+ruleset\./);
 });

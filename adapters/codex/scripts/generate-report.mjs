@@ -416,6 +416,10 @@ const FINDING_I18N = {
     zh: { title: '靜態可解析對比配對彙總', description: '本次掃描中，所有能從靜態原始碼確定解析出的字色／底色配對總數，及其中低於 4.5:1 的數量。', fix: '檢視個別的低於門檻發現項，並用瀏覽器或 tier-2 工具做完整的對比稽核。', standard: 'WCAG 1.4.3 的對比要求需要瀏覽器算出的最終樣式才能完整驗證；本項目是靜態掃描能確定解析的配對彙總（inline／同檔案 style 區塊，不含外部 CSS 或 cascade 推測），作為佐證證據，從不計入分數。' },
     en: { title: 'Static-contrast-resolvable pairs, summarized', description: 'The total count of foreground/background pairs this scan could resolve with certainty from static source, and how many of those are below 4.5:1.', fix: 'Review the individual sub-threshold findings, and run a real-browser or tier-2 contrast audit for full coverage.', standard: 'WCAG 1.4.3 contrast ultimately needs browser-computed styles to verify fully; this is a summary of pairs the static scan could resolve with certainty (inline / same-file style blocks only, no external CSS or cascade guessing) — evidence only, never scored.' },
   },
+  'contrast-not-verified': {
+    zh: { title: '對比未經驗證，請執行 Tier 2', description: '本次只掃描了靜態 markup／CSS，沒有合併任何瀏覽器算出的對比證據（Beacon 原生 tier2-audit.mjs 或 axe-core），所以真實的計算後樣式對比從未被渲染引擎驗證過。', fix: '執行 node scripts/tier2-audit.mjs（預設）或 axe-core，再用 --merge-findings 併入結果以取得驗證過的對比覆蓋率。', standard: 'WCAG 1.4.3 的對比比例需要瀏覽器計算後的樣式才能完整驗證；純靜態掃描無法看到真實渲染後的顏色，因此明確標記為未驗證，而非默默略過或誤報通過。' },
+    en: { title: 'Contrast not verified, run Tier 2', description: 'This run only scanned static markup/CSS; no browser-rendered contrast evidence (Beacon-native tier2-audit.mjs or axe-core) was merged in, so real computed-style contrast was never exercised by a rendering engine.', fix: 'Run node scripts/tier2-audit.mjs (default) or an axe-core pass, then fold its findings in with --merge-findings for verified contrast coverage.', standard: 'WCAG 1.4.3 contrast ratios require browser-computed styles to verify fully; a static-only scan cannot see real rendered color, so this is flagged explicitly as unverified rather than silently skipped or reported as a false pass.' },
+  },
 };
 
 const DEFAULT_JURISDICTIONS = [

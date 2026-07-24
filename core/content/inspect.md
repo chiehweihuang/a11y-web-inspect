@@ -60,13 +60,9 @@ Run automated tools first. Treat this as the baseline tier — if any of the too
 Run automated tools first. Treat this as the baseline tier — if any tool is unavailable, log the gap and continue, but do not skip the entire step on the assumption that "manual will catch it".
 <!--/@codex-->
 
-**Why default-on:** Beacon's Tier 1 static analysis cannot detect computed-style issues such as real color contrast. Running axe-core in a browser covers that gap without re-implementing browser layout and contrast behavior.
+**Why default-on:** Beacon's Tier 1 static analysis cannot detect computed-style issues such as real color contrast or touch-target size. `scripts/tier2-audit.mjs` (Beacon-native, plain Playwright, axe-free) covers that gap by default whenever a Playwright install resolves. axe-core is an OPTIONAL cross-check for what tier-2 doesn't cover yet — notably ARIA-validity rules — not a required baseline.
 
 ```bash
-<!--@cc-->
-# axe-core via Playwright — REQUIRED baseline if Playwright MCP is available
-<!--/@cc-->
-<!--@codex-->
 <!--@duplicate-ok-->
 # Beacon-native deterministic Tier 1 baseline — zero external deps, no browser.
 # Produces audit-results.json compatible with generate-report.mjs. Run this
@@ -75,45 +71,38 @@ Run automated tools first. Treat this as the baseline tier — if any tool is un
 <!--@duplicate-ok-->
 node scripts/static-audit.mjs --scope "<scope>" --output audit-results.json <file-or-dir>...
 
-# axe-core via Playwright — REQUIRED baseline if a browser is available
-<!--/@codex-->
-# (covers color-contrast, computed-style rules, ARIA conformance)
-npx playwright test --grep accessibility
+<!--@duplicate-ok-->
+# Beacon-native Tier 2 browser layer — DEFAULT, no Playwright MCP needed.
+# Plain Playwright, axe-free; measures contrast (1.4.3) + touch-target size
+# (2.5.8) at 320px/1280px. Detects a usable Playwright itself (env override,
+# then the caller's own project, then known global installs) and fails
+# LOUDLY with an actionable error if none resolves — never a silent fallback.
+# Output is a SEPARATE, findings-only artifact (see Tier 2 section below).
+<!--@duplicate-ok-->
+node scripts/tier2-audit.mjs --url <url-or-file> --output tier2-results.json
 
-# Lighthouse CLI — recommended for additional category scoring
+# --- Optional cross-checks (not required baseline) ---
+
+# axe-core — optional; adds ARIA-validity rules tier-2 doesn't cover yet.
+# The actual injection recipe is in the "Tier 2 — Playwright MCP Integration"
+# section below (step 3, requires Playwright MCP tools, not this CLI). Merge
+# its findings into audit-results.json the same way as any manual finding
+# (Step 6, --merge-findings).
+
+# Lighthouse CLI — optional, additional category scoring
 npx lighthouse <url> --only-categories=accessibility --output=json
 
-# eslint a11y plugin (React/JSX) — recommended for source-tree audits
+# eslint a11y plugin (React/JSX) — optional, for source-tree audits
 npx eslint --rule 'jsx-a11y/*' src/
-<!--@cc-->
-
-<!--@duplicate-ok-->
-# Beacon-native deterministic Tier 1 baseline — zero external deps, no browser.
-# Produces audit-results.json directly compatible with generate-report.mjs.
-# Run this even when the external tools above are unavailable: it is the
-# reproducible starting point you then enrich with judgment.
-<!--@duplicate-ok-->
-node scripts/static-audit.mjs --scope "<scope>" --output audit-results.json <file-or-dir>...
-<!--/@cc-->
 ```
 
-<!--@cc-->
-`scripts/static-audit.mjs` is Beacon's own scanner: it walks the given files, applies pattern checks for the same 10 categories the report scores, and writes the `audit-results.json` source-of-truth. The external tools (axe/Lighthouse/eslint) cross-check it; axe in particular covers the computed-style class (contrast) the static scanner structurally cannot. Use both when available.
+`scripts/static-audit.mjs` is Beacon's own Tier 1 scanner: it walks the given files, applies pattern checks for the same 10 categories the report scores, and writes the `audit-results.json` source-of-truth. `scripts/tier2-audit.mjs` is Beacon's own Tier 2 scanner and the default browser layer — see the dedicated Tier 2 section below for its output shape and provenance. axe, Lighthouse, and eslint are optional cross-checks on top of both; use what's available.
 
-**Fallback chain:** if Playwright MCP is unavailable, fall back to the Beacon-native static scanner + Tier 1 manual analysis AND record `"requires_live_audit": true` in `audit-results.json` metadata so the maintainer knows the contrast/computed-style class of findings was not exercised.
-<!--/@cc-->
-<!--@codex-->
-`scripts/static-audit.mjs` is Beacon's own scanner: walks the given files, applies pattern checks for the same 10 categories the report scores, and writes the `audit-results.json` source-of-truth. The external tools cross-check it; axe in particular covers the computed-style class (contrast) the static scanner structurally cannot.
-<!--/@codex-->
+**Fallback chain:** if no Playwright install resolves for `tier2-audit.mjs` (its own error message names the fix), fall back to the Tier 1 static scanner + manual analysis AND record `"requires_live_audit": true` in `audit-results.json` metadata so the maintainer knows the contrast/touch class of findings was not exercised by a rendering engine this run.
 
-**Contrast verification gate (do not skip):** Color contrast is the single largest real-world gap a static scan cannot see (18 of 50 sites in the 2026-05-31 survey). Before writing `audit-results.json`, answer explicitly: was contrast actually exercised by a rendering engine (axe-core via a browser) this run? If not, whether because no browser was available or because the run skipped it, you MUST (a) set `"requires_live_audit": true` in metadata, and (b) emit the `contrast` category as an explicit unverified finding (severity tip, title "Contrast not verified, run Tier 2"), not a silent `review` count. Never report a passing contrast score from a static-only run.
+**Contrast verification gate (do not skip):** Color contrast is the single largest real-world gap a static scan cannot see (18 of 50 sites in the 2026-05-31 survey). Before writing `audit-results.json`, answer explicitly: was contrast actually exercised by a rendering engine this run — Beacon-native `tier2-audit.mjs` OR axe-core? If NEITHER ran, whether because no browser was available or because the run skipped it, you MUST (a) set `"requires_live_audit": true` in metadata, and (b) emit the `contrast` category as an explicit unverified finding (severity tip, title "Contrast not verified, run Tier 2"), not a silent `review` count. Never report a passing contrast score from a static-only run.
 
-<!--@cc-->
-Automated coverage varies by page and criterion. Run the available tools, report `coverage_percent`, and reserve cognitive load, screen-reader task completion, and dynamic interaction quality for human or live review.
-<!--/@cc-->
-<!--@codex-->
-Automated coverage varies by page and criterion. Run the available tools, report `coverage_percent`, and reserve cognitive load, screen-reader task completion, and dynamic interaction quality for human or live review. If no browser is available, run the static scanner + manual analysis AND record `"requires_live_audit": true` in metadata.
-<!--/@codex-->
+Automated coverage varies by page and criterion. Run the available tools, report `coverage_percent`, and reserve cognitive load, screen-reader task completion, and dynamic interaction quality for human or live review. If no browser is available at all, run the static scanner + manual analysis AND record `"requires_live_audit": true` in metadata.
 
 ### Step 2a: Three-Tier Audit Architecture
 
@@ -130,9 +119,11 @@ Tier 1: Static HTML Analysis (always available)
   Coverage: ~50% of WCAG criteria
   Confidence: MEDIUM (HIGH for server-rendered sites)
 
-Tier 2: Live Browser Audit (if Playwright MCP available)
-  Tools: Playwright browser_navigate, browser_snapshot,
-         browser_evaluate (axe-core injection), browser_take_screenshot
+Tier 2: Live Browser Audit (scripts/tier2-audit.mjs by default; Playwright MCP optional)
+  Tools: scripts/tier2-audit.mjs (native, default — contrast + touch, no MCP needed)
+         + optionally, if Playwright MCP tools are available: browser_navigate,
+         browser_snapshot, browser_evaluate (optional axe-core injection),
+         browser_take_screenshot
   Additional: Firecrawl for JS-rendered content extraction
   Coverage: ~75% of WCAG criteria
   Confidence: HIGH
@@ -144,9 +135,21 @@ Tier 3: Manual Testing (human, recommended in report)
   Confidence: VERIFIED
 ```
 
-**Tier 2 — Playwright MCP Integration:**
+**Tier 2 — Beacon-native browser harness (default):**
 
-If Playwright MCP tools are available (`mcp__plugin_playwright_playwright__*`), run these additional checks:
+`scripts/tier2-audit.mjs` is Beacon's own Tier 2 browser layer: plain Playwright, no axe-core, measuring contrast (WCAG 1.4.3) and touch-target size (WCAG 2.5.8) at 320px and 1280px viewports. This is the default way to get real, browser-rendered contrast/touch evidence — no Playwright MCP tools needed.
+
+```bash
+node scripts/tier2-audit.mjs --url <url-or-file> --output tier2-results.json
+```
+
+Playwright availability is detected in order: an explicit `PLAYWRIGHT_MODULE_PATH` env override (authoritative — a bad value fails immediately, no silent fallthrough), then `require.resolve('playwright')` from the caller's own project, then known global npm installs. If none resolves, the script fails LOUDLY with an actionable error (`npm i -g playwright` then `npx playwright install chromium`, or set the env var) — it never degrades silently.
+
+`tier2-results.json` is a SEPARATE artifact from `audit-results.json`: findings and evidence only, each finding carrying its own engine provenance (`source: beacon-tier2-audit@1`). Read and summarize it for the human (Step 3). Whether these categories automatically enter `audit-results.json`'s score and coverage is an intentionally undecided product question — this skill does not do that today. If a specific tier-2 finding should count toward the score anyway, feed it through the SAME `--merge-findings` mechanism already used for axe/manual findings (Step 6) — that is the existing, generic, manual mechanism, not new scoring machinery.
+
+**Tier 2 — Playwright MCP Integration (optional, richer interactive checks):**
+
+If Playwright MCP tools are available (`mcp__plugin_playwright_playwright__*`), the following ADDITIONAL checks cover what `tier2-audit.mjs` does not: axe-core's ARIA-validity rules (step 3, now optional — not a required baseline), multi-state capture, keyboard focus-flow, and viewport-reflow screenshots.
 
 ```
 1. Navigate to URL:
@@ -155,7 +158,9 @@ If Playwright MCP tools are available (`mcp__plugin_playwright_playwright__*`), 
 2. Get accessibility tree:
    browser_snapshot -> full a11y tree with roles, names, states
 
-3. Inject and run axe-core:
+3. OPTIONAL — inject and run axe-core (cross-check for ARIA-validity rules
+   tier-2 doesn't cover; not a required baseline — skip if you already ran
+   `scripts/tier2-audit.mjs` and don't need this extra coverage):
    browser_evaluate -> `
      const script = document.createElement('script');
      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.0/axe.min.js';
@@ -180,7 +185,9 @@ If Playwright MCP tools are available (`mcp__plugin_playwright_playwright__*`), 
    then see post-JS content. On a JS-rendered page the raw HTML is near-empty, so a
    static-only run returns INSUFFICIENT (language) or never sees client-injected
    widgets (CAPTCHA); running it against the rendered snapshot turns those into real
-   verdicts. Axe (step 3) covers computed-style/contrast; this step covers structure.
+   verdicts. `scripts/tier2-audit.mjs` (default) or the optional axe injection
+   (step 3) cover computed-style/contrast; this step covers structure regardless
+   of which contrast check you're using, or neither.
 
 4. Keyboard focus-flow capture (2.1.2 / 2.4.3 / 2.4.7 / 2.4.11 / 2.1.1) — runtime
    behaviors a static scan and axe cannot see. STATUS: MANUAL AID ONLY — NOT SCORED.
@@ -203,14 +210,18 @@ If Playwright MCP tools are available (`mcp__plugin_playwright_playwright__*`), 
       Record reachedEnd: did focus reach the end sentinel / wrap to <body> within the cap?
    c. Save the trace as JSON and run:  node scripts/focus-flow.mjs <trace>.json
       It flags keyboard traps, invisible focus, obscured focus, suspect order, and
-      unreachable interactive elements. Merge its findings into audit-results.json.
+      unreachable interactive elements — printed to console only (it does not write a
+      JSON file, so there is nothing to pass to --merge-findings). Same as above:
+      GUIDE your manual keyboard pass with this output; do NOT merge it into the
+      scored audit-results.json.
 
-5. Multi-state pass — Lighthouse/axe audit ONE state; real pages have many. For each
-   significant state (open each dialog/menu, submit a form with INVALID input to surface
-   errors, expand disclosures, load async content), re-capture the rendered DOM (step 3b)
-   and re-run axe (step 3) + the focus-flow capture (step 4) on THAT state. Form error
-   states especially: confirm the error is announced (aria-live / role="alert") and the
-   field is marked aria-invalid — only observable after submission.
+5. Multi-state pass — Lighthouse/tier-2/axe all audit ONE state; real pages have many.
+   For each significant state (open each dialog/menu, submit a form with INVALID input
+   to surface errors, expand disclosures, load async content), re-capture the rendered
+   DOM (step 3b) and re-run whichever contrast check you're using (`tier2-audit.mjs`
+   and/or the optional axe step) + the focus-flow capture (step 4) on THAT state. Form
+   error states especially: confirm the error is announced (aria-live / role="alert")
+   and the field is marked aria-invalid — only observable after submission.
 
 6. Viewport reflow test:
    browser_resize -> width=320, height=800
@@ -241,17 +252,15 @@ If Firecrawl is available (`mcp__plugin_firecrawl_*`), use it instead of curl fo
 3. Heading outline extraction:
    Extract all h1-h6 into a tree -> does it form a logical TOC?
 
-4. AI-crawlability score:
-   - Content in HTML (not JS-only): +30
-   - Schema.org present: +20
-   - Meta description present: +15
-   - Heading outline coherent: +15
-   - Canonical URL set: +10
-   - Sitemap referenced: +10
-   Total: 0-100 AEO sub-score
+4. AI-crawlability signal — do NOT hand-calculate a separate 0-100 number.
+   `static-audit.mjs` already scores this as the `agent` category (schema.org,
+   canonical, JSON-LD, robots.txt/sitemap when scanning a directory, and more)
+   through the SAME script-owned pipeline as every other category (Step 4).
+   Read its score from `summary.categories` (id `agent`) in `audit-results.json`
+   — same three-state model, same "the script owns scoring" rule.
 ```
 
-Include the AEO sub-score in the report as a separate metric (not part of the main a11y score, but adjacent).
+Report the `agent` category's score from the script's own output alongside the other categories; it is not a hand-computed sub-score.
 
 ### Step 2a-2: Fetch Strategy Fallback Chain
 
@@ -308,11 +317,11 @@ If the page appears to be educational (accessibility tutorial, demo site, traini
 
 ### Step 2d: Performance & Best-Practices Signal (Lighthouse, supplementary)
 
-Beacon scores accessibility with axe-core. Lighthouse is used here ONLY for the categories axe does not cover — performance, best-practices, seo — as a **supplementary signal that is never folded into the accessibility score**. Skip this step entirely if Lighthouse or Chrome is unavailable; the a11y audit stands on its own.
+Beacon scores accessibility with its own engine — `static-audit.mjs` (Tier 1, axe-free) plus `tier2-audit.mjs` (Tier 2, the default browser layer) and, optionally, axe-core as a cross-check. Lighthouse is used here ONLY for the categories that engine doesn't cover — performance, best-practices, seo — as a **supplementary signal that is never folded into the accessibility score**. Skip this step entirely if Lighthouse or Chrome is unavailable; the a11y audit stands on its own.
 
-**Run Lighthouse in parallel with the Tier 2 axe-core audit, NOT inside the same page load.** The two have opposite needs: axe-core wants the fully rendered, warm DOM; Lighthouse performance wants a cold, throttled, from-scratch load. Sharing one page load would pollute the performance numbers. Start the two runs together — the browser axe-core drives and the Chrome that Lighthouse launches are independent — so total wall-clock collapses to the slower of the two rather than their sum.
+**Run Lighthouse in parallel with the Tier 2 browser audit, NOT inside the same page load.** The two have opposite needs: a Tier 2 pass (native or axe) wants the fully rendered, warm DOM; Lighthouse performance wants a cold, throttled, from-scratch load. Sharing one page load would pollute the performance numbers. Start the two runs together — Tier 2's browser and the Chrome that Lighthouse launches are independent — so total wall-clock collapses to the slower of the two rather than their sum.
 
-Exclude `accessibility` from the Lighthouse categories (axe-core is the stronger a11y engine and this avoids double-counting). The three remaining categories share one trace, so adding best-practices and seo on top of performance is nearly free:
+Exclude `accessibility` from the Lighthouse categories (Beacon's own engine is the authoritative a11y signal here, whether or not axe ran, and this avoids double-counting). The three remaining categories share one trace, so adding best-practices and seo on top of performance is nearly free:
 
 ```bash
 # 1. Lighthouse for the three non-a11y categories
@@ -459,8 +468,10 @@ This category covers both assistive technology agents (screen readers) and AI ag
 > formula, the severity matrix, and the category weights below are all **implemented in the
 > script** and documented here only so you can read the report, not re-derive it. Do **NOT**
 > hand-compute scores, hand-apply the severity matrix, or edit any number in
-> `audit-results.json`. Your job is to produce *findings* (Step 3 manual review, Tier-2 axe
-> contrast/focus); the script turns findings into the scored artifact (Step 6). Hand-scoring is
+> `audit-results.json`. Your job is to produce *findings* (Step 3 manual review,
+> focus-flow-guided manual findings, and optionally axe if you want its findings scored);
+> the script turns findings into the
+> scored artifact (Step 6). Hand-scoring is
 > exactly the stochastic step P1 removed — it is what made identical pages score differently.
 
 **Every check item MUST be classified as exactly one of (the script applies this):**
@@ -568,8 +579,8 @@ Reference: `../references/legal-brief.md`
 
 `audit-results.json` is the **source of truth**, and `static-audit.mjs` is its **sole author**.
 You do **not** write or edit it by hand. Instead, hand the script the findings that the
-automated scan could not produce on its own — your Step 3 manual review and the Tier-2 axe
-contrast/focus findings — as a small JSON file, and let the script compute the verdict, the
+automated scan could not produce on its own — your Step 3 manual review, focus-flow-guided
+manual findings, and (if you want them scored) axe findings — as a small JSON file, and let the script compute the verdict, the
 severities (via the matrix), and the scores:
 
 ```bash
@@ -684,7 +695,7 @@ The script emits this shape (reference — do not author it by hand):
     }
   ],
   "testing_recommendations": [
-    "Run axe-core in CI pipeline",
+    "Run scripts/tier2-audit.mjs (or axe-core) in CI pipeline",
     "Keyboard-only navigation test monthly",
     "Screen reader test per release"
   ]
@@ -816,17 +827,29 @@ Always prefer native elements over ARIA overrides. A `<button>` is better than `
 
 Offer to generate pipeline config for automated a11y regression checks:
 
-**GitHub Actions:**
+**GitHub Actions (Beacon-native, mirrors this repo's own `tier2-browser` CI job):**
+```yaml
+- name: Install Playwright (ad hoc, not a project dependency)
+  run: |
+    mkdir -p /tmp/pw-install && cd /tmp/pw-install
+    npm init -y && npm install playwright && npx playwright install --with-deps chromium
+- name: Accessibility check (Beacon native)
+  run: node scripts/tier2-audit.mjs --url ${{ env.URL }} --output tier2-results.json
+  env:
+    PLAYWRIGHT_MODULE_PATH: /tmp/pw-install/node_modules/playwright/index.mjs
+```
+
+**GitHub Actions (axe-core-cli, optional alternative — simpler drop-in, no Beacon scripts needed):**
 ```yaml
 - name: Accessibility check
   run: npx axe-core-cli --exit --tags wcag2a,wcag2aa ${{ env.URL }}
 ```
 
-**GitLab CI:**
+**GitLab CI (either option, same pattern):**
 ```yaml
 a11y:
   script:
-    - npx axe-core-cli --exit --tags wcag2a,wcag2aa $URL
+    - npx axe-core-cli --exit --tags wcag2a,wcag2aa $URL   # or the Beacon-native install+run above
   allow_failure: false
 ```
 

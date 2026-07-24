@@ -227,6 +227,30 @@ regardless). Small single-benchmark sample both rounds, not a bounded FP-rate cl
 round 2's own lesson (a substring-grep "verification" missed a real bug) is recorded so a
 future calibration pass reads the full selector prelude, not a token match.
 
+### Engine `beacon-static-audit@11` — the contrast verification gate is now code-backed
+
+Workstream C's own audit (hakuso prose-check + a codex heterogeneous review against the
+CODE) found `inspect.md`'s "Contrast verification gate" was doc-promised but not
+code-backed: `requires_live_audit` was hardcoded `true` unconditionally, and the mandated
+"Contrast not verified, run Tier 2" tip finding was never emitted (`static-audit.mjs` only
+ever bumped a silent `stats.contrast.review` count). Fixed: after any `--merge-findings`
+call, `stats.contrast.pass`/`.fail` are checked — those counters are set ONLY by merged
+external findings (native tier-2 or axe; nothing else in this engine ever reports contrast
+pass/fail) — so `stats.contrast.pass > 0 || stats.contrast.fail > 0` is a reliable
+"was contrast exercised by a browser this run" signal. If false: emit the
+`contrast-not-verified` tip finding (bilingual, `check:'review'`, never scored) and set
+`requires_live_audit: true`; if true, both are correctly suppressed — **verified directly**:
+merging one `check:'pass'` contrast finding flips `requires_live_audit` to `false` and
+skips the tip. This is a clean supersede using the EXISTING `--merge-findings` mechanism;
+no new merge machinery was added. Golden vectors: both gained exactly one new finding
+(the tip) plus the version bump — `overall_score` unaffected on both (check:'review' never
+enters the fail/severity accounting); `clean.expected.json`'s prior "0 findings" guarantee
+is now "no confirmed (`check:'fail'`) findings" (`test/golden-vectors.test.mjs`, updated
+alongside). GT confirmed-finding neutrality re-verified directly on a real benchmark
+snapshot (`beacon-benchmark-100` #97): diffing engine output before/after this fix shows
+exactly one finding ADDED (`contrast-not-verified`), zero REMOVED, and `overall_score`/
+`critical`/`warnings` byte-identical.
+
 ## L3 — external validity protocol
 
 **Paired benchmark** (`benchmark/2026-07-05/`): re-run on the stored snapshots after

@@ -13,7 +13,7 @@
     ],
     "platform": "Web",
     "tool_version": "beacon codex static baseline",
-    "engine_fingerprint": "beacon-static-audit@10+ruleset.25eeae0aa809",
+    "engine_fingerprint": "beacon-static-audit@11+ruleset.25eeae0aa809",
     "confidence_level": "low",
     "requires_live_audit": true,
     "audit_tier": "Tier 1 (static file scan only)",
@@ -41,18 +41,18 @@
         "id": "fail"
       }
     ],
-    "total_findings": 0,
+    "total_findings": 1,
     "critical": 0,
     "warnings": 0,
-    "tips": 0,
-    "unverifiable": 4,
+    "tips": 1,
+    "unverifiable": 5,
     "categories": [
       {
         "id": "contrast",
         "name": "Color & Contrast",
         "pass": 0,
         "fail": 0,
-        "review": 1,
+        "review": 2,
         "state": "not-machine-checkable",
         "score": null
       },
@@ -139,55 +139,84 @@
       }
     ]
   },
-  "findings": [],
+  "findings": [
+    {
+      "level": "AA",
+      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "key": "contrast-not-verified",
+      "category": "contrast",
+      "severity": "tip",
+      "wcag": "WCAG 2.2: 1.4.3 Contrast (Minimum)",
+      "title": "Contrast not verified, run Tier 2",
+      "affected_users": "Low-vision users and users in high ambient light",
+      "location": "site-wide (static scan only)",
+      "description": "This run only scanned static markup/CSS. No browser-rendered contrast evidence (Beacon-native tier2-audit.mjs or axe-core) was merged in, so real computed-style contrast was never exercised by a rendering engine.",
+      "fix": "Run node scripts/tier2-audit.mjs (default) or an axe-core pass, then fold its findings in with --merge-findings for verified contrast coverage.",
+      "check": "review"
+    }
+  ],
   "legal_risk": {
     "assessment_mode": "wcag_criteria_context",
     "narrative": "Technical WCAG criteria mapping only. This is not a legal opinion and is not derived from warning counts.",
-    "mapped_criteria": [],
+    "mapped_criteria": [
+      "1.4.3"
+    ],
     "jurisdictions": [
       {
         "name": "US ADA",
         "law": "ADA Title III / Section 508 context",
         "detail": "Use the mapped WCAG criteria as technical evidence; legal exposure depends on business model, sector, and jurisdiction-specific facts.",
-        "criteria": []
+        "criteria": [
+          "1.4.3"
+        ]
       },
       {
         "name": "EU EAA",
         "law": "European Accessibility Act",
         "detail": "Use the mapped WCAG criteria as technical evidence for consumer digital-service accessibility planning.",
-        "criteria": []
+        "criteria": [
+          "1.4.3"
+        ]
       },
       {
         "name": "Japan JIS",
         "law": "JIS X 8341-3 context",
         "detail": "Use the mapped WCAG criteria as technical evidence; confirm procurement or sector requirements separately.",
-        "criteria": []
+        "criteria": [
+          "1.4.3"
+        ]
       },
       {
         "name": "Taiwan",
         "law": "Taiwan accessibility context",
         "detail": "Use the mapped WCAG criteria as technical evidence only; confirm current local program, certification, and seal requirements before making a compliance claim.",
-        "criteria": []
+        "criteria": [
+          "1.4.3"
+        ]
       },
       {
         "name": "Canada ACA",
         "law": "Accessible Canada Act context",
         "detail": "Use the mapped WCAG criteria as technical evidence; applicability depends on organization type and regulated context.",
-        "criteria": []
+        "criteria": [
+          "1.4.3"
+        ]
       },
       {
         "name": "Australia DDA",
         "law": "Disability Discrimination Act context",
         "detail": "Use the mapped WCAG criteria as technical evidence; legal assessment requires local context and counsel.",
-        "criteria": []
+        "criteria": [
+          "1.4.3"
+        ]
       }
     ]
   },
   "remediation": [],
   "testing_recommendations": [
     {
-      "zh": "用真實瀏覽器搭配 axe-core 驗證計算後的文字與 UI 對比。",
-      "en": "Verify computed text and UI contrast in a real browser with axe-core."
+      "zh": "用 Beacon 原生的 tier2-audit.mjs（預設）或 axe-core 驗證計算後的文字與 UI 對比。",
+      "en": "Verify computed text and UI contrast with Beacon-native tier2-audit.mjs (default) or axe-core."
     },
     {
       "zh": "在 200% 縮放下重跑主要流程；320px 回流結果已由本次掃描另行記錄。",

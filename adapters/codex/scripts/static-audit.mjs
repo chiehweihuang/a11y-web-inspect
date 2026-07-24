@@ -82,7 +82,7 @@ const SEV_REPEAT_CAP = 3;
 // (axe / capture-recipe components are added when Tier-2 findings are merged with their own
 // engine provenance; the pure static engine here is axe-free, so claiming an axe version would
 // be dishonest.)
-const DETECTOR_VERSION = 'beacon-static-audit@10';
+const DETECTOR_VERSION = 'beacon-static-audit@11';
 
 // A category with 1-2 total machine checks is a coin-flip denominator (a single fail
 // reads identically to a six-check 100). N=3 is a CALIBRATION DECISION, not a physical
@@ -1364,8 +1364,8 @@ function testingRecommendations(categories) {
     en: 'After fixing the semantic findings, complete the primary task with NVDA or VoiceOver.',
   });
   if (byId.contrast?.state === 'not-machine-checkable') recommendations.push({
-    zh: '用真實瀏覽器搭配 axe-core 驗證計算後的文字與 UI 對比。',
-    en: 'Verify computed text and UI contrast in a real browser with axe-core.',
+    zh: '用 Beacon 原生的 tier2-audit.mjs（預設）或 axe-core 驗證計算後的文字與 UI 對比。',
+    en: 'Verify computed text and UI contrast with Beacon-native tier2-audit.mjs (default) or axe-core.',
   });
   recommendations.push({
     zh: '在 200% 縮放下重跑主要流程；320px 回流結果已由本次掃描另行記錄。',
@@ -1462,6 +1462,29 @@ function main() {
   addSiteAgentReadinessFindings(opts.paths, files, root, stats, findings);
   if (opts.mergeFindings) mergeExternalFindings(opts.mergeFindings, stats, findings);
 
+  // Contrast verification gate (inspect.md "do not skip"; hakuso+codex found this was
+  // doc-promised but not code-backed — the native scan only ever bumps a silent review
+  // count). stats.contrast.pass/fail are set ONLY by merged external findings (axe or a
+  // tier-2 contrast merge) — nothing else in this file ever reports contrast pass/fail —
+  // so this is the single reliable "was contrast exercised by a browser this run" signal,
+  // checked exactly once, after any merge. A tier-2/axe contrast merge cleanly supersedes
+  // both the tip and requires_live_audit; nothing else needs to change downstream.
+  const contrastVerifiedByBrowser = stats.contrast.pass > 0 || stats.contrast.fail > 0;
+  if (!contrastVerifiedByBrowser) {
+    addFinding(findings, stats, {
+      key: 'contrast-not-verified',
+      category: 'contrast',
+      severity: 'tip',
+      check: 'review',
+      wcag: 'WCAG 2.2: 1.4.3 Contrast (Minimum)',
+      title: 'Contrast not verified, run Tier 2',
+      affected_users: 'Low-vision users and users in high ambient light',
+      location: 'site-wide (static scan only)',
+      description: 'This run only scanned static markup/CSS. No browser-rendered contrast evidence (Beacon-native tier2-audit.mjs or axe-core) was merged in, so real computed-style contrast was never exercised by a rendering engine.',
+      fix: 'Run node scripts/tier2-audit.mjs (default) or an axe-core pass, then fold its findings in with --merge-findings for verified contrast coverage.',
+    });
+  }
+
   // Workstream B evidence line — site-wide total, once, only when at least one pair was
   // statically resolvable at all (nothing to report otherwise). Never a score (check:'review').
   const staticPairs = stats.contrast._staticPairs;
@@ -1515,7 +1538,7 @@ function main() {
       tool_version: 'beacon codex static baseline',
       engine_fingerprint: engineFingerprint(),
       confidence_level: coverage >= 60 ? 'medium' : 'low', // derived from measured weight; a static pipeline never claims high
-      requires_live_audit: true,
+      requires_live_audit: !contrastVerifiedByBrowser,
       audit_tier: 'Tier 1 (static file scan only)',
       audit_methods: [
         `Static scan of ${files.length} UI-like file(s)`,

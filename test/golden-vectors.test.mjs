@@ -32,7 +32,10 @@ test('golden "clean" is actually clean and golden "dirty" is actually dirty', ()
   const clean = JSON.parse(readFileSync(resolve(GOLDEN, 'clean.expected.json'), 'utf8'));
   const dirty = JSON.parse(readFileSync(resolve(GOLDEN, 'dirty.expected.json'), 'utf8'));
   assert.equal(clean.summary.overall_score, 100, 'clean fixture must pin the reachable top');
-  assert.equal(clean.summary.total_findings, 0);
+  // Not a literal zero: the contrast-not-verified tip (engine @11) legitimately fires on
+  // EVERY static-only run, including this one — check:'review' never lowers the score, so
+  // the actual guarantee is "no confirmed violations", not "no findings at all".
+  assert.ok(clean.findings.every((f) => f.check === 'review'), 'clean fixture must have no confirmed (check:fail) findings');
   assert.ok(dirty.summary.overall_score < 50, `dirty fixture must pin the fail band (got ${dirty.summary.overall_score})`);
   assert.ok(dirty.summary.critical >= 3, 'dirty fixture must carry criticals');
 });
