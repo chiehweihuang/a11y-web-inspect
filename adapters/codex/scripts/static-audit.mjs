@@ -163,10 +163,34 @@ function lineOf(text, index) {
   return text.slice(0, Math.max(index, 0)).split('\n').length;
 }
 
-function snippetAt(text, index) {
+// Evidence excerpts are for human/report display only (never scoring), but an
+// unbounded one still breaks reports: a single-line minified <style> block turns
+// the normal 3-line context into the whole stylesheet. matchLen (when the caller
+// has it) keeps the actual match intact while clamping the surrounding context.
+const SNIPPET_MAX_CHARS = 300;
+
+function snippetAt(text, index, matchLen = 0) {
   const lines = text.split('\n');
   const line = lineOf(text, index);
-  return lines.slice(Math.max(0, line - 2), Math.min(lines.length, line + 1)).join('\n').trim();
+  const raw = lines.slice(Math.max(0, line - 2), Math.min(lines.length, line + 1)).join('\n').trim();
+  if (raw.length <= SNIPPET_MAX_CHARS) return raw;
+  // Oversized (typically one giant minified line): fall back to a character
+  // window centered on the matched text itself instead of the whole line.
+  const start = Math.max(0, index);
+  const end = Math.min(text.length, start + Math.max(matchLen, 1));
+  // The match itself can exceed the budget too (e.g. a long <a>...</a> body) —
+  // clamp it from its own start rather than let an oversized match through whole.
+  if (end - start >= SNIPPET_MAX_CHARS) {
+    const winEnd = Math.min(text.length, start + SNIPPET_MAX_CHARS);
+    const suffix = winEnd < text.length ? '…' : '';
+    return `${text.slice(start, winEnd).trim()}${suffix}`;
+  }
+  const pad = Math.max(0, Math.floor((SNIPPET_MAX_CHARS - (end - start)) / 2));
+  const winStart = Math.max(0, start - pad);
+  const winEnd = Math.min(text.length, end + pad);
+  const prefix = winStart > 0 ? '…' : '';
+  const suffix = winEnd < text.length ? '…' : '';
+  return `${prefix}${text.slice(winStart, winEnd).trim()}${suffix}`;
 }
 
 // Remove @media block bodies so a width scoped to a breakpoint (e.g. inside
@@ -552,7 +576,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: 'An image without alt text is silent or announced poorly by assistive technology.',
         fix: 'Add meaningful alt text, or alt="" for purely decorative images.',
-        code_before: snippetAt(text, m.index || 0),
+        code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
     // Images that DO carry alt are verified passes — they give the category its base.
@@ -576,7 +600,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: 'An <iframe> without a title gives screen-reader users no way to know what the frame contains before entering it.',
         fix: 'Add title="..." describing the frame content.',
-        code_before: snippetAt(text, m.index || 0),
+        code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
     for (const m of text.matchAll(/<iframe\b[^>]*\btitle\s*=["'][^"']/gi)) if (visible(m.index || 0)) addCheck(stats, 'screenreader', 'pass');
@@ -604,7 +628,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: `A <ul>/<ol> has a direct child that is not <li>, <script>, or <template> (found <${lc}>). Screen readers may not announce the list or its item count correctly.`,
         fix: 'Make <li> the only structural child; move wrapper elements inside an <li>, or use role="list"/role="listitem" if a non-standard structure is unavoidable.',
-        code_before: snippetAt(text, m.index || 0),
+        code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
 
@@ -628,7 +652,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: 'A button with no visible text or accessible label is hard to understand or activate by name.',
         fix: 'Add visible text, aria-label, or aria-labelledby.',
-        code_before: snippetAt(text, m.index || 0),
+        code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
     // Buttons that DO have a name (text or a NON-EMPTY ARIA label) are verified keyboard
@@ -679,7 +703,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: 'A link with no visible text, no aria-label/aria-labelledby/title (on it or a descendant), and no image alt or SVG title has no accessible name. Screen readers announce it as a bare "link".',
         fix: 'Add visible link text, an aria-label/aria-labelledby/title, give a wrapped <img> meaningful alt text, or add an <svg><title>.',
-        code_before: snippetAt(text, m.index || 0),
+        code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
 
@@ -696,7 +720,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: 'Clickable <div> or <span> elements are not keyboard-operable by default.',
         fix: 'Use <button> for actions. If custom semantics are unavoidable, add role, tabindex, and Enter/Space handling.',
-        code_before: snippetAt(text, m.index || 0),
+        code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
 
@@ -723,7 +747,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: 'The input has no obvious id or ARIA label in static markup.',
         fix: 'Pair it with a <label for="..."> or use aria-labelledby when a visible label already exists.',
-        code_before: snippetAt(text, m.index || 0),
+        code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
     // A wrapping <label> is positive evidence too (same gradient-restoration philosophy as
@@ -819,7 +843,7 @@ function scanFile(file, root, stats, findings) {
             location: `${rel}:${lineOf(text, m.index || 0)}`,
             description: `The viewport meta tag prevents zoom (${noScale ? 'user-scalable=no' : 'maximum-scale below 5'}), so users cannot enlarge text.`,
             fix: 'Remove user-scalable=no and any maximum-scale below 5; use content="width=device-width, initial-scale=1".',
-            code_before: snippetAt(text, m.index || 0),
+            code_before: snippetAt(text, m.index || 0, m[0].length),
           });
         }
       }
@@ -893,7 +917,7 @@ function scanFile(file, root, stats, findings) {
           location: `${rel}:${lineOf(text, m.index || 0)}`,
           description: 'Removing outline without a :focus-visible replacement makes keyboard location invisible.',
           fix: 'Restore outline or add a strong :focus-visible style.',
-          code_before: snippetAt(text, m.index || 0),
+          code_before: snippetAt(text, m.index || 0, m[0].length),
         });
         break;
       }
@@ -911,7 +935,7 @@ function scanFile(file, root, stats, findings) {
           location: `${rel}:${lineOf(text, m.index || 0)}`,
           description: 'minmax(Npx, 1fr) keeps a fixed minimum that can overflow at 320px.',
           fix: 'Use minmax(min(Npx, 100%), 1fr).',
-          code_before: snippetAt(text, m.index || 0),
+          code_before: snippetAt(text, m.index || 0, m[0].length),
         });
         break;
       }
@@ -981,7 +1005,7 @@ function scanFile(file, root, stats, findings) {
       });
     }
     for (const m of text.matchAll(/addEventListener\s*\(\s*['"]click['"]/g)) {
-      const ctx = snippetAt(text, m.index || 0);
+      const ctx = snippetAt(text, m.index || 0, m[0].length);
       if (!/keydown|keyup|<button|role\s*=\s*["']button["']/.test(ctx)) {
         addFinding(findings, stats, {
           key: 'click-handler-keyboard-missing',

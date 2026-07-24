@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Accessibility Audit Report &mdash; https://chiehweihuang.github.io/beacon/</title>
+<title>Beacon 無障礙檢測報告 &middot; Accessibility Audit Report &mdash; example.com</title>
 <style>
 /* ============================================================
    Beacon report — v3.2.0 information architecture.
@@ -186,8 +186,8 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
 /* jump nav */
 .jump{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
   backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-.jump ul{display:flex;gap:.2rem;margin:0;padding:.4rem 20px;list-style:none;
-  overflow-x:auto;max-width:var(--maxw);margin:0 auto;-webkit-overflow-scrolling:touch}
+.jump ul{display:flex;flex-wrap:wrap;gap:.2rem;margin:0 auto;padding:.4rem 20px;
+  list-style:none;max-width:var(--maxw)}
 .jump a{white-space:nowrap;text-decoration:none;color:var(--ink-soft);font-size:.86rem;
   font-weight:600;padding:.5rem .7rem;border-radius:8px;min-height:44px;display:flex;
   align-items:center}
@@ -218,8 +218,6 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
 .coverage b{color:var(--ink);font-variant-numeric:tabular-nums}
 .honesty{margin-top:.9rem;padding:.85rem 1rem;border-left:4px solid var(--beacon);
   background:var(--beacon-soft);border-radius:0 10px 10px 0;font-size:.92rem;color:var(--ink)}
-.safe-flag{display:inline-flex;gap:.4rem;align-items:center;margin-top:.7rem;font-size:.86rem;
-  color:var(--pass);font-weight:600}
 
 /* fix these next */
 .fixnext{margin-top:2rem;background:var(--surface);border:1px solid var(--border);
@@ -318,15 +316,20 @@ section{padding:2.2rem 0}
 .meta-row{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
 .diff{font-family:var(--mono);font-size:.82rem;line-height:1.55;border-radius:10px;
   border:1px solid var(--border);overflow:hidden;margin:.2rem 0 1rem}
-.diff .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.diff pre{margin:0;padding:.7rem .9rem;white-space:pre;min-width:min-content}
+/* pre-wrap + a hanging indent so a wrapped line's continuation aligns under
+   the code, not under the +/- tag glyph; overflow-wrap covers unbroken tokens
+   (long URLs/class chains) so nothing forces the box wider than its container. */
+.diff pre{margin:0;padding:.7rem .9rem .7rem 2.3rem;text-indent:-1.4rem;
+  white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
 .diff .before{background:var(--crit-bg);color:var(--ink)}
 .diff .tag{display:inline-block;font-weight:700;margin-right:.5rem;user-select:none;color:var(--crit)}
 .loclist{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);
   background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;
-  margin:0 0 .6rem;max-height:8.5rem;overflow:auto;-webkit-overflow-scrolling:touch}
-.loclist span{display:inline-block;margin:.1rem .5rem .1rem 0}
-.fix-line{font-size:.92rem;margin:.2rem 0 0}
+  margin:0 0 .6rem;max-height:8.5rem;overflow-y:auto}
+.loclist span{display:inline-block;margin:.1rem .5rem .1rem 0;overflow-wrap:anywhere}
+.standard-line{font-size:.92rem;margin:.6rem 0 0;color:var(--ink-soft)}
+.standard-line strong{color:var(--beacon)}
+.fix-line{font-size:.92rem;margin:.6rem 0 0}
 .fix-line strong{color:var(--pass)}
 
 /* =========================== 04 CLIENT / EXEC SUMMARY =========================== */
@@ -381,13 +384,14 @@ footer a{font-weight:600}
 .axe-outcome-list{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem .85rem;margin:.6rem 0}
 .axe-outcome-list summary{cursor:pointer;font-weight:700;color:var(--text)}
 .axe-outcome-list ul{margin-top:.6rem}
-.axe-outcome-list li{display:grid;grid-template-columns:minmax(12rem,1fr) auto auto;gap:.5rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--border-soft)}
-.rule-id,.rule-criteria{color:var(--text-muted);font-size:.78rem}
+.axe-outcome-list li{display:flex;flex-wrap:wrap;gap:.3rem .8rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--border-soft)}
+.rule-id,.rule-criteria{color:var(--text-muted);font-size:.78rem;overflow-wrap:anywhere}
 .learn-more a,.axe-outcome-list a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
-.traps-table{width:100%;border-collapse:collapse;margin:.8rem 0;font-size:.9rem}
-.traps-table th{text-align:left;padding:.6rem .8rem;background:var(--surface-2);color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)}
-.traps-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top}
+.traps-table,.summary-table{width:100%;border-collapse:collapse;margin:.8rem 0;font-size:.9rem}
+.traps-table th,.summary-table th{text-align:left;padding:.6rem .8rem;background:var(--surface-2);color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)}
+.traps-table td,.summary-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
 .traps-table td:first-child{color:var(--text-muted);font-style:italic;width:38%}
+.summary-table .num{text-align:right;font-variant-numeric:tabular-nums}
 .legal-risk-panel{font-size:.92rem}
 .legal-context-note{background:var(--info-bg);border:1px solid var(--info-border);border-left:6px solid var(--info-border);border-radius:8px;padding:.9rem 1rem;margin:.8rem 0 1rem}
 .risk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:1rem;margin:1rem 0}
@@ -425,19 +429,11 @@ footer a{font-weight:600}
   section{padding:.6rem 0;break-inside:avoid}
   .exec{break-before:page;border:1px solid #000;box-shadow:none}
   .fgroup,.catcard,.fixcard{break-inside:avoid;box-shadow:none}
-  .loclist,.diff .scroll{overflow:visible;max-height:none}
-  .diff pre{white-space:pre-wrap}
+  .loclist{overflow:visible;max-height:none}
 }
 </style>
 </head>
 <body>
-<nav aria-label="Beacon site" style="font-family:'Segoe UI',system-ui,-apple-system,'Noto Sans TC','Microsoft JhengHei',sans-serif;font-size:15px;padding:10px 16px;background:#eef0f5;color:#1f2430;border-bottom:1px solid #c9cdd8;">
-  <a href="../index.html" style="color:#3730a3;font-weight:600;">&larr; Beacon</a>
-  <span aria-hidden="true"> &middot; </span>
-  <a href="../zh-Hant.html" lang="zh-Hant" style="color:#3730a3;font-weight:600;">回 Beacon 首頁（繁體中文）</a>
-  <span aria-hidden="true"> &middot; </span>
-  <span>live demo report</span>
-</nav>
 <a class="skip" href="#main-content">跳到主要內容 · Skip to main content</a>
 
 
@@ -460,10 +456,10 @@ footer a{font-weight:600}
           <span>Beacon <span style="color:var(--ink-muted);font-weight:600"><span class="lang-zh" lang="zh-Hant">無障礙檢測報告</span><span class="lang-en" lang="en">Accessibility Audit</span></span></span>
         </div>
         <div class="metagrid">
-          <span><b><span class="lang-zh" lang="zh-Hant">受測網頁</span><span class="lang-en" lang="en">Audited page</span></b> <a href="https://chiehweihuang.github.io/beacon/" target="_blank" rel="noopener noreferrer">https://chiehweihuang.github.io/beacon/</a></span>
-          <span><b><span class="lang-zh" lang="zh-Hant">日期</span><span class="lang-en" lang="en">Date</span></b> 2026-07-22</span>
+          <span><b><span class="lang-zh" lang="zh-Hant">受測網頁</span><span class="lang-en" lang="en">Audited page</span></b> <a href="https://example.com/fixture" target="_blank" rel="noopener noreferrer">https://example.com/fixture</a></span>
+          <span><b><span class="lang-zh" lang="zh-Hant">日期</span><span class="lang-en" lang="en">Date</span></b> 2026-07-23</span>
           <span><b><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span></b> WCAG 2.2 AA static baseline</span>
-          <span><b><span class="lang-zh" lang="zh-Hant">層級</span><span class="lang-en" lang="en">Tier</span></b> Tier 1 (static file scan only) &middot; <span class="lang-zh" lang="zh-Hant">信心 low（評分覆蓋 23%，門檻 60%）</span><span class="lang-en" lang="en">confidence low (coverage 23%, threshold 60%)</span></span>
+          <span><b><span class="lang-zh" lang="zh-Hant">層級</span><span class="lang-en" lang="en">Tier</span></b> Tier 1 (static file scan only)</span>
         </div>
         <div class="engine-tag">engine beacon-static-audit@9+ruleset.25eeae0aa809</div>
       </div>
@@ -479,20 +475,31 @@ footer a{font-weight:600}
       <div class="wrap">
         <p class="eyebrow"><span class="num">01</span> <span class="lang-zh" lang="zh-Hant">決策層</span><span class="lang-en" lang="en">Decision</span></p>
         <h1 class="layer-h" id="h-decision"><span class="lang-zh" lang="zh-Hant">一眼看懂結論，一步知道下一步做什麼</span><span class="lang-en" lang="en">The whole verdict, and what to do next, on one screen</span></h1>
+        
+    <section class="life-safety-banner" aria-label="Life-safety warning / 生命安全警示">
+      <div class="lang-zh" lang="zh-Hant">
+        <div class="banner-title">生命安全警示（WCAG 2.3.1 閃爍／癲癇風險）</div>
+        <p>本次審查含已確認的閃爍／癲癇風險發現。總分已強制封頂至紅色帶；請先處理此項，再解讀其他分數。詳見「問題層」中的 critical 項目。</p>
+      </div>
+      <div class="lang-en" lang="en">
+        <div class="banner-title">Life-safety warning (WCAG 2.3.1 flashing / seizure risk)</div>
+        <p>This audit contains a confirmed flashing / seizure-risk finding. The overall score is capped into the fail band; address this before reading any other score. See the critical items in the Findings layer.</p>
+      </div>
+    </section>
 
         <div class="verdict">
           <div class="overall">
-            <div class="ring" role="img" aria-label="overall score 100 of 100">
+            <div class="ring" role="img" aria-label="overall score 49 of 100">
               <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
                 <circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
-                <circle cx="66" cy="66" r="56" fill="none" stroke="var(--pass)" stroke-width="12" stroke-linecap="round" stroke-dasharray="351.9" stroke-dashoffset="0.0"/>
+                <circle cx="66" cy="66" r="56" fill="none" stroke="var(--crit)" stroke-width="12" stroke-linecap="round" stroke-dasharray="351.9" stroke-dashoffset="179.4"/>
               </svg>
-              <div class="val"><b>100</b><span>/ 100</span></div>
+              <div class="val"><b>49</b><span>/ 100 &middot; <span class="lang-zh" lang="zh-Hant">機測部分</span><span class="lang-en" lang="en">machine-checked portion</span></span></div>
             </div>
             <div>
-              <span class="band" style="background:var(--pass-bg);color:var(--pass);border-color:var(--pass-line)"><span class="lang-zh" lang="zh-Hant">達到基準</span><span class="lang-en" lang="en">Meets baseline</span></span>
-              <p class="coverage"><span class="lang-zh" lang="zh-Hant">機測權重涵蓋</span><span class="lang-en" lang="en">Machine-measured weight coverage</span> <b>23%</b> · <span class="lang-zh" lang="zh-Hant">信心 low（評分覆蓋 23%，門檻 60%）</span><span class="lang-en" lang="en">confidence low (coverage 23%, threshold 60%)</span><br>
-                <span style="font-size:.85rem;color:var(--ink-muted)"><span class="lang-zh" lang="zh-Hant">7 個分類僅供人工複審、1 個分類證據不足未計分</span><span class="lang-en" lang="en">7 review-only, 1 with insufficient evidence</span></span></p>
+              <span class="band" style="background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)"><span class="lang-zh" lang="zh-Hant">建議優先檢視</span><span class="lang-en" lang="en">Priority review recommended</span></span>
+              <p class="coverage"><span class="lang-zh" lang="zh-Hant">此分數僅代表可機測的 <b>23%</b> 權重</span><span class="lang-en" lang="en">This score covers only the <b>23%</b> of weight that is machine-checkable.</span><br>
+                <span style="font-size:.85rem;color:var(--ink-muted)"><span class="lang-zh" lang="zh-Hant">6 個分類僅供人工複審、2 個分類證據不足未計分</span><span class="lang-en" lang="en">6 review-only, 2 with insufficient evidence</span></span></p>
               
             </div>
           </div>
@@ -501,13 +508,19 @@ footer a{font-weight:600}
             <div class="honesty"><span class="lang-zh" lang="zh-Hant">自動化工具約涵蓋 <b>30&ndash;40%</b> 的 WCAG 項目；其餘 60&ndash;70%（認知負荷、真實螢幕閱讀器達成率、標籤是否真的易懂）需與障礙使用者一同測試。<strong>高分不代表網站完全可達。</strong></span><span class="lang-en" lang="en">Automated tools cover ~<b>30&ndash;40%</b> of WCAG criteria. The remaining 60&ndash;70% needs testing alongside disabled users. A high score does not mean fully accessible.</span>
               <p style="margin-top:.4rem"><a href="#layer-methodology"><span class="lang-zh" lang="zh-Hant">查看完整方法論與限制 &rarr;</span><span class="lang-en" lang="en">See full methodology &amp; limits &rarr;</span></a></p>
             </div>
-            <p class="safe-flag"><span class="lang-zh" lang="zh-Hant">&#10003; 未觸發生命安全旗標（無閃爍/癲癇風險）</span><span class="lang-en" lang="en">&#10003; No life-safety flags raised</span></p>
           </div>
         </div>
 
         <div class="fixnext" aria-labelledby="h-fix">
           <h2 id="h-fix"><span class="lang-zh" lang="zh-Hant">接下來先修這三項</span><span class="lang-en" lang="en">Fix these next</span></h2>
-          <p class="clear-line"><span class="lang-zh" lang="zh-Hant">這次靜態掃描沒有發現需要優先處理的問題。</span><span class="lang-en" lang="en">This static scan found nothing that needs priority attention.</span></p>
+          <p class="clear-line"><span class="lang-zh" lang="zh-Hant">完成前 1 項修正，可涵蓋 <b>1</b> 個發現項（占全站發現的 100%）。</span><span class="lang-en" lang="en">These 1 action cover <b>1</b> finding — 100% of everything found.</span></p>
+      <div class="fixlist">
+    <div class="fixcard">
+      <span class="rank">1</span>
+      <h3>Flashing hero animation exceeds the flash-rate threshold<span style="font-variant-numeric:tabular-nums;font-weight:700"><span class="lang-zh" lang="zh-Hant">（&times;1）</span><span class="lang-en" lang="en"> (&times;1)</span></span></h3>
+      <p class="who"></p>
+      <div class="foot"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 2.3.1 Three Flashes or Below Threshold</span></div>
+    </div></div>
         </div>
       </div>
     </section>
@@ -517,13 +530,16 @@ footer a{font-weight:600}
     <p class="eyebrow"><span class="num">02</span> <span class="lang-zh" lang="zh-Hant">證據層</span><span class="lang-en" lang="en">Evidence</span></p>
     <h2 class="layer-h" id="h-evidence"><span class="lang-zh" lang="zh-Hant">每個分數旁邊都標出它背後有多少證據</span><span class="lang-en" lang="en">Every score shows how much evidence stands behind it</span></h2>
     <p class="layer-sub"><span class="lang-zh" lang="zh-Hant">一個低分從大量檢查算出來，是確鑿的問題；一個低分只從一次檢查算出來，只是證據不足的旗標。密度條讓兩者一眼可辨。</span><span class="lang-en" lang="en">A low score from many checks is a proven problem; a low score from one check is a thin-evidence flag, not a verdict. The density meter makes the difference visible at a glance.</span></p>
-    <div class="catgrid"><div class="catcard nmc" data-category="contrast"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">色彩與對比</span><span class="lang-en" lang="en">Color & Contrast</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented.</span></p></div><div class="catcard nmc" data-category="keyboard"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">鍵盤導覽</span><span class="lang-en" lang="en">Keyboard Navigation</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 本頁不適用</span><span class="lang-en" lang="en">Static scan complete · not applicable here</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。</span><span class="lang-en" lang="en">The static scan completed. No applicable content for this category was detected in the audited scope.</span></p></div><a class="catcard" data-category="screenreader" href="#layer-findings"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">螢幕閱讀器</span><span class="lang-en" lang="en">Screen Reader</span></div><div class="score-badge"><b class="s-pass">100</b><small>/ 100</small></div></div><div class="evi">
-        <div class="evi-track"><span class="evi-fill" style="width:47%"></span></div>
-        <div class="evi-label"><span class="tier mod"><span class="lang-zh" lang="zh-Hant">中等證據</span><span class="lang-en" lang="en">moderate</span></span><span><span class="lang-zh" lang="zh-Hant">25 次檢查（25 通過 · 0 失敗）</span><span class="lang-en" lang="en">25 checks (25 pass · 0 fail)</span></span></div>
+    <div class="catgrid"><div class="catcard nmc" data-category="contrast"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">色彩與對比</span><span class="lang-en" lang="en">Color & Contrast</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).</span></p></div><div class="catcard nmc" data-category="keyboard"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">鍵盤導覽</span><span class="lang-en" lang="en">Keyboard Navigation</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 本頁不適用</span><span class="lang-en" lang="en">Static scan complete · not applicable here</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。</span><span class="lang-en" lang="en">The static scan completed. No applicable content for this category was detected in the audited scope.</span></p></div><a class="catcard" data-category="screenreader" href="#layer-findings"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">螢幕閱讀器</span><span class="lang-en" lang="en">Screen Reader</span></div><div class="score-badge"><b class="s-pass">100</b><small>/ 100</small></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:26%"></span></div>
+        <div class="evi-label"><span class="tier mod"><span class="lang-zh" lang="zh-Hant">中等證據</span><span class="lang-en" lang="en">moderate</span></span><span><span class="lang-zh" lang="zh-Hant">5 次檢查（5 通過 · 0 失敗）</span><span class="lang-en" lang="en">5 checks (5 pass · 0 fail)</span></span></div>
       </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">本次靜態掃描未發現螢幕閱讀器問題。</span><span class="lang-en" lang="en">No Screen Reader issues found in this static scan.</span></p></a><div class="catcard nmc" data-category="forms"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">表單</span><span class="lang-en" lang="en">Forms</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 本頁不適用</span><span class="lang-en" lang="en">Static scan complete · not applicable here</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。</span><span class="lang-en" lang="en">The static scan completed. No applicable content for this category was detected in the audited scope.</span></p></div><div class="catcard thin" data-category="responsive"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">響應式與回流</span><span class="lang-en" lang="en">Responsive & Reflow</span></div><div class="state-badge"><span class="chip thin"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 證據不足以計分</span><span class="lang-en" lang="en">Static scan complete · not enough evidence to score</span></span></div></div><div class="evi">
         <div class="evi-track"><span class="evi-fill" style="width:10%"></span></div>
         <div class="evi-label"><span class="tier low"><span class="lang-zh" lang="zh-Hant">證據不足</span><span class="lang-en" lang="en">insufficient</span></span><span><span class="lang-zh" lang="zh-Hant">1 次檢查（1 通過 · 0 失敗）</span><span class="lang-en" lang="en">1 check (1 pass · 0 fail)</span></span></div>
-      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這個分類的機器可判定證據太少，一兩項結果不足以代表整體，因此不製造分數，但下方仍完整列出所有發現項目。</span><span class="lang-en" lang="en">The static scan completed. This category has too few machine-checkable results for one or two to represent the whole, so no score is invented, but every finding is still listed in full below.</span></p></div><div class="catcard nmc" data-category="touch"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">觸控與目標尺寸</span><span class="lang-en" lang="en">Touch & Targets</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented.</span></p></div><div class="catcard nmc" data-category="cognitive"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">認知</span><span class="lang-en" lang="en">Cognitive</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented.</span></p></div><div class="catcard nmc" data-category="motion"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">動態與動畫</span><span class="lang-en" lang="en">Motion & Animation</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 本頁不適用</span><span class="lang-en" lang="en">Static scan complete · not applicable here</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。</span><span class="lang-en" lang="en">The static scan completed. No applicable content for this category was detected in the audited scope.</span></p></div><div class="catcard nmc" data-category="media"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">媒體</span><span class="lang-en" lang="en">Media</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented.</span></p></div><a class="catcard" data-category="agent" href="#layer-findings"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">代理可操作性與 AEO</span><span class="lang-en" lang="en">Agent Operability & AEO</span></div><div class="score-badge"><b class="s-pass">100</b><small>/ 100</small></div></div><div class="evi">
+      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這個分類的機器可判定證據太少，一兩項結果不足以代表整體，因此不製造分數，但下方仍完整列出所有發現項目。</span><span class="lang-en" lang="en">The static scan completed. This category has too few machine-checkable results for one or two to represent the whole, so no score is invented, but every finding is still listed in full below.</span></p></div><div class="catcard nmc" data-category="touch"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">觸控與目標尺寸</span><span class="lang-en" lang="en">Touch & Targets</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).</span></p></div><div class="catcard nmc" data-category="cognitive"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">認知</span><span class="lang-en" lang="en">Cognitive</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).</span></p></div><a class="catcard thin" data-category="motion" href="#fg-external-finding"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">動態與動畫</span><span class="lang-en" lang="en">Motion & Animation</span></div><div class="state-badge"><span class="chip thin"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 證據不足以計分</span><span class="lang-en" lang="en">Static scan complete · not enough evidence to score</span></span></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:10%"></span></div>
+        <div class="evi-label"><span class="tier low"><span class="lang-zh" lang="zh-Hant">證據不足</span><span class="lang-en" lang="en">insufficient</span></span><span><span class="lang-zh" lang="zh-Hant">1 次檢查（0 通過 · 1 失敗）</span><span class="lang-en" lang="en">1 check (0 pass · 1 fail)</span></span></div>
+      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">主因：</span><span class="lang-en" lang="en">Dominant cause: </span><b>Flashing hero animation exceeds the flash-rate threshold</b></p></a><div class="catcard nmc" data-category="media"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">媒體</span><span class="lang-en" lang="en">Media</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).</span></p></div><a class="catcard" data-category="agent" href="#layer-findings"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">代理可操作性與 AEO</span><span class="lang-en" lang="en">Agent Operability & AEO</span></div><div class="score-badge"><b class="s-pass">100</b><small>/ 100</small></div></div><div class="evi">
         <div class="evi-track"><span class="evi-fill" style="width:20%"></span></div>
         <div class="evi-label"><span class="tier mod"><span class="lang-zh" lang="zh-Hant">中等證據</span><span class="lang-en" lang="en">moderate</span></span><span><span class="lang-zh" lang="zh-Hant">3 次檢查（3 通過 · 0 失敗）</span><span class="lang-en" lang="en">3 checks (3 pass · 0 fail)</span></span></div>
       </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">本次靜態掃描未發現代理可操作性與 AEO問題。</span><span class="lang-en" lang="en">No Agent Operability & AEO issues found in this static scan.</span></p></a></div>
@@ -576,7 +592,22 @@ footer a{font-weight:600}
         <h2 class="layer-h" id="h-findings"><span class="lang-zh" lang="zh-Hant">依「修正動作」分組，一組就是一個可執行單位</span><span class="lang-en" lang="en">Grouped by fix action — one group is one thing to do</span></h2>
         <p class="layer-sub"><span class="lang-zh" lang="zh-Hant">同一種修法的所有發現項合併為一組，不是一列一列重複同一件事。每組附上受影響對象、程式碼線索、檔案位置與 WCAG 對照。</span><span class="lang-en" lang="en">All findings sharing one fix are merged into a single group, not repeated row by row. Each group carries the affected users, a code clue, file locations, and its WCAG mapping.</span></p>
         
-        <p class="empty"><span class="lang-zh" lang="zh-Hant">此分類目前無發現項目。</span><span class="lang-en" lang="en">No observations in this category at the moment.</span></p>
+        
+    <article class="fgroup" id="fg-external-finding" data-category="motion">
+      <div class="fg-head">
+        <div class="fg-title">Flashing hero animation exceeds the flash-rate threshold</div>
+        <span class="fg-count">&times;1</span>
+        <div class="meta-row"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 2.3.1 Three Flashes or Below Threshold</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> N/A</p>
+        
+        
+        
+        
+        
+      </div>
+    </article>
         
       <section class="axe-evidence">
         <h3><span class="lang-zh" lang="zh-Hant">Live audit evidence</span><span class="lang-en" lang="en">Live Audit Evidence</span></h3>
@@ -595,13 +626,13 @@ footer a{font-weight:600}
 
         <div class="exec">
           <div class="exec-head">
-            <h3>https://chiehweihuang.github.io/beacon/ <span class="lang-zh" lang="zh-Hant">無障礙檢測 · 執行摘要</span><span class="lang-en" lang="en">&middot; Executive Summary</span></h3>
-            <p>https://chiehweihuang.github.io/beacon/ &middot; 2026-07-22 &middot; WCAG 2.2 AA static baseline &middot; Tier 1 (static file scan only)</p>
+            <h3>https://example.com/fixture <span class="lang-zh" lang="zh-Hant">無障礙檢測 · 執行摘要</span><span class="lang-en" lang="en">&middot; Executive Summary</span></h3>
+            <p>https://example.com/fixture &middot; 2026-07-23 &middot; WCAG 2.2 AA static baseline &middot; Tier 1 (static file scan only)</p>
           </div>
           <div class="exec-body">
-            <p class="exec-lead"><span class="lang-zh" lang="zh-Hant">本次檢測在https://chiehweihuang.github.io/beacon/上發現 <b>0 個問題，其中 0 個為嚴重等級</b>。</span><span class="lang-en" lang="en">This audit found <b>0 issues, 0 of them critical</b>, on https://chiehweihuang.github.io/beacon/.</span></p>
+            <p class="exec-lead"><span class="lang-zh" lang="zh-Hant">本次檢測在https://example.com/fixture上發現 <b>1 個問題，其中 1 個為嚴重等級</b>。多數問題集中在可批次修正的模式 — Flashing hero animation exceeds the flash-rate threshold（1）。</span><span class="lang-en" lang="en">This audit found <b>1 issue, 1 of them critical</b>, on https://example.com/fixture. Most are batch-fixable patterns: Flashing hero animation exceeds the flash-rate threshold (1).</span></p>
 
-            
+            <h3><span class="lang-zh" lang="zh-Hant">優先處理順序</span><span class="lang-en" lang="en">Remediation priorities</span></h3><ol class="prio"><li>Flashing hero animation exceeds the flash-rate threshold (WCAG 2.2: 2.3.1 Three Flashes or Below Threshold)</li></ol>
 
             <h3><span class="lang-zh" lang="zh-Hant">法規範圍</span><span class="lang-en" lang="en">Jurisdiction exposure</span></h3>
             <p style="font-size:.92rem;color:var(--ink-soft);margin:.2rem 0 .5rem"><span class="lang-zh" lang="zh-Hant">此靜態基線所示問題可能影響下列司法管轄區的無障礙要求（視實際部署情境而定）：</span><span class="lang-en" lang="en">This static baseline may affect accessibility expectations in:</span></p>
@@ -871,11 +902,11 @@ footer a{font-weight:600}
       <div class="legal-context-note">
         <div class="lang-zh" lang="zh-Hant">
           本頁提供的是<strong>法域脈絡與 WCAG 技術準則對照</strong>，不是法律意見，也不是依 warning 數量計算的法律風險分數。
-          本次 findings 對應的準則：<strong>No WCAG criteria were mapped by this audit.</strong>。
+          本次 findings 對應的準則：<strong>2.3.1</strong>。
         </div>
         <div class="lang-en" lang="en">
           This page provides <strong>jurisdiction context and WCAG technical mapping</strong>, not legal advice and not a warning-count-derived legal conclusion.
-          Criteria mapped by this audit: <strong>No WCAG criteria were mapped by this audit.</strong>.
+          Criteria mapped by this audit: <strong>2.3.1</strong>.
         </div>
       </div>
       <div class="risk-grid">
@@ -887,7 +918,7 @@ footer a{font-weight:600}
             </div>
             <p>ADA Title III / Section 508 context &mdash; Use the mapped WCAG criteria as technical evidence; legal exposure depends on business model, sector, and jurisdiction-specific facts.</p>
             
-            <p class="criteria-map"><strong>WCAG:</strong> No WCAG criteria were mapped by this audit.</p>
+            <p class="criteria-map"><strong>WCAG:</strong> 2.3.1</p>
           </div>
           <div class="risk-card">
             <div class="risk-header">
@@ -896,7 +927,7 @@ footer a{font-weight:600}
             </div>
             <p>European Accessibility Act &mdash; Use the mapped WCAG criteria as technical evidence for consumer digital-service accessibility planning.</p>
             
-            <p class="criteria-map"><strong>WCAG:</strong> No WCAG criteria were mapped by this audit.</p>
+            <p class="criteria-map"><strong>WCAG:</strong> 2.3.1</p>
           </div>
           <div class="risk-card">
             <div class="risk-header">
@@ -905,7 +936,7 @@ footer a{font-weight:600}
             </div>
             <p>JIS X 8341-3 context &mdash; Use the mapped WCAG criteria as technical evidence; confirm procurement or sector requirements separately.</p>
             
-            <p class="criteria-map"><strong>WCAG:</strong> No WCAG criteria were mapped by this audit.</p>
+            <p class="criteria-map"><strong>WCAG:</strong> 2.3.1</p>
           </div>
           <div class="risk-card">
             <div class="risk-header">
@@ -914,7 +945,7 @@ footer a{font-weight:600}
             </div>
             <p>Taiwan accessibility context &mdash; Use the mapped WCAG criteria as technical evidence only; confirm current local program, certification, and seal requirements before making a compliance claim.</p>
             
-            <p class="criteria-map"><strong>WCAG:</strong> No WCAG criteria were mapped by this audit.</p>
+            <p class="criteria-map"><strong>WCAG:</strong> 2.3.1</p>
           </div>
           <div class="risk-card">
             <div class="risk-header">
@@ -923,7 +954,7 @@ footer a{font-weight:600}
             </div>
             <p>Accessible Canada Act context &mdash; Use the mapped WCAG criteria as technical evidence; applicability depends on organization type and regulated context.</p>
             
-            <p class="criteria-map"><strong>WCAG:</strong> No WCAG criteria were mapped by this audit.</p>
+            <p class="criteria-map"><strong>WCAG:</strong> 2.3.1</p>
           </div>
           <div class="risk-card">
             <div class="risk-header">
@@ -932,7 +963,7 @@ footer a{font-weight:600}
             </div>
             <p>Disability Discrimination Act context &mdash; Use the mapped WCAG criteria as technical evidence; legal assessment requires local context and counsel.</p>
             
-            <p class="criteria-map"><strong>WCAG:</strong> No WCAG criteria were mapped by this audit.</p>
+            <p class="criteria-map"><strong>WCAG:</strong> 2.3.1</p>
           </div>
       </div>
     </div>

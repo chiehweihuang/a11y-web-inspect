@@ -1,0 +1,61 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Source-text analysis, not an import: generate-report.mjs runs CLI side effects
+// (argv parsing, process.exit) at module load time, so every existing test in
+// this repo spawns it as a subprocess rather than importing it. Extracting a
+// key's FINDING_I18N zh/en sub-objects via [^}]* is safe here because none of
+// the title/description/fix/standard strings contain a literal '}'.
+test('every finding key the engine can emit carries a bilingual "standard" statement', () => {
+  const engineSrc = readFileSync(resolve(ROOT, 'core/scripts/static-audit.mjs'), 'utf8');
+  const reportSrc = readFileSync(resolve(ROOT, 'core/scripts/generate-report.mjs'), 'utf8');
+
+  const engineKeys = [...new Set([...engineSrc.matchAll(/key:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]))];
+  assert.ok(engineKeys.length >= 20, `expected the engine to emit >=20 finding keys, found ${engineKeys.length} — extraction regex may have broken`);
+
+  const missingEntry = [];
+  const missingStandard = [];
+  for (const key of engineKeys) {
+    const re = new RegExp(`'${key}':\\s*\\{\\s*zh:\\s*\\{([^}]*)\\},\\s*en:\\s*\\{([^}]*)\\}`);
+    const m = reportSrc.match(re);
+    if (!m) { missingEntry.push(key); continue; }
+    const [, zhBlock, enBlock] = m;
+    if (!/standard:/.test(zhBlock) || !/standard:/.test(enBlock)) missingStandard.push(key);
+  }
+
+  assert.deepEqual(missingEntry, [], `FINDING_I18N has no entry at all for these engine keys: ${missingEntry.join(', ')}`);
+  assert.deepEqual(missingStandard, [], `FINDING_I18N entries missing a bilingual 'standard' statement: ${missingStandard.join(', ')}`);
+});
+
+test('the standard statement renders in a generated report, before the fix line', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-standard-render-'));
+  try {
+    const audit = join(dir, 'audit.json');
+    const report = join(dir, 'report.html');
+    writeFileSync(audit, JSON.stringify({
+      metadata: { date: '2026-01-01', scope: 'test', standard: 'WCAG 2.2 AA' },
+      summary: {
+        overall_score: 90, coverage_percent: 40, total_findings: 1,
+        critical: 1, warnings: 0, tips: 0,
+        categories: [{ id: 'screenreader', name: 'Screen Reader', pass: 5, fail: 1, review: 0, state: 'scored', score: 90 }],
+      },
+      findings: [{ key: 'image-alt-missing', category: 'screenreader', severity: 'critical', wcag: 'WCAG 2.2: 1.1.1 Non-text Content', title: 'Image is missing alt text', affected_users: 'Blind and low-vision users', location: 'index.html:1', fix: 'Add alt text.', check: 'fail' }],
+      legal_risk: {},
+    }));
+    execFileSync('node', [resolve(ROOT, 'core/scripts/generate-report.mjs'), audit, '--output', report]);
+    const html = readFileSync(report, 'utf8');
+    assert.match(html, /decision rule|明確標記|purely decorative/, 'expected image-alt-missing standard wording did not render');
+    const standardIdx = html.indexOf('standard-line');
+    const fixIdx = html.indexOf('fix-line');
+    assert.ok(standardIdx > -1 && fixIdx > -1 && standardIdx < fixIdx, 'standard-line must render before fix-line');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

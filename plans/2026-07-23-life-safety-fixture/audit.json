@@ -1,0 +1,238 @@
+{
+  "metadata": {
+    "date": "2026-07-23",
+    "url": "https://example.com/fixture",
+    "scope": "https://example.com/fixture",
+    "standard": "WCAG 2.2 AA static baseline",
+    "jurisdictions": [
+      "US ADA",
+      "EU EAA",
+      "Japan JIS",
+      "Taiwan",
+      "Canada ACA",
+      "Australia DDA"
+    ],
+    "platform": "Web",
+    "tool_version": "beacon codex static baseline",
+    "engine_fingerprint": "beacon-static-audit@9+ruleset.25eeae0aa809",
+    "confidence_level": "low",
+    "requires_live_audit": true,
+    "audit_tier": "Tier 1 (static file scan only)",
+    "audit_methods": [
+      "Static scan of 1 UI-like file(s)",
+      "Pattern checks for semantic HTML, keyboard traps, labels, reflow, motion, AEO structure, and site-level agent-readiness files when a directory is scanned",
+      "Runtime behavior, contrast ratios, and screen-reader task completion were not fully verified"
+    ]
+  },
+  "summary": {
+    "overall_score": 49,
+    "coverage_percent": 23,
+    "life_safety_flag": true,
+    "score_bands": [
+      {
+        "min": 90,
+        "id": "pass"
+      },
+      {
+        "min": 50,
+        "id": "needs-work"
+      },
+      {
+        "min": 0,
+        "id": "fail"
+      }
+    ],
+    "total_findings": 1,
+    "critical": 1,
+    "warnings": 0,
+    "tips": 0,
+    "unverifiable": 4,
+    "categories": [
+      {
+        "id": "contrast",
+        "name": "Color & Contrast",
+        "pass": 0,
+        "fail": 0,
+        "review": 1,
+        "state": "not-machine-checkable",
+        "score": null
+      },
+      {
+        "id": "keyboard",
+        "name": "Keyboard Navigation",
+        "pass": 0,
+        "fail": 0,
+        "review": 0,
+        "state": "not-applicable",
+        "score": null
+      },
+      {
+        "id": "screenreader",
+        "name": "Screen Reader",
+        "pass": 5,
+        "fail": 0,
+        "review": 0,
+        "state": "scored",
+        "score": 100
+      },
+      {
+        "id": "forms",
+        "name": "Forms",
+        "pass": 0,
+        "fail": 0,
+        "review": 0,
+        "state": "not-applicable",
+        "score": null
+      },
+      {
+        "id": "responsive",
+        "name": "Responsive & Reflow",
+        "pass": 1,
+        "fail": 0,
+        "review": 0,
+        "state": "insufficient-evidence",
+        "score": null
+      },
+      {
+        "id": "touch",
+        "name": "Touch & Targets",
+        "pass": 0,
+        "fail": 0,
+        "review": 1,
+        "state": "not-machine-checkable",
+        "score": null
+      },
+      {
+        "id": "cognitive",
+        "name": "Cognitive",
+        "pass": 0,
+        "fail": 0,
+        "review": 1,
+        "state": "not-machine-checkable",
+        "score": null
+      },
+      {
+        "id": "motion",
+        "name": "Motion & Animation",
+        "pass": 0,
+        "fail": 1,
+        "review": 0,
+        "state": "insufficient-evidence",
+        "score": null
+      },
+      {
+        "id": "media",
+        "name": "Media",
+        "pass": 0,
+        "fail": 0,
+        "review": 1,
+        "state": "not-machine-checkable",
+        "score": null
+      },
+      {
+        "id": "agent",
+        "name": "Agent Operability & AEO",
+        "pass": 3,
+        "fail": 0,
+        "review": 0,
+        "state": "scored",
+        "score": 100
+      }
+    ]
+  },
+  "findings": [
+    {
+      "level": "AA",
+      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "category": "motion",
+      "severity": "critical",
+      "wcag": "WCAG 2.2: 2.3.1 Three Flashes or Below Threshold",
+      "key": "external-finding",
+      "title": "Flashing hero animation exceeds the flash-rate threshold",
+      "location": "",
+      "source": "merged",
+      "check": "fail"
+    }
+  ],
+  "legal_risk": {
+    "assessment_mode": "wcag_criteria_context",
+    "narrative": "Technical WCAG criteria mapping only. This is not a legal opinion and is not derived from warning counts.",
+    "mapped_criteria": [
+      "2.3.1"
+    ],
+    "jurisdictions": [
+      {
+        "name": "US ADA",
+        "law": "ADA Title III / Section 508 context",
+        "detail": "Use the mapped WCAG criteria as technical evidence; legal exposure depends on business model, sector, and jurisdiction-specific facts.",
+        "criteria": [
+          "2.3.1"
+        ]
+      },
+      {
+        "name": "EU EAA",
+        "law": "European Accessibility Act",
+        "detail": "Use the mapped WCAG criteria as technical evidence for consumer digital-service accessibility planning.",
+        "criteria": [
+          "2.3.1"
+        ]
+      },
+      {
+        "name": "Japan JIS",
+        "law": "JIS X 8341-3 context",
+        "detail": "Use the mapped WCAG criteria as technical evidence; confirm procurement or sector requirements separately.",
+        "criteria": [
+          "2.3.1"
+        ]
+      },
+      {
+        "name": "Taiwan",
+        "law": "Taiwan accessibility context",
+        "detail": "Use the mapped WCAG criteria as technical evidence only; confirm current local program, certification, and seal requirements before making a compliance claim.",
+        "criteria": [
+          "2.3.1"
+        ]
+      },
+      {
+        "name": "Canada ACA",
+        "law": "Accessible Canada Act context",
+        "detail": "Use the mapped WCAG criteria as technical evidence; applicability depends on organization type and regulated context.",
+        "criteria": [
+          "2.3.1"
+        ]
+      },
+      {
+        "name": "Australia DDA",
+        "law": "Disability Discrimination Act context",
+        "detail": "Use the mapped WCAG criteria as technical evidence; legal assessment requires local context and counsel.",
+        "criteria": [
+          "2.3.1"
+        ]
+      }
+    ]
+  },
+  "remediation": [
+    {
+      "priority": "P0",
+      "key": "external-finding",
+      "title": "Flashing hero animation exceeds the flash-rate threshold",
+      "location": "",
+      "wcag": "WCAG 2.2: 2.3.1 Three Flashes or Below Threshold",
+      "fix": "Review and fix."
+    }
+  ],
+  "testing_recommendations": [
+    {
+      "zh": "用真實瀏覽器搭配 axe-core 驗證計算後的文字與 UI 對比。",
+      "en": "Verify computed text and UI contrast in a real browser with axe-core."
+    },
+    {
+      "zh": "在 200% 縮放下重跑主要流程；320px 回流結果已由本次掃描另行記錄。",
+      "en": "Rerun the primary flow at 200% zoom; the 320px reflow result is recorded separately by this audit."
+    },
+    {
+      "zh": "請一位不熟悉產品的使用者完成主要任務，觀察標籤、說明與下一步是否清楚。",
+      "en": "Ask a user unfamiliar with the product to complete the primary task and observe whether labels, help, and next steps are clear."
+    }
+  ]
+}

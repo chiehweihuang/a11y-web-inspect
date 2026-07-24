@@ -119,3 +119,70 @@ Conclusion: current tree is settled, self-consistent (copies synced), and passes
 blocking gate. **PASS.** Standard caveat: the commit should include the synced generated
 copies (currently synced); if the tree is edited again, re-run `build.mjs --check` + the
 disclosure test before merge.
+
+---
+
+# Hakuso audit — v3.2.0 USER REVIEW ROUND (uncommitted diff on da1d5b4)
+
+Second gate, distinct from the WS-B port audit above. Target: the frozen uncommitted
+diff (9 review-round changes) over commit `da1d5b4`. All probes first-hand; artifacts in
+`C:/Users/tacit/.claude/jobs/f448fc13/tmp/hakuso/`. Tree left exactly as found (10 modified
+tracked files unchanged, no probe leakage, golden vectors untouched).
+
+## Verdict
+
+**PASS.** No CRITICAL, no HIGH. Two LOW advisories (below). Every blocking proof is green.
+
+## Proofs run first-hand (all green)
+
+- **Test suite** `node --test` → **330 pass / 0 fail** (328 base + 2 from the new
+  `generate-report-standard-coverage.test.mjs`; reconciles the 330 target).
+- **Build sync** `node build.mjs --check` → **all 48 outputs match core**. Copies are
+  byte-identical to core (`diff -q` on both scripts, both root + codex adapter).
+- **No scoring drift.** `DETECTOR_VERSION = 'beacon-static-audit@9'` unchanged. static-audit
+  diff touches ONLY `snippetAt` (display `code_before`) + its call sites passing
+  `m[0].length` — evidence strings never enter scoring (`addCheck`/`addFinding` counts and
+  severity are untouched). `confidenceLine`/`CONFIDENCE_COVERAGE_THRESHOLD` removed with
+  **0 dangling refs** across core/scripts/adapters.
+- **Rakuten regen + self-scan** from `beacon-benchmark-100/run-2026-07-05/audits/97.json`:
+  overall 86, coverage 36%, **0 critical / 0 warning / 3 tips** (meta-description /
+  canonical / jsonld — expected for a local artifact). `standard-line` renders 9× bilingual
+  (標準/Standard). Artifact JSON keeps `confidence_level`; display drops it from hero+masthead
+  only (Methodology §05 `信心水準：low` + footer retain it by design — pre-existing, NOT in
+  this diff).
+- **Evidence clamp** (static-audit `SNIPPET_MAX_CHARS=300`): minified single-line pages →
+  max `code_before` = **192** (match near line end), **302** (centered, 300 window + 2 “…”),
+  **301** (oversized 500-char match branch). Bounded ≤~302 in every branch.
+- **Horizontal-scroll ban** (chromium headless 1228, `file://`, `documentElement.scrollWidth`
+  vs `clientWidth`): rakuten + life-safety + both shipped `docs/reports/*.html` →
+  **overflow 0px at 320 and 1280** (broken-fixture, full of violations, still 0). PASS.
+- **Life-safety two-state** (fixture `plans/2026-07-23-life-safety-fixture/audit.json`,
+  `life_safety_flag=true`): `<section class="life-safety-banner">` @28864 renders AFTER
+  `</style>` @25744 and BEFORE `<div class="ring">` @29645 → **banner above score**; the
+  green “未觸發” row is **absent** when the flag is on. Self-scan of that report still
+  0 crit / 0 warn.
+- **「標準」 accuracy spot-check** vs `core/references/wcag-quick.md` — all correct:
+  image-alt-missing→1.1.1, meta-description-missing→explicitly “NOT WCAG, AEO convention”
+  (honest), document-title-missing→2.4.2, viewport-zoom-disabled→1.4.4 (200%),
+  viewport-meta-missing→1.4.10 (320px reflow), clickable-non-button→2.1.1,
+  input-label-missing→3.3.2, button/link-name→4.1.2, main-landmark/list-non-li→1.3.1.
+- **Two new tests meaningful.** Test 1: structural — every engine-emittable key has a
+  bilingual `standard` (`>=20` floor guard + `deepEqual([])`). Test 2: generates a real
+  report, asserts standard-line wording renders AND `standardIdx < fixIdx`. No trivial
+  assertions. Render guard checks `zh?.standard`; safe because test 1 enforces en too.
+
+## Findings
+
+### LOW
+1. **`headings-missing` → WCAG 2.4.6 citation is slightly imprecise (uncertain).** 2.4.6
+   governs headings *where present*; a page with zero headings has no SC that strictly
+   *mandates* headings (1.3.1 is the cleaner cite). The statement hedges honestly (“where
+   present / 已存在的標題”) and `wcag-quick.md:14` itself pairs heading structure with 2.4.6,
+   so it is defensible for a teaching product — flagging only for transparency, not a gate.
+2. **`capSnippet` slices at 500 UTF-16 code units before escaping** (`generate-report.mjs`
+   `RENDER_SNIPPET_MAX_CHARS`). A surrogate pair split exactly at 500 yields one broken glyph
+   at the boundary. Cosmetic; capture-side 300 clamp means render rarely reaches 500.
+
+## Required fixes
+
+None (no CRITICAL/HIGH). LOW items are optional.

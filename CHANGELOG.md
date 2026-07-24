@@ -36,6 +36,14 @@ plan; report IA redesign (Workstream B) tracks separately in the same release.
   archived @8 results and the @9 rerun across all 85 comparable benchmark sites,
   including all 7 sites in the `gt-remap-6` ground-truth cohort. Ground-truth P/R
   (1.000 / 0.727, `pr-analysis-v8.json`) stands unchanged — no FP introduced, no TP lost.
+- **Evidence excerpt clamping**: `code_before`/`code_after`/evidence excerpts are now
+  capped to a ~300-char window centered on the matched text (ellipsis on cut ends, match
+  kept intact) at the shared `snippetAt` capture path — a single-line minified CSS block
+  no longer produces a 15KB `code_before` (found on rakuten.co.jp's `focus-outline-removed`
+  finding, benchmark `run-2026-07-05`). Report generator adds a defense-in-depth ~500-char
+  hard cap with a bilingual truncation notice so a stale oversized audit JSON can never
+  blow up the rendered report. Evidence strings never entered scoring; no golden delta is
+  score-affecting.
 
 ### Workstream B — report information architecture redesign
 

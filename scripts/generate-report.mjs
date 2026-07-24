@@ -63,6 +63,14 @@ function buildSlug(audit) {
   return fromScope || null;
 }
 
+// Human-readable host for <title> — same hostname/www-strip technique as
+// buildSlug above, but keeps case and drops the path (title bar wants
+// "rakuten.co.jp", not a filename slug or the protocol/path noise).
+function titleHost(audit) {
+  const raw = audit?.metadata?.scope || audit?.metadata?.url || '';
+  try { return new URL(raw).hostname.replace(/^www\./, ''); } catch { return raw || 'Project'; }
+}
+
 if (!outputPath) {
   const slug = buildSlug(audit);
   const date = audit.metadata?.date || 'latest';
@@ -111,7 +119,7 @@ const I18N = {
     category_show_details: '展開詳情',
     category_hide_details: '收合詳情',
     category_detail_scored: '已取得可計分的機器證據。',
-    category_detail_manual: '靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。',
+    category_detail_manual: '靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。',
     category_detail_na: '靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。',
     category_detail_insufficient: '靜態掃描已完成；這個分類的機器可判定證據太少，一兩項結果不足以代表整體，因此不製造分數，但下方仍完整列出所有發現項目。',
     coverage_line: '機測權重涵蓋',
@@ -142,6 +150,7 @@ const I18N = {
     // Findings labels
     finding_affected: '可能受影響的使用者',
     finding_location: '位置',
+    finding_standard: '標準',
     finding_fix: '建議調整',
     finding_legal: '法律參考',
     finding_before_after: '調整前 / 調整後',
@@ -216,7 +225,7 @@ const I18N = {
     category_show_details: 'Show details',
     category_hide_details: 'Hide details',
     category_detail_scored: 'Machine-scoreable evidence was collected.',
-    category_detail_manual: 'The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented.',
+    category_detail_manual: 'The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).',
     category_detail_na: 'The static scan completed. No applicable content for this category was detected in the audited scope.',
     category_detail_insufficient: 'The static scan completed. This category has too few machine-checkable results for one or two to represent the whole, so no score is invented, but every finding is still listed in full below.',
     coverage_line: 'Machine-measured weight coverage',
@@ -242,6 +251,7 @@ const I18N = {
     cmp_issues: 'Issues (now / was)',
     finding_affected: 'Users potentially affected',
     finding_location: 'Location',
+    finding_standard: 'Standard',
     finding_fix: 'Suggested adjustment',
     finding_legal: 'Legal note',
     finding_before_after: 'Before / After',
@@ -283,102 +293,120 @@ const I18N = {
   },
 };
 
+// Each key's `standard` field states what the cited criterion actually
+// REQUIRES (not just what this detector flags) — the decision rule where one
+// exists, so a reader learns the norm, not only the patch. Grounded in
+// core/references/wcag-quick.md's rule column + the well-established SC text
+// for each criterion (2.2 Recommendation); the 6 non-WCAG keys (AEO/agent
+// structural hygiene) say plainly that they are NOT a WCAG requirement.
 const FINDING_I18N = {
   'html-lang-missing': {
-    zh: { title: '頁面語言缺失', description: 'HTML 頁面沒有宣告 lang attribute，assistive technology 可能使用錯誤的發音規則。', fix: '加入正確的語言 attribute，例如 <html lang="zh-Hant">。' },
-    en: { title: 'Page language is missing', description: 'The HTML page does not declare a lang attribute, so assistive technology may choose the wrong pronunciation rules.', fix: 'Add a language attribute such as <html lang="zh-Hant"> or the correct document language.' },
+    zh: { title: '頁面語言缺失', description: 'HTML 頁面沒有宣告 lang attribute，assistive technology 可能使用錯誤的發音規則。', fix: '加入正確的語言 attribute，例如 <html lang="zh-Hant">。', standard: 'WCAG 3.1.1 要求每個頁面都要宣告其預設語言；缺少 lang 屬性時，螢幕閱讀器可能套用錯誤的發音與斷句規則朗讀內容。' },
+    en: { title: 'Page language is missing', description: 'The HTML page does not declare a lang attribute, so assistive technology may choose the wrong pronunciation rules.', fix: 'Add a language attribute such as <html lang="zh-Hant"> or the correct document language.', standard: 'WCAG 3.1.1 requires every page to declare its default language; without a lang attribute, screen readers may apply the wrong pronunciation and phrasing rules to the content.' },
+  },
+  'html-lang-mismatch': {
+    zh: { title: '宣告的頁面語言與內容不符', description: '偵測到內容語言不符。宣告錯誤比完全沒宣告更糟，assistive technology 會有信心地套用錯誤的發音與翻譯規則。', fix: '把 <html lang> 設為實際內容語言。', standard: 'WCAG 3.1.1 要求宣告的語言必須符合實際內容語言；宣告錯誤比完全沒宣告更糟，因為輔助科技會「有信心地」套用錯誤的發音與翻譯規則。' },
+    en: { title: 'Declared page language does not match the content', description: 'Content-language mismatch. A wrong language declaration is worse than a missing one — assistive technology applies confidently wrong pronunciation and translation rules.', fix: 'Set <html lang> to the actual content language.', standard: 'WCAG 3.1.1 requires the declared language to match the actual content language; a wrong declaration is worse than none, because assistive tech confidently applies the wrong pronunciation and translation rules.' },
+  },
+  'html-lang-mismatch-review': {
+    zh: { title: '頁面語言可能與內容不符', description: '可能的內容語言不符，這可能是合理的未標記雙語內容，請先確認主要語言再修改。', fix: '確認 <html lang> 符合主要內容語言；其他語言段落另用自己的 lang 屬性標記（3.1.2）。', standard: 'WCAG 3.1.1 要求宣告的語言必須符合實際內容語言；本項為偵測到「可能」不符的情況（例如合理的雙語內容），需人工確認主要語言後再決定是否修改 lang 屬性。' },
+    en: { title: 'Page language may not match the content', description: 'Possible content-language mismatch — this can be legitimate untagged bilingual content, so verify the primary language before changing it.', fix: 'Confirm <html lang> matches the primary content language, and mark other-language passages with their own lang attribute (3.1.2 Language of Parts).', standard: 'WCAG 3.1.1 requires the declared language to match the actual content language; this is a POSSIBLE mismatch (e.g. legitimate bilingual content can trigger it) — confirm the primary language before changing the lang attribute.' },
   },
   'document-title-missing': {
-    zh: { title: '文件標題缺失', description: '缺少或空白的 title 會讓頁面在瀏覽器與 assistive technology 中難以辨識。', fix: '加入簡短且唯一的 <title>。' },
-    en: { title: 'Document title is missing', description: 'A missing or empty title makes the page difficult to identify in browser and assistive technology contexts.', fix: 'Add a concise, unique <title>.' },
+    zh: { title: '文件標題缺失', description: '缺少或空白的 title 會讓頁面在瀏覽器與 assistive technology 中難以辨識。', fix: '加入簡短且唯一的 <title>。', standard: 'WCAG 2.4.2 要求每個頁面都要有描述性的 <title>；缺少或空白的標題，會讓使用者在瀏覽器分頁、書籤與螢幕閱讀器中都無法辨識頁面。' },
+    en: { title: 'Document title is missing', description: 'A missing or empty title makes the page difficult to identify in browser and assistive technology contexts.', fix: 'Add a concise, unique <title>.', standard: 'WCAG 2.4.2 requires every page to have a descriptive <title>; a missing or empty title makes the page unidentifiable in browser tabs, bookmarks, and screen readers alike.' },
   },
   'main-landmark-missing': {
-    zh: { title: '靜態 markup 中看不到 main landmark', description: '靜態檔案中沒有找到 <main> 或 role="main"。', fix: '用 <main id="main-content"> 包住主要內容。' },
-    en: { title: 'Main landmark is not statically visible', description: 'No <main> or role="main" was found in this static file.', fix: 'Wrap primary page content in <main id="main-content">.' },
+    zh: { title: '靜態 markup 中看不到 main landmark', description: '靜態檔案中沒有找到 <main> 或 role="main"。', fix: '用 <main id="main-content"> 包住主要內容。', standard: 'WCAG 1.3.1 要求版面的結構與關係要能以程式化方式辨識；<main> landmark 讓螢幕閱讀器與鍵盤使用者能一步跳到主要內容，而不必逐一略過重複的頁首與導覽。' },
+    en: { title: 'Main landmark is not statically visible', description: 'No <main> or role="main" was found in this static file.', fix: 'Wrap primary page content in <main id="main-content">.', standard: 'WCAG 1.3.1 requires that structure and relationships be programmatically determinable; a <main> landmark lets screen-reader and keyboard users jump straight to primary content instead of tabbing past repeated headers and navigation each time.' },
   },
   'headings-missing': {
-    zh: { title: '沒有 heading 結構', description: '靜態 markup 沒有 heading structure。', fix: '加入有意義的 h1 與描述頁面結構的巢狀 heading。' },
-    en: { title: 'No headings found', description: 'The static markup has no heading structure.', fix: 'Add a meaningful h1 and nested headings that describe the page structure.' },
+    zh: { title: '沒有 heading 結構', description: '靜態 markup 沒有 heading structure。', fix: '加入有意義的 h1 與描述頁面結構的巢狀 heading。', standard: 'WCAG 2.4.6 要求已存在的標題要能清楚描述主題或用途，並依邏輯層級排列；完全沒有標題結構，會讓依賴標題導覽（screen reader 的 heading 清單）的使用者失去頁面地圖。' },
+    en: { title: 'No headings found', description: 'The static markup has no heading structure.', fix: 'Add a meaningful h1 and nested headings that describe the page structure.', standard: 'WCAG 2.4.6 requires headings, where present, to clearly describe topic or purpose and follow a logical order; a page with no heading structure at all removes the page map that heading-navigation (a core screen-reader technique) depends on.' },
   },
   'heading-level-skipped': {
-    zh: { title: 'Heading level 跳級', description: 'Heading hierarchy 有跳級，會影響用 heading 導覽的使用者。', fix: '使用連續的 heading hierarchy，或只調整視覺樣式而不改 semantic level。' },
-    en: { title: 'Heading level is skipped', description: 'Heading hierarchy skips a level.', fix: 'Use a continuous heading hierarchy or adjust the visual style without changing semantic level.' },
+    zh: { title: 'Heading level 跳級', description: 'Heading hierarchy 有跳級，會影響用 heading 導覽的使用者。', fix: '使用連續的 heading hierarchy，或只調整視覺樣式而不改 semantic level。', standard: 'WCAG 1.3.1 要求版面結構要能以程式化方式辨識；標題層級代表巢狀大綱，跳過層級（如 h1 直接到 h3）會讓依賴大綱導覽的使用者誤判內容的從屬關係。' },
+    en: { title: 'Heading level is skipped', description: 'Heading hierarchy skips a level.', fix: 'Use a continuous heading hierarchy or adjust the visual style without changing semantic level.', standard: 'WCAG 1.3.1 requires document structure to be programmatically determinable; heading levels represent a nested outline, and skipping a level (e.g. h1 straight to h3) misrepresents that hierarchy for anyone navigating by outline.' },
   },
   'image-alt-missing': {
-    zh: { title: '圖片缺少 alt text', description: '沒有 alt text 的圖片可能在 assistive technology 中沉默或被不清楚地朗讀。', fix: '為有意義的圖片加入 alt text；純裝飾圖片使用 alt=""。' },
-    en: { title: 'Image is missing alt text', description: 'An image without alt text is silent or announced poorly by assistive technology.', fix: 'Add meaningful alt text, or alt="" for purely decorative images.' },
+    zh: { title: '圖片缺少 alt text', description: '沒有 alt text 的圖片可能在 assistive technology 中沉默或被不清楚地朗讀。', fix: '為有意義的圖片加入 alt text；純裝飾圖片使用 alt=""。', standard: 'WCAG 1.1.1 要求所有非文字內容都要有文字替代：功能性圖片（如圖示按鈕）替代文字描述其功能，資訊性圖片描述其內容，純裝飾圖片則必須明確標記（alt=""、aria-hidden 或 role="presentation"）讓輔助科技略過。本檢查不判斷圖片是否為裝飾，未標記本身即是違規，修正時依上述準則二選一。' },
+    en: { title: 'Image is missing alt text', description: 'An image without alt text is silent or announced poorly by assistive technology.', fix: 'Add meaningful alt text, or alt="" for purely decorative images.', standard: 'WCAG 1.1.1 requires every non-text content item to have a text alternative: functional images (e.g. icon buttons) take their function as the alt text, informative images describe their content, and purely decorative images must be explicitly marked (alt="", aria-hidden, or role="presentation") so assistive tech skips them. This check does not judge whether an image is decorative — being unmarked is itself the violation; fix by choosing one of the above.' },
   },
   'list-non-li-child': {
-    zh: { title: 'List 含有非 list-item 直接子元素', description: '<ul>/<ol> 的直接子元素不是 <li>、<script> 或 <template>，screen reader 可能無法正確朗讀 list 或 item count。', fix: '讓 <li> 成為唯一結構子元素；或在不可避免的非標準結構中使用 role="list"/role="listitem"。' },
-    en: { title: 'List contains a non-list-item child', description: 'A <ul>/<ol> has a direct child that is not <li>, <script>, or <template>. Screen readers may not announce the list or its item count correctly.', fix: 'Make <li> the only structural child; move wrapper elements inside an <li>, or use role="list"/role="listitem" if a non-standard structure is unavoidable.' },
+    zh: { title: 'List 含有非 list-item 直接子元素', description: '<ul>/<ol> 的直接子元素不是 <li>、<script> 或 <template>，screen reader 可能無法正確朗讀 list 或 item count。', fix: '讓 <li> 成為唯一結構子元素；或在不可避免的非標準結構中使用 role="list"/role="listitem"。', standard: 'WCAG 1.3.1 要求清單的結構關係要能以程式化方式辨識；<ul>/<ol> 的直接子元素若不是 <li>，screen reader 可能無法正確朗讀清單或項目數量。' },
+    en: { title: 'List contains a non-list-item child', description: 'A <ul>/<ol> has a direct child that is not <li>, <script>, or <template>. Screen readers may not announce the list or its item count correctly.', fix: 'Make <li> the only structural child; move wrapper elements inside an <li>, or use role="list"/role="listitem" if a non-standard structure is unavoidable.', standard: "WCAG 1.3.1 requires a list's structural relationships to be programmatically determinable; if a <ul>/<ol>'s direct child isn't <li>, a screen reader may not announce the list or its item count correctly." },
   },
   'button-name-missing': {
-    zh: { title: 'Button 可能沒有 accessible name', description: '沒有可見文字或 accessible label 的 button 會讓使用者難以理解或用名稱操作。', fix: '加入可見文字、aria-label 或 aria-labelledby。' },
-    en: { title: 'Button may not have an accessible name', description: 'A button with no visible text or accessible label is hard to understand or activate by name.', fix: 'Add visible text, aria-label, or aria-labelledby.' },
+    zh: { title: 'Button 可能沒有 accessible name', description: '沒有可見文字或 accessible label 的 button 會讓使用者難以理解或用名稱操作。', fix: '加入可見文字、aria-label 或 aria-labelledby。', standard: 'WCAG 4.1.2 要求每個可互動元件都要有可程式化辨識的名稱；按鈕若只靠圖示或空白內容，使用者將無法得知其功能。' },
+    en: { title: 'Button may not have an accessible name', description: 'A button with no visible text or accessible label is hard to understand or activate by name.', fix: 'Add visible text, aria-label, or aria-labelledby.', standard: 'WCAG 4.1.2 requires every interactive component to expose a programmatically determinable name; a button relying only on an icon or empty content leaves users unable to tell what it does.' },
   },
   'link-name-missing': {
-    zh: { title: 'Link 可能沒有 accessible name', description: 'Link 沒有可見文字、ARIA label、title、圖片 alt 或 SVG title 時，screen reader 可能只朗讀為一般 link。', fix: '加入可見 link text、aria-label/aria-labelledby/title、包裹圖片的 alt text，或 <svg><title>。' },
-    en: { title: 'Link may not have an accessible name', description: 'A link with no visible text, no aria-label/aria-labelledby/title, and no image alt or SVG title has no accessible name.', fix: 'Add visible link text, an aria-label/aria-labelledby/title, give a wrapped <img> meaningful alt text, or add an <svg><title>.' },
+    zh: { title: 'Link 可能沒有 accessible name', description: 'Link 沒有可見文字、ARIA label、title、圖片 alt 或 SVG title 時，screen reader 可能只朗讀為一般 link。', fix: '加入可見 link text、aria-label/aria-labelledby/title、包裹圖片的 alt text，或 <svg><title>。', standard: 'WCAG 4.1.2 要求每個可互動元件都要有可程式化辨識的名稱、角色與狀態；連結必須有可辨識的名稱才能被輔助科技正確朗讀與操作，名稱可以是可見文字、aria-label/aria-labelledby、title，或包裹圖片的 alt 文字。' },
+    en: { title: 'Link may not have an accessible name', description: 'A link with no visible text, no aria-label/aria-labelledby/title, and no image alt or SVG title has no accessible name.', fix: 'Add visible link text, an aria-label/aria-labelledby/title, give a wrapped <img> meaningful alt text, or add an <svg><title>.', standard: "WCAG 4.1.2 requires every interactive component to expose a programmatically determinable name, role, and state; a link needs a discoverable name so assistive tech can announce and operate it — the name can come from visible text, aria-label/aria-labelledby, title, or a wrapped image's alt text." },
   },
   'clickable-non-button': {
-    zh: { title: '可點擊元素不是 button', description: '可點擊的 <div> 或 <span> 預設無法用鍵盤操作。', fix: '動作使用 <button>；若必須自訂語意，加入 role、tabindex 與 Enter/Space handling。' },
-    en: { title: 'Clickable non-button element', description: 'Clickable <div> or <span> elements are not keyboard-operable by default.', fix: 'Use <button> for actions. If custom semantics are unavoidable, add role, tabindex, and Enter/Space handling.' },
+    zh: { title: '可點擊元素不是 button', description: '可點擊的 <div> 或 <span> 預設無法用鍵盤操作。', fix: '動作使用 <button>；若必須自訂語意，加入 role、tabindex 與 Enter/Space handling。', standard: 'WCAG 2.1.1 要求所有功能都能單靠鍵盤操作；可點擊的 <div>/<span> 預設無法被 Tab 聚焦或用 Enter/Space 觸發，鍵盤使用者將完全無法使用該功能。' },
+    en: { title: 'Clickable non-button element', description: 'Clickable <div> or <span> elements are not keyboard-operable by default.', fix: 'Use <button> for actions. If custom semantics are unavoidable, add role, tabindex, and Enter/Space handling.', standard: "WCAG 2.1.1 requires all functionality to be operable by keyboard alone; a clickable <div>/<span> is not Tab-focusable or Enter/Space-activatable by default, so keyboard users can't use it at all." },
   },
   'input-label-missing': {
-    zh: { title: 'Input 可能缺少 accessible label', description: 'Input 在靜態 markup 中沒有明顯 id 或 ARIA label。', fix: '搭配 <label for="...">，或在已有可見 label 時使用 aria-labelledby。' },
-    en: { title: 'Input may be missing an accessible label', description: 'The input has no obvious id or ARIA label in static markup.', fix: 'Pair it with a <label for="..."> or use aria-labelledby when a visible label already exists.' },
+    zh: { title: 'Input 可能缺少 accessible label', description: 'Input 在靜態 markup 中沒有明顯 id 或 ARIA label。', fix: '搭配 <label for="...">，或在已有可見 label 時使用 aria-labelledby。', standard: 'WCAG 3.3.2 要求每個輸入欄位都要有可見且已關聯的標籤或說明；沒有 <label> 或對應 ARIA 標籤的欄位，使用者（尤其是螢幕閱讀器與語音控制使用者）無法得知該填什麼。' },
+    en: { title: 'Input may be missing an accessible label', description: 'The input has no obvious id or ARIA label in static markup.', fix: 'Pair it with a <label for="..."> or use aria-labelledby when a visible label already exists.', standard: 'WCAG 3.3.2 requires every input to have a visible, associated label or instruction; a field with no <label> or matching ARIA label leaves users — especially screen-reader and voice-control users — unable to tell what to enter.' },
   },
   'viewport-meta-missing': {
-    zh: { title: 'Viewport meta tag 缺失', description: '缺少 viewport meta tag 會讓 mobile layout 與 zoom 行為變得不可用。', fix: '加入 <meta name="viewport" content="width=device-width, initial-scale=1">。' },
-    en: { title: 'Viewport meta tag is missing', description: 'Without a viewport meta tag, mobile layout and zoom behavior can become unusable.', fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1">.' },
+    zh: { title: 'Viewport meta tag 缺失', description: '缺少 viewport meta tag 會讓 mobile layout 與 zoom 行為變得不可用。', fix: '加入 <meta name="viewport" content="width=device-width, initial-scale=1">。', standard: 'WCAG 1.4.10 要求內容在 320px 寬度下能正確回流、不需雙向捲動；缺少 viewport meta 標籤時，行動裝置通常會強制縮放整頁而非重排版面。' },
+    en: { title: 'Viewport meta tag is missing', description: 'Without a viewport meta tag, mobile layout and zoom behavior can become unusable.', fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1">.', standard: 'WCAG 1.4.10 requires content to reflow correctly at 320px width without two-axis scrolling; without a viewport meta tag, mobile browsers typically zoom the whole page out instead of reflowing it.' },
   },
   'viewport-zoom-disabled': {
-    zh: { title: 'Viewport meta 禁用 zoom', description: 'Viewport meta 阻止使用者放大文字。', fix: '移除 user-scalable=no 與低於 5 的 maximum-scale。' },
-    en: { title: 'Viewport meta disables zoom', description: 'The viewport meta tag prevents zoom, so users cannot enlarge text.', fix: 'Remove user-scalable=no and any maximum-scale below 5; use content="width=device-width, initial-scale=1".' },
+    zh: { title: 'Viewport meta 禁用 zoom', description: 'Viewport meta 阻止使用者放大文字。', fix: '移除 user-scalable=no 與低於 5 的 maximum-scale。', standard: 'WCAG 1.4.4 要求文字在不損失內容或功能的情況下可放大至 200%；viewport meta 若設定 user-scalable=no 或過低的 maximum-scale，會直接剝奪使用者縮放頁面的能力。' },
+    en: { title: 'Viewport meta disables zoom', description: 'The viewport meta tag prevents zoom, so users cannot enlarge text.', fix: 'Remove user-scalable=no and any maximum-scale below 5; use content="width=device-width, initial-scale=1".', standard: "WCAG 1.4.4 requires text to be resizable up to 200% without loss of content or function; a viewport meta with user-scalable=no or a very low maximum-scale directly removes the user's ability to zoom." },
   },
   'meta-description-missing': {
-    zh: { title: 'Meta description 缺失', description: '靜態 HTML 中沒有找到 meta description。', fix: '加入簡短且頁面專屬的 meta description。' },
-    en: { title: 'Meta description is missing', description: 'No meta description was found in the static HTML.', fix: 'Add a concise page-specific meta description.' },
+    zh: { title: 'Meta description 缺失', description: '靜態 HTML 中沒有找到 meta description。', fix: '加入簡短且頁面專屬的 meta description。', standard: '這不是 WCAG 準則，而是 AEO 結構慣例：meta description 提供簡短摘要，供搜尋結果與 AI 引擎摘要頁面時使用；缺少時，摘要文字通常由引擎自行從內文擷取，品質難以掌控。' },
+    en: { title: 'Meta description is missing', description: 'No meta description was found in the static HTML.', fix: 'Add a concise page-specific meta description.', standard: "This is not a WCAG criterion — it's an AEO structural convention: a meta description supplies the short summary search results and AI engines use when representing the page; without it, the summary is auto-extracted from body text with unpredictable quality." },
   },
   'canonical-missing': {
-    zh: { title: 'Canonical link 缺失', description: '靜態 HTML 中沒有找到 canonical URL，crawler 可能需要自行推斷偏好的 URL。', fix: '為可索引公開頁加入 <link rel="canonical" href="https://example.com/preferred-url">。' },
-    en: { title: 'Canonical link is missing', description: 'No canonical URL was found in the static HTML, so crawlers may have to infer the preferred URL.', fix: 'Add <link rel="canonical" href="https://example.com/preferred-url"> for indexable public pages.' },
+    zh: { title: 'Canonical link 缺失', description: '靜態 HTML 中沒有找到 canonical URL，crawler 可能需要自行推斷偏好的 URL。', fix: '為可索引公開頁加入 <link rel="canonical" href="https://example.com/preferred-url">。', standard: '這不是 WCAG 準則，而是 AEO 結構慣例：canonical link 讓搜尋引擎與 AI agent 判斷你偏好的網址版本，避免重複內容分散排名或引用機會。' },
+    en: { title: 'Canonical link is missing', description: 'No canonical URL was found in the static HTML, so crawlers may have to infer the preferred URL.', fix: 'Add <link rel="canonical" href="https://example.com/preferred-url"> for indexable public pages.', standard: "This is not a WCAG criterion — it's an AEO (answer-engine optimization) structural convention: a canonical link tells search engines and AI agents which URL you prefer, so duplicate content doesn't split ranking or citation credit." },
   },
   'jsonld-missing': {
-    zh: { title: 'JSON-LD structured data 缺失', description: '靜態 HTML 中沒有找到 JSON-LD structured data。', fix: '加入適合頁面的 Schema.org JSON-LD，例如 Organization、Article、FAQPage、Product、BreadcrumbList 或 WebSite。' },
-    en: { title: 'JSON-LD structured data is missing', description: 'No JSON-LD structured data was found in the static HTML.', fix: 'Add page-appropriate Schema.org JSON-LD, such as Organization, Article, FAQPage, Product, BreadcrumbList, or WebSite.' },
+    zh: { title: 'JSON-LD structured data 缺失', description: '靜態 HTML 中沒有找到 JSON-LD structured data。', fix: '加入適合頁面的 Schema.org JSON-LD，例如 Organization、Article、FAQPage、Product、BreadcrumbList 或 WebSite。', standard: '這不是 WCAG 準則，而是 AEO 結構慣例：JSON-LD structured data 讓搜尋引擎與 AI agent 更準確理解頁面內容的類型與關係（例如文章、商品、組織），提高被正確引用的機會。' },
+    en: { title: 'JSON-LD structured data is missing', description: 'No JSON-LD structured data was found in the static HTML.', fix: 'Add page-appropriate Schema.org JSON-LD, such as Organization, Article, FAQPage, Product, BreadcrumbList, or WebSite.', standard: "This is not a WCAG criterion — it's an AEO structural convention: JSON-LD structured data helps search engines and AI agents understand what a page is (article, product, organization) and how its parts relate, improving the odds of being cited correctly." },
   },
   'robots-txt-missing': {
-    zh: { title: '掃描站點檔案中沒有 robots.txt', description: '掃描的目錄中沒有找到 robots.txt。Agent 與 crawler 對可存取範圍會缺少明確指引。', fix: '在 site root 加入 robots.txt。公開 AI-facing site 可考慮加入 sitemap 與符合政策的 Content-Signal directives。' },
-    en: { title: 'robots.txt was not found in the scanned site files', description: 'No robots.txt file was found in the scanned directory. Agents and crawlers may have less explicit guidance about what they can access.', fix: 'Add a site-root robots.txt. For public AI-facing sites, consider explicit sitemap and Content-Signal directives that match your policy.' },
+    zh: { title: '掃描站點檔案中沒有 robots.txt', description: '掃描的目錄中沒有找到 robots.txt。Agent 與 crawler 對可存取範圍會缺少明確指引。', fix: '在 site root 加入 robots.txt。公開 AI-facing site 可考慮加入 sitemap 與符合政策的 Content-Signal directives。', standard: '這不是 WCAG 準則，而是 agent readiness 結構慣例：robots.txt 明確告知爬蟲與 AI agent 可存取的範圍；缺少時，crawler 對可存取內容缺乏明確依據。' },
+    en: { title: 'robots.txt was not found in the scanned site files', description: 'No robots.txt file was found in the scanned directory. Agents and crawlers may have less explicit guidance about what they can access.', fix: 'Add a site-root robots.txt. For public AI-facing sites, consider explicit sitemap and Content-Signal directives that match your policy.', standard: "This is not a WCAG criterion — it's an agent-readiness structural convention: robots.txt explicitly states what crawlers and AI agents may access; without it, they have no explicit basis for what's fair game." },
   },
   'sitemap-missing': {
-    zh: { title: '掃描站點檔案中沒有 sitemap.xml', description: '掃描的目錄中沒有找到 sitemap.xml。', fix: '在 site root 加入 sitemap.xml，並從 robots.txt 參照它，讓 crawler 更容易找到重要公開 URL。' },
-    en: { title: 'sitemap.xml was not found in the scanned site files', description: 'No sitemap.xml file was found in the scanned directory.', fix: 'Add a site-root sitemap.xml and reference it from robots.txt so crawlers can discover important public URLs.' },
+    zh: { title: '掃描站點檔案中沒有 sitemap.xml', description: '掃描的目錄中沒有找到 sitemap.xml。', fix: '在 site root 加入 sitemap.xml，並從 robots.txt 參照它，讓 crawler 更容易找到重要公開 URL。', standard: '這不是 WCAG 準則，而是 agent readiness 結構慣例：sitemap.xml 列出重要公開網址，協助爬蟲與 AI agent 發現內容，尤其是內部連結較少的頁面。' },
+    en: { title: 'sitemap.xml was not found in the scanned site files', description: 'No sitemap.xml file was found in the scanned directory.', fix: 'Add a site-root sitemap.xml and reference it from robots.txt so crawlers can discover important public URLs.', standard: "This is not a WCAG criterion — it's an agent-readiness structural convention: sitemap.xml lists important public URLs, helping crawlers and AI agents discover content, especially pages with few internal links." },
   },
   'llms-txt-missing': {
-    zh: { title: '掃描站點檔案中沒有 llms.txt', description: '掃描的目錄中沒有找到 llms.txt。這是 optional proposed convention，但可協助 agent 找到重要內容。', fix: '可考慮加入 site-root llms.txt，用純文字描述網站、重要頁面、docs、API 與 crawl/use policy。' },
-    en: { title: 'llms.txt was not found in the scanned site files', description: 'No llms.txt file was found in the scanned directory. This proposed convention is optional, but can help agents find the most important content.', fix: 'Consider adding a site-root llms.txt that describes the site, key pages, docs, APIs, and crawl/use policy in plain text.' },
+    zh: { title: '掃描站點檔案中沒有 llms.txt', description: '掃描的目錄中沒有找到 llms.txt。這是 optional proposed convention，但可協助 agent 找到重要內容。', fix: '可考慮加入 site-root llms.txt，用純文字描述網站、重要頁面、docs、API 與 crawl/use policy。', standard: '這不是 WCAG 準則，也不是正式標準，而是一個尚在推廣中的慣例：llms.txt 用純文字列出網站的重要頁面與說明，協助 agent 找到重要內容，屬於可選加分項。' },
+    en: { title: 'llms.txt was not found in the scanned site files', description: 'No llms.txt file was found in the scanned directory. This proposed convention is optional, but can help agents find the most important content.', fix: 'Consider adding a site-root llms.txt that describes the site, key pages, docs, APIs, and crawl/use policy in plain text.', standard: "This is not a WCAG criterion, nor a formal standard yet — it's a proposed, optional convention: llms.txt lists a site's key pages and docs in plain text to help agents find important content." },
   },
   'focus-outline-removed': {
-    zh: { title: 'Focus outline 被移除且沒有替代', description: '移除 outline 又沒有 :focus-visible 替代，會讓鍵盤位置不可見。', fix: '恢復 outline，或加入強烈且清楚的 :focus-visible style。' },
-    en: { title: 'Focus outline removed without replacement', description: 'Removing outline without a :focus-visible replacement makes keyboard location invisible.', fix: 'Restore outline or add a strong :focus-visible style.' },
+    zh: { title: 'Focus outline 被移除且沒有替代', description: '移除 outline 又沒有 :focus-visible 替代，會讓鍵盤位置不可見。', fix: '恢復 outline，或加入強烈且清楚的 :focus-visible style。', standard: 'WCAG 2.4.7 要求鍵盤焦點所在位置必須隨時可見；移除 outline 卻沒有替代樣式，鍵盤使用者會完全看不到目前焦點在哪裡。' },
+    en: { title: 'Focus outline removed without replacement', description: 'Removing outline without a :focus-visible replacement makes keyboard location invisible.', fix: 'Restore outline or add a strong :focus-visible style.', standard: 'WCAG 2.4.7 requires the keyboard focus indicator to always be visible; removing outline without a replacement leaves keyboard users with no way to see where focus currently is.' },
   },
   'fixed-minmax-overflow': {
-    zh: { title: '固定 minmax grid 可能在窄螢幕 overflow', description: 'minmax(Npx, 1fr) 會保留固定最小寬度，可能在 320px overflow。', fix: '使用 minmax(min(Npx, 100%), 1fr)。' },
-    en: { title: 'Fixed minmax grid can overflow narrow screens', description: 'minmax(Npx, 1fr) keeps a fixed minimum that can overflow at 320px.', fix: 'Use minmax(min(Npx, 100%), 1fr).' },
+    zh: { title: '固定 minmax grid 可能在窄螢幕 overflow', description: 'minmax(Npx, 1fr) 會保留固定最小寬度，可能在 320px overflow。', fix: '使用 minmax(min(Npx, 100%), 1fr)。', standard: 'WCAG 1.4.10 要求內容在 320px 寬度下能正確回流；CSS Grid 用 minmax(Npx, 1fr) 保留固定最小寬度，在比該寬度更窄的視窗會強制產生水平捲動。' },
+    en: { title: 'Fixed minmax grid can overflow narrow screens', description: 'minmax(Npx, 1fr) keeps a fixed minimum that can overflow at 320px.', fix: 'Use minmax(min(Npx, 100%), 1fr).', standard: 'WCAG 1.4.10 requires content to reflow correctly at 320px width; a CSS Grid minmax(Npx, 1fr) keeps a fixed minimum width, forcing horizontal scroll on any viewport narrower than that.' },
   },
   'motion-reduced-motion-missing': {
-    zh: { title: '有 motion 但缺少 reduced-motion handling', description: '偵測到 animation 或 transition，但沒有 prefers-reduced-motion handling。', fix: '加入 @media (prefers-reduced-motion: reduce)，停用或縮短非必要 motion。' },
-    en: { title: 'Motion exists without reduced-motion handling', description: 'Animation or transitions were detected, but no prefers-reduced-motion handling was found in this file.', fix: 'Add @media (prefers-reduced-motion: reduce) to disable or shorten non-essential motion.' },
+    zh: { title: '有 motion 但缺少 reduced-motion handling', description: '偵測到 animation 或 transition，但沒有 prefers-reduced-motion handling。', fix: '加入 @media (prefers-reduced-motion: reduce)，停用或縮短非必要 motion。', standard: 'WCAG 2.3.3（AAA，本檢查作為最佳實務建議，非 A/AA 基準要求）要求非必要的互動動畫要能被使用者關閉；沒有 prefers-reduced-motion 處理，前庭功能障礙或偏頭痛使用者無法停用可能引發不適的動態效果。' },
+    en: { title: 'Motion exists without reduced-motion handling', description: 'Animation or transitions were detected, but no prefers-reduced-motion handling was found in this file.', fix: 'Add @media (prefers-reduced-motion: reduce) to disable or shorten non-essential motion.', standard: 'WCAG 2.3.3 (AAA — flagged here as best practice, not an A/AA baseline requirement) requires that non-essential interaction-triggered animation can be turned off; without prefers-reduced-motion handling, users with vestibular disorders or migraines have no way to disable motion that can cause real discomfort.' },
   },
   'large-fixed-width': {
-    zh: { title: '偵測到大型固定寬度', description: '大型固定寬度可能在窄 viewport overflow。', fix: '使用 max-width、min()、clamp() 或 container-relative sizing。' },
-    en: { title: 'Large fixed width detected', description: 'Large fixed widths may overflow narrow viewports.', fix: 'Use max-width, min(), clamp(), or container-relative sizing.' },
+    zh: { title: '偵測到大型固定寬度', description: '大型固定寬度可能在窄 viewport overflow。', fix: '使用 max-width、min()、clamp() 或 container-relative sizing。', standard: 'WCAG 1.4.10 要求內容在 320px 寬度下能正確回流；任何未受限的大型固定寬度元素，都可能在窄視窗造成水平捲動。' },
+    en: { title: 'Large fixed width detected', description: 'Large fixed widths may overflow narrow viewports.', fix: 'Use max-width, min(), clamp(), or container-relative sizing.', standard: 'WCAG 1.4.10 requires content to reflow correctly at 320px width; any unconstrained large fixed-width element can force horizontal scroll on a narrow viewport.' },
   },
   'click-handler-keyboard-missing': {
-    zh: { title: 'Click handler 附近缺少鍵盤處理', description: '偵測到 click listener，但同一段附近沒有鍵盤支援。', fix: '優先使用 native button，或加入 Enter/Space keyboard support 與 focus management。' },
-    en: { title: 'Click handler lacks nearby keyboard handling', description: 'A click listener was found without nearby keyboard support in the same snippet.', fix: 'Prefer a native button, or add Enter/Space keyboard support and focus management.' },
+    zh: { title: 'Click handler 附近缺少鍵盤處理', description: '偵測到 click listener，但同一段附近沒有鍵盤支援。', fix: '優先使用 native button，或加入 Enter/Space keyboard support 與 focus management。', standard: 'WCAG 2.1.1 要求所有功能都能單靠鍵盤操作；只綁定 click 事件、沒有對應鍵盤處理的元件，等同對鍵盤使用者不存在。' },
+    en: { title: 'Click handler lacks nearby keyboard handling', description: 'A click listener was found without nearby keyboard support in the same snippet.', fix: 'Prefer a native button, or add Enter/Space keyboard support and focus management.', standard: "WCAG 2.1.1 requires all functionality to be operable by keyboard alone; a component wired only to a click handler, with no matching keyboard handling, is effectively invisible to keyboard users." },
+  },
+  'frame-title-missing': {
+    zh: { title: '框架缺少 title', description: '<iframe> 沒有 title，螢幕閱讀器使用者在進入前無法得知框架內容。', fix: '加入 title="..." 描述框架內容。', standard: 'WCAG 4.1.2 要求每個可互動元件（含框架）都要有可程式化辨識的名稱；<iframe> 沒有 title，螢幕閱讀器使用者在進入前無法得知框架內容。' },
+    en: { title: 'Frame is missing a title', description: 'An <iframe> without a title gives screen-reader users no way to know what the frame contains before entering it.', fix: 'Add title="..." describing the frame content.', standard: 'WCAG 4.1.2 requires every interactive component, including frames, to expose a programmatically determinable name; an <iframe> without a title gives screen-reader users no way to know what it contains before entering it.' },
   },
 };
 
@@ -816,6 +844,18 @@ function escapeHtml(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+const RENDER_SNIPPET_MAX_CHARS = 500;
+
+// Defense-in-depth: static-audit.mjs's snippetAt already clamps evidence at
+// capture time, but a stale oversized audit JSON (old run, hand-edited
+// fixture) must never be able to blow up the rendered report.
+function capSnippet(str) {
+  const s = String(str ?? '');
+  const escaped = escapeHtml(s.slice(0, RENDER_SNIPPET_MAX_CHARS));
+  if (s.length <= RENDER_SNIPPET_MAX_CHARS) return escaped;
+  return `${escaped}${bi('…已截斷，完整內容見 snapshot 檔', '…truncated, see the snapshot file for the full content')}`;
+}
+
 // ============================================================================
 // Finding groups — "one group is one thing to do". A static detector emits one
 // finding object per instance (88 separate image-alt-missing findings); an axe
@@ -975,18 +1015,6 @@ function buildCategoryGridHTML(categories, previousCategories, groupsByCat) {
   return `<div class="catgrid">${cards}</div>${buildAeoDisclaimer()}`;
 }
 
-// Mirrors static-audit.mjs's `coverage >= 60 ? 'medium' : 'low'` rule — shown here
-// so the report explains its own confidence label instead of asserting it bare.
-const CONFIDENCE_COVERAGE_THRESHOLD = 60;
-function confidenceLine(audit) {
-  const level = escapeHtml(audit.metadata?.confidence_level || 'low');
-  const coverage = audit.summary?.coverage_percent ?? 0;
-  return bi(
-    `信心 ${level}（評分覆蓋 ${coverage}%，門檻 ${CONFIDENCE_COVERAGE_THRESHOLD}%）`,
-    `confidence ${level} (coverage ${coverage}%, threshold ${CONFIDENCE_COVERAGE_THRESHOLD}%)`
-  );
-}
-
 function catNameCompact(cat) {
   const zh = I18N.zh[`cat_${cat.id}`] || cat.name || cat.id;
   const en = I18N.en[`cat_${cat.id}`] || cat.name || cat.id;
@@ -1016,7 +1044,7 @@ function buildLocationListHTML(locations) {
 function buildFindingGroupHTML(g) {
   const anchor = `fg-${slugify(g.key)}`;
   const diffHtml = g.sample.code_before
-    ? `<div class="diff" aria-label="code snippet / 程式碼片段"><div class="scroll"><pre class="before"><span class="tag">&minus;</span>${escapeHtml(g.sample.code_before)}</pre></div></div>`
+    ? `<div class="diff" aria-label="code snippet / 程式碼片段"><pre class="before"><span class="tag">&minus;</span>${capSnippet(g.sample.code_before)}</pre></div>`
     : '';
   return `
     <article class="fgroup" id="${anchor}" data-category="${escapeHtml(g.category || 'other')}">
@@ -1029,6 +1057,7 @@ function buildFindingGroupHTML(g) {
         <p class="who-line"><span class="who-badge">${t('finding_affected')}:</span> ${escapeHtml(g.affected_users || 'N/A')}</p>
         ${diffHtml}
         ${buildLocationListHTML(g.locations)}
+        ${FINDING_I18N[g.key]?.zh?.standard ? `<p class="standard-line"><strong>${t('finding_standard')}:</strong> ${findingText(g.sample, 'standard')}</p>` : ''}
         ${g.fix ? `<p class="fix-line"><strong>${t('finding_fix')}:</strong> ${findingText(g.sample, 'fix')}</p>` : ''}
         ${buildLearnMoreHTML(g.sample)}
       </div>
@@ -1105,23 +1134,31 @@ function buildHeroHTML(audit, previous, groups) {
       <div class="wrap">
         <p class="eyebrow"><span class="num">01</span> ${bi('決策層', 'Decision')}</p>
         <h1 class="layer-h" id="h-decision">${bi('一眼看懂結論，一步知道下一步做什麼', 'The whole verdict, and what to do next, on one screen')}</h1>
+        ${audit.summary.life_safety_flag ? buildLifeSafetyBanner() : ''}
 
         <div class="verdict">
           <div class="overall">
-            <div class="ring" role="img" aria-label="overall score ${overall ?? 'n/a'} of 100">
-              <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
-                <circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
-                <circle cx="66" cy="66" r="56" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
-              </svg>
-              <div class="val"><b>${overall ?? '—'}</b><span>/ 100</span></div>
+            <div class="ring-wrap">
+              <div class="ring" role="img" aria-label="overall score ${overall ?? 'n/a'} of 100">
+                <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
+                  <circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
+                  <circle cx="66" cy="66" r="56" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+                </svg>
+                <div class="val"><b>${overall ?? '—'}</b><span>/ 100</span></div>
+              </div>
+              <p class="ring-caption">${bi('機測部分', 'machine-checked portion')}</p>
             </div>
             <div>
               <span class="band" style="background:var(--${tone}-bg);color:var(--${tone});border-color:var(--${tone}-line)">${bandLabel}</span>
-              <p class="coverage">${t('coverage_line')} <b>${coverage}%</b> · ${confidenceLine(audit)}<br>
-                <span style="font-size:.85rem;color:var(--ink-muted)">${bi(
+              <p class="coverage">${bi(`此分數僅代表可機測的 <b>${coverage}%</b> 權重`, `This score covers only the <b>${coverage}%</b> of weight that is machine-checkable.`)}<br>
+                <span style="font-size:.85rem;color:var(--ink-soft)">${bi(
                   `${reviewCount} 個分類僅供人工複審、${thinCount} 個分類證據不足未計分`,
                   `${reviewCount} review-only, ${thinCount} with insufficient evidence`
-                )}</span></p>
+                )}</span>${audit.summary.life_safety_flag ? '' : `<br>
+                <span style="font-size:.85rem;color:var(--pass);font-weight:600">${bi(
+                  '生命安全檢查（閃爍/癲癇風險）：未觸發',
+                  'Life-safety check (flashing/seizure risk): not triggered'
+                )}</span>`}</p>
               ${prevLine}
             </div>
           </div>
@@ -1133,9 +1170,6 @@ function buildHeroHTML(audit, previous, groups) {
             )}
               <p style="margin-top:.4rem"><a href="#layer-methodology">${bi('查看完整方法論與限制 &rarr;', 'See full methodology &amp; limits &rarr;')}</a></p>
             </div>
-            ${audit.summary.life_safety_flag
-              ? buildLifeSafetyBanner()
-              : `<p class="safe-flag">${bi('&#10003; 未觸發生命安全旗標（無閃爍/癲癇風險）', '&#10003; No life-safety flags raised')}</p>`}
           </div>
         </div>
 
@@ -1758,7 +1792,7 @@ function buildMastheadHTML(audit) {
           ${pageLine}
           <span><b>${t('meta_date')}</b> ${escapeHtml(audit.metadata?.date || 'N/A')}</span>
           <span><b>${t('meta_standard')}</b> ${escapeHtml(audit.metadata?.standard || 'WCAG 2.2 AA')}</span>
-          <span><b>${bi('層級', 'Tier')}</b> ${escapeHtml(audit.metadata?.audit_tier || 'Tier 1')} &middot; ${confidenceLine(audit)}</span>
+          <span><b>${bi('層級', 'Tier')}</b> ${escapeHtml(audit.metadata?.audit_tier || 'Tier 1')}</span>
         </div>
         <div class="engine-tag">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')}</div>
       </div>
@@ -1815,7 +1849,7 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Accessibility Audit Report &mdash; ${escapeHtml(audit.metadata?.scope || audit.metadata?.url || 'Project')}</title>
+<title>Beacon 無障礙檢測報告 &middot; Accessibility Audit Report &mdash; ${escapeHtml(titleHost(audit))}</title>
 <style>
 /* ============================================================
    Beacon report — v3.2.0 information architecture.
@@ -1998,8 +2032,8 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
 /* jump nav */
 .jump{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
   backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-.jump ul{display:flex;gap:.2rem;margin:0;padding:.4rem 20px;list-style:none;
-  overflow-x:auto;max-width:var(--maxw);margin:0 auto;-webkit-overflow-scrolling:touch}
+.jump ul{display:flex;flex-wrap:wrap;gap:.2rem;margin:0 auto;padding:.4rem 20px;
+  list-style:none;max-width:var(--maxw)}
 .jump a{white-space:nowrap;text-decoration:none;color:var(--ink-soft);font-size:.86rem;
   font-weight:600;padding:.5rem .7rem;border-radius:8px;min-height:44px;display:flex;
   align-items:center}
@@ -2017,6 +2051,7 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
    coverage line can't balloon it; right floored so CJK never collapses. */
 @media(min-width:820px){.verdict{grid-template-columns:minmax(auto,26rem) minmax(20rem,1fr)}}
 .overall{display:flex;align-items:center;gap:1.1rem}
+.ring-wrap{display:flex;flex-direction:column;align-items:center;gap:.35rem;flex:0 0 auto;width:132px}
 .overall .ring{position:relative;width:132px;height:132px;flex:0 0 auto}
 .overall svg{transform:rotate(-90deg)}
 .overall .val{position:absolute;inset:0;display:flex;flex-direction:column;
@@ -2024,14 +2059,16 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
 .overall .val b{font-size:2.6rem;font-weight:800;font-variant-numeric:tabular-nums;
   line-height:1;letter-spacing:-.03em}
 .overall .val span{font-size:.78rem;color:var(--ink-muted);letter-spacing:.08em}
+/* caption lives BELOW the ring, never inside it — the en string
+   "machine-checked portion" is longer than the circle can hold. */
+.ring-caption{width:132px;margin:0;font-size:.78rem;line-height:1.3;text-align:center;
+  color:var(--ink-soft)}
 .band{display:inline-flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:999px;
   font-size:.84rem;font-weight:700;border:1px solid transparent}
 .coverage{margin-top:.55rem;font-size:.92rem;color:var(--ink-soft)}
 .coverage b{color:var(--ink);font-variant-numeric:tabular-nums}
 .honesty{margin-top:.9rem;padding:.85rem 1rem;border-left:4px solid var(--beacon);
   background:var(--beacon-soft);border-radius:0 10px 10px 0;font-size:.92rem;color:var(--ink)}
-.safe-flag{display:inline-flex;gap:.4rem;align-items:center;margin-top:.7rem;font-size:.86rem;
-  color:var(--pass);font-weight:600}
 
 /* fix these next */
 .fixnext{margin-top:2rem;background:var(--surface);border:1px solid var(--border);
@@ -2130,15 +2167,20 @@ section{padding:2.2rem 0}
 .meta-row{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
 .diff{font-family:var(--mono);font-size:.82rem;line-height:1.55;border-radius:10px;
   border:1px solid var(--border);overflow:hidden;margin:.2rem 0 1rem}
-.diff .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.diff pre{margin:0;padding:.7rem .9rem;white-space:pre;min-width:min-content}
+/* pre-wrap + a hanging indent so a wrapped line's continuation aligns under
+   the code, not under the +/- tag glyph; overflow-wrap covers unbroken tokens
+   (long URLs/class chains) so nothing forces the box wider than its container. */
+.diff pre{margin:0;padding:.7rem .9rem .7rem 2.3rem;text-indent:-1.4rem;
+  white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
 .diff .before{background:var(--crit-bg);color:var(--ink)}
 .diff .tag{display:inline-block;font-weight:700;margin-right:.5rem;user-select:none;color:var(--crit)}
 .loclist{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);
   background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;
-  margin:0 0 .6rem;max-height:8.5rem;overflow:auto;-webkit-overflow-scrolling:touch}
-.loclist span{display:inline-block;margin:.1rem .5rem .1rem 0}
-.fix-line{font-size:.92rem;margin:.2rem 0 0}
+  margin:0 0 .6rem;max-height:8.5rem;overflow-y:auto}
+.loclist span{display:inline-block;margin:.1rem .5rem .1rem 0;overflow-wrap:anywhere}
+.standard-line{font-size:.92rem;margin:.6rem 0 0;color:var(--ink-soft)}
+.standard-line strong{color:var(--beacon)}
+.fix-line{font-size:.92rem;margin:.6rem 0 0}
 .fix-line strong{color:var(--pass)}
 
 /* =========================== 04 CLIENT / EXEC SUMMARY =========================== */
@@ -2193,13 +2235,14 @@ footer a{font-weight:600}
 .axe-outcome-list{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem .85rem;margin:.6rem 0}
 .axe-outcome-list summary{cursor:pointer;font-weight:700;color:var(--text)}
 .axe-outcome-list ul{margin-top:.6rem}
-.axe-outcome-list li{display:grid;grid-template-columns:minmax(12rem,1fr) auto auto;gap:.5rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--border-soft)}
-.rule-id,.rule-criteria{color:var(--text-muted);font-size:.78rem}
+.axe-outcome-list li{display:flex;flex-wrap:wrap;gap:.3rem .8rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--border-soft)}
+.rule-id,.rule-criteria{color:var(--text-muted);font-size:.78rem;overflow-wrap:anywhere}
 .learn-more a,.axe-outcome-list a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
-.traps-table{width:100%;border-collapse:collapse;margin:.8rem 0;font-size:.9rem}
-.traps-table th{text-align:left;padding:.6rem .8rem;background:var(--surface-2);color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)}
-.traps-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top}
+.traps-table,.summary-table{width:100%;border-collapse:collapse;margin:.8rem 0;font-size:.9rem}
+.traps-table th,.summary-table th{text-align:left;padding:.6rem .8rem;background:var(--surface-2);color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)}
+.traps-table td,.summary-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
 .traps-table td:first-child{color:var(--text-muted);font-style:italic;width:38%}
+.summary-table .num{text-align:right;font-variant-numeric:tabular-nums}
 .legal-risk-panel{font-size:.92rem}
 .legal-context-note{background:var(--info-bg);border:1px solid var(--info-border);border-left:6px solid var(--info-border);border-radius:8px;padding:.9rem 1rem;margin:.8rem 0 1rem}
 .risk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:1rem;margin:1rem 0}
@@ -2237,8 +2280,7 @@ footer a{font-weight:600}
   section{padding:.6rem 0;break-inside:avoid}
   .exec{break-before:page;border:1px solid #000;box-shadow:none}
   .fgroup,.catcard,.fixcard{break-inside:avoid;box-shadow:none}
-  .loclist,.diff .scroll{overflow:visible;max-height:none}
-  .diff pre{white-space:pre-wrap}
+  .loclist{overflow:visible;max-height:none}
 }
 </style>
 </head>
