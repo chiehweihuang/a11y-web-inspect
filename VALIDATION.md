@@ -104,6 +104,76 @@ cause?** Fix the class, not the instance.
   average). Motivating case: rakuten.co.jp 40 → 54 (`responsive`/`motion` each had a
   single fail with no counterbalancing pass).
 
+### L2 — Tier-2 (browser-measured) thresholds, engine `beacon-tier2-audit@1`
+
+Native Playwright measurement (contrast + touch targets), added 2026-07-25 (v3.3
+Workstream A). Findings + evidence only so far — these categories do NOT yet enter the
+weighted score; that wiring is a separate, undecided step (see
+`plans/2026-07-25-v3.3-browser-measurements.md` Workstream A step 4). Every threshold
+below is a CALIBRATION DECISION, not a physical constant — revisit with data the same way
+the static-tier N=3 floor and severity repeat-cap are tracked above.
+
+- **Dependency policy (ruling 2026-07-25)**: this repo stays zero-dependency (no
+  `package.json`). Playwright is detected at runtime, never installed as a dependency —
+  `loadPlaywright()` tries, in order, `PLAYWRIGHT_MODULE_PATH` (explicit override,
+  authoritative — a bad value throws immediately rather than silently falling through),
+  `require.resolve('playwright')` from the caller's cwd (covers a user's own project that
+  already depends on it), then known global npm install locations, then throws a clear
+  install-command error. Browser-backed tests skip LOUDLY (node:test skip reason
+  `tier2: playwright unavailable on this machine`) when none resolve — see
+  `.github/workflows/ci.yml`'s `tier2-browser` job, the only CI job that installs
+  Playwright ad hoc (into a scratch dir, not the repo) so these tests actually run
+  somewhere; every other CI job is expected to show the loud skip.
+- **Contrast ratio minimums**: 4.5:1 normal text, 3:1 large text (WCAG 2.2 SC 1.4.3
+  verbatim). Not a choice made here — the SC itself fixes these two numbers.
+- **Large-text definition**: `fontSizePx >= 24` (18pt) OR (`fontSizePx >= 18.6667` (14pt)
+  AND bold, where bold = computed `font-weight === 'bold'` or numeric weight ≥ 700). The
+  18.6667px conversion (14pt × 4/3) and the ≥700 bold cutoff are calibration choices, not
+  restated from the SC text; a font family with a lighter visual "bold" at 600 would be
+  missed by the ≥700 cutoff.
+- **Background resolution**: ancestor-walk + alpha compositing (element's own
+  background-color first, walking outward, stopping at the first fully-opaque layer or
+  the document root); a `background-image` (raster OR gradient) anywhere in that walk
+  before reaching opacity makes the WHOLE sample `unresolvable` (a `review` finding, never
+  a guessed ratio) — this is honest-by-construction, not a tuned threshold, but the
+  boundary (any image/gradient blocks resolution, however small or however composited
+  underneath) is worth revisiting if it proves too conservative on real pages (measured
+  2026-07-25 on the rakuten.co.jp benchmark snapshot, engine @1: 1584/1917 samples
+  unresolvable across both viewports — an image-heavy e-commerce page is close to a
+  worst case for this detector, not necessarily representative).
+- **Touch-target floor**: 24×24 CSS px (WCAG 2.2 SC 2.5.8 verbatim), with the spacing
+  exception implemented per the SC's own technique: a 24px-diameter circle centered on an
+  undersized target must not intersect ANOTHER target — where "another target" is that
+  neighbor's real bounding box for a full-size neighbor, or that neighbor's OWN 24px
+  circle when the neighbor is itself undersized (circle-vs-circle, i.e. center distance
+  < 24px). Fixed 2026-07-25 (hakuso HIGH): an earlier version tested circle-vs-rect
+  against every neighbor regardless of the neighbor's own size, which under-detected the
+  gap band (~12-24px center distance between two undersized targets whose small rects
+  don't touch but whose circles do) — VALIDATION.md previously mischaracterized that
+  earlier version as "the SC's own technique" too (hakuso LOW, corrected here). The
+  inline, equivalent-target-elsewhere, and essential-presentation exceptions are NOT
+  implemented (out of scope for v3.3 Workstream A) — a target flagged
+  `tier2-touch-target-fail` may still be a false positive under one of those three
+  unimplemented exceptions. Interactive-element selector list and the disabled/hidden
+  exclusions are a calibration surface too (`core/scripts/tier2-audit.mjs`,
+  `browserCollectTouchTargets`).
+- **44px best-practice line**: recorded as advisory evidence (`check:'review'`,
+  `severity:'tip'`) whenever a target is below 44px in either dimension, REGARDLESS of
+  whether it passed the 24px floor directly or via the spacing exception — this is
+  explicitly not a WCAG requirement, so it must never contribute a `fail`.
+- Fixture ground truth: `test/tier2-fixtures/contrast.html` and
+  `test/tier2-fixtures/touch-targets.html`, hand-computed pass/fail/review pairs
+  (`test/tier2-audit.test.mjs`), including the composited semi-transparent-background case
+  (proves the alpha-blend math, not just presence/absence) and a viewport-dependent touch
+  target (proves the harness produces different findings at 320 vs 1280 when the same
+  element's CSS size changes under a media query).
+- Real-page smoke run (2026-07-25, rakuten.co.jp benchmark snapshot #97, both viewports):
+  2914 findings — 190 `tier2-contrast-fail`, 1584 `tier2-contrast-unresolvable`, 15
+  `tier2-touch-target-fail`, 1125 `tier2-touch-target-advisory`, 0 crashes. Not yet a wild
+  FP measurement (no human adjudication of these flags) — that is required before any of
+  these categories could feed a score (L1 new-detector protocol applies once step 4 is
+  decided).
+
 ## L3 — external validity protocol
 
 **Paired benchmark** (`benchmark/2026-07-05/`): re-run on the stored snapshots after

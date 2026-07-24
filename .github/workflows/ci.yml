@@ -25,3 +25,24 @@ jobs:
       # (any new false positive is a regression to fix, not a case to add) with a
       # recall floor to catch a collapse.
       - run: node tools/measure-semantic.mjs --min-precision 1.0 --min-recall 0.4
+
+  # Repo stays dependency-free (no package.json) — Playwright is installed ad hoc into a
+  # scratch dir here, not as a repo dependency, so the tier-2 browser tests (a loud skip in
+  # the `test` job above and in validation.yml's matrix) actually run somewhere in CI.
+  tier2-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Playwright + Chromium (ad hoc, scratch dir, not a repo dependency)
+        run: |
+          mkdir -p /tmp/pw-install && cd /tmp/pw-install
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - run: node --test
+        env:
+          PLAYWRIGHT_MODULE_PATH: /tmp/pw-install/node_modules/playwright/index.mjs
+      - run: node build.mjs --check

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tier2 touch-target fixture</title>
+<style>
+  body { margin: 0; }
+  .field { position: relative; height: 200px; }
+  /* 48x48, always passes the 24px floor AND the 44px best practice -- no finding, ever */
+  #ok { position: absolute; top: 20px; left: 20px; width: 48px; height: 48px; }
+  /* 30x30, passes the 24px floor but is below 44 -- advisory finding at both viewports */
+  #advisory { position: absolute; top: 20px; left: 120px; width: 30px; height: 30px; }
+  /* 16x16, but far from every other target -- spacing exception met, no finding */
+  #isolated { position: absolute; top: 20px; left: 260px; width: 16px; height: 16px; }
+  /* two 16x16 targets with touching edges -- circle-vs-rect overlap, BOTH fail at both viewports */
+  #crowded-a { position: absolute; top: 20px; left: 400px; width: 16px; height: 16px; }
+  #crowded-b { position: absolute; top: 20px; left: 416px; width: 16px; height: 16px; }
+  /* 44x44 at desktop (passes directly, exactly meets the 44px best practice too);
+     shrinks to 18x18 under 400px -- fails ONLY at the narrow viewport, where it also
+     overlaps #tiny-neighbor's spacing circle */
+  #responsive { position: absolute; top: 120px; left: 20px; width: 44px; height: 44px; }
+  /* 10x10, sits inside #responsive's box at BOTH sizes -- fails at both viewports */
+  #tiny-neighbor { position: absolute; top: 125px; left: 35px; width: 10px; height: 10px; }
+  /* disabled -- excluded entirely, must never produce a finding despite being 10x10 */
+  #disabled-tiny { position: absolute; top: 120px; left: 200px; width: 10px; height: 10px; }
+  @media (max-width: 400px) {
+    #responsive { width: 18px; height: 18px; }
+  }
+  /* Gap band (hakuso HIGH fix, 2026-07-25): two undersized targets whose RECTS don't
+     touch but whose 24px CIRCLES do (or don't) -- the case circle-vs-rect missed. Own
+     field, far from everything above. */
+  .field2 { position: relative; height: 40px; }
+  #gap-fail-a { position: absolute; top: 0; left: 0; width: 10px; height: 10px; }
+  #gap-fail-b { position: absolute; top: 0; left: 20px; width: 10px; height: 10px; } /* centers 20px apart, < 24 -- both FAIL */
+  #gap-pass-a { position: absolute; top: 0; left: 100px; width: 10px; height: 10px; }
+  #gap-pass-b { position: absolute; top: 0; left: 124px; width: 10px; height: 10px; } /* centers exactly 24px apart -- both PASS (advisory only) */
+</style>
+</head>
+<body>
+  <div class="field">
+    <button id="ok">A</button>
+    <button id="advisory">B</button>
+    <button id="isolated">C</button>
+    <button id="crowded-a">D</button>
+    <button id="crowded-b">E</button>
+    <button id="responsive">F</button>
+    <button id="tiny-neighbor">G</button>
+    <button id="disabled-tiny" disabled>H</button>
+  </div>
+  <div class="field2">
+    <button id="gap-fail-a">I</button>
+    <button id="gap-fail-b">J</button>
+    <button id="gap-pass-a">K</button>
+    <button id="gap-pass-b">L</button>
+  </div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tier2 contrast fixture</title>
+<style>
+  body { margin: 0; background: #ffffff; font-family: sans-serif; }
+  .row { padding: 8px; }
+  /* 21:1 -- passes both normal (4.5) and large (3) */
+  #pass-normal { color: rgb(0, 0, 0); font-size: 16px; }
+  /* gray(119) on white = 4.478:1 -- fails normal (4.5) */
+  #fail-normal-16 { color: rgb(119, 119, 119); font-size: 16px; }
+  /* same color at 24px (large) -- 4.478 >= 3, passes */
+  #pass-large-24 { color: rgb(119, 119, 119); font-size: 24px; }
+  /* gray(153) on white = 2.849:1 -- fails even the large threshold */
+  #fail-both-16 { color: rgb(153, 153, 153); font-size: 16px; }
+  /* gray(140) on white = 3.363:1 -- bold + 18.7px counts as large (14pt bold), passes */
+  #pass-bold-large { color: rgb(140, 140, 140); font-size: 18.7px; font-weight: 700; }
+  /* same color/weight but 18px is below the 18.6667px bold-large threshold -- fails normal */
+  #fail-bold-not-large-enough { color: rgb(140, 140, 140); font-size: 18px; font-weight: 700; }
+  /* background-image on the SAME element as the text -- must be reported unresolvable */
+  #unresolvable-image { color: rgb(0, 0, 0); font-size: 16px; background-image: url(data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=); }
+  #unresolvable-gradient { color: rgb(0, 0, 0); font-size: 16px; background-image: linear-gradient(#fff, #000); }
+  /* rgba(0,0,0,0.5) over an opaque white ancestor composites to rgb(128,128,128);
+     black text on that composited bg = 5.317:1 -- proves the compositing math, not just presence/absence */
+  #composited-parent { background: #ffffff; }
+  #composited { background: rgba(0, 0, 0, 0.5); color: rgb(0, 0, 0); font-size: 16px; padding: 4px; }
+  /* hakuso MEDIUM fix, 2026-07-25: invisible ink (icon-font / image-replacement pattern)
+     must never produce a contrast finding -- there is no visible text to measure. */
+  #transparent-fg { color: rgba(0, 0, 0, 0); font-size: 16px; }
+</style>
+</head>
+<body>
+  <div class="row" id="pass-normal">Plain black text on white passes normal contrast.</div>
+  <div class="row" id="fail-normal-16">Gray text at 16px fails the normal 4.5 to 1 threshold.</div>
+  <div class="row" id="pass-large-24">Gray text at 24px passes the large text 3 to 1 threshold.</div>
+  <div class="row" id="fail-both-16">Light gray text fails even the large text threshold.</div>
+  <div class="row" id="pass-bold-large">Bold gray text at 18.7px counts as large and passes.</div>
+  <div class="row" id="fail-bold-not-large-enough">Bold gray text at 18px is not large enough and fails.</div>
+  <div class="row" id="unresolvable-image">Text over an image background cannot be verified.</div>
+  <div class="row" id="unresolvable-gradient">Text over a gradient background cannot be verified.</div>
+  <div class="row" id="composited-parent"><div id="composited">Text over a semi-transparent overlay composites correctly.</div></div>
+  <div class="row" id="transparent-fg">Invisible ink must not produce a contrast finding.</div>
+</body>
+</html>
