@@ -516,6 +516,13 @@ dead whitespace blocks delivery. Fix before shipping — no exceptions.
    the default is sans-serif. Before delivery, render-check one Japanese string and
    one CJK-in-code sample.
 
+5. **No horizontal scrolling** — at every width, theme, and language, neither the
+   document nor any element may show a horizontal scrollbar. Navs, chips, and cards
+   wrap or stack; long strings and code break-wrap (`overflow-wrap: anywhere` /
+   `pre-wrap` with a hanging indent); tables reflow or stack — no `overflow-x`
+   containers. Verify with a programmatic assertion (`scrollWidth <= clientWidth`
+   at each swept width), not by eye.
+
 ## Responsive Design (RWD) Best Practices
 
 RWD and accessibility are deeply intertwined. A "responsive" site that becomes unusable on mobile for elderly users or breaks at 200% zoom is not truly responsive. Design for adaptation across devices, viewports, zoom levels, and user preferences.
@@ -617,22 +624,11 @@ Mobile input hints — use `inputmode` to show the right keyboard:
 
 ### Responsive Tables
 
-Tables on mobile need special handling. Two approaches:
+Tables on mobile need special handling. `overflow-x: auto` scroll wrappers are
+banned by the layout integrity gate's no-horizontal-scrolling rule — reflow or
+stack instead:
 
-**Option A: Horizontal scroll** (simpler, works for data-heavy tables)
-```html
-<div class="table-wrapper" role="region" aria-label="User data" tabindex="0">
-  <table><!-- ... --></table>
-</div>
-```
-
-```css
-.table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-```
-
-The `tabindex="0"` and `role="region"` ensure keyboard users can scroll and screen readers announce the scrollable area.
-
-**Option B: Card reflow** (better UX for simple tables)
+**Card reflow** (works for most tables)
 ```css
 @media (max-width: 767px) {
   table, thead, tbody, tr, th, td { display: block; }
@@ -719,7 +715,7 @@ When designing responsive layouts:
 - [ ] Input font size >= 16px (prevents iOS auto-zoom)
 - [ ] `inputmode` set for appropriate mobile keyboards
 - [ ] Navigation collapses accessibly on mobile
-- [ ] Tables scroll or reflow on narrow screens
+- [ ] Tables reflow or stack on narrow screens (no `overflow-x` scroll containers)
 - [ ] Images responsive with proper `srcset`/`sizes`
 - [ ] Fixed/sticky elements don't obscure content at narrow widths
 - [ ] Safe area insets respected on notched devices
@@ -728,6 +724,7 @@ When designing responsive layouts:
 - [ ] Text columns keep readable measure at ALL widths 320-1920 (minmax floors; wrap, never squeeze)
 - [ ] No viewport-height content sections; no viewport-scale dead whitespace at wide widths
 - [ ] Swept at 320/768/1024/1280/1440/1920 + one non-breakpoint width — not only designed breakpoints
+- [ ] No horizontal scrolling at any width, theme, or language; nav/chips/cards wrap or stack, long strings/code break-wrap, tables reflow — verified with `scrollWidth <= clientWidth`, not by eye
 
 ## Data Boundary
 
