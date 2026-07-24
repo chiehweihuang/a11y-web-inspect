@@ -174,6 +174,59 @@ the static-tier N=3 floor and severity repeat-cap are tracked above.
   these categories could feed a score (L1 new-detector protocol applies once step 4 is
   decided).
 
+### L1/L2 — Workstream B: static contrast reference value (engine `beacon-static-audit@10`)
+
+Static (regex/tag-walk, no browser) evidence line + per-pair `check:'review'` findings —
+never a score, contrast stays `not-machine-checkable` regardless (`review` never bumps
+`fail`; verified by `test/static-contrast.test.mjs`). Resolvability is deliberately narrow:
+certain literal fg/bg only (inline style, or a same-file `<style>` rule matched by a
+SINGLE, unambiguous class/id — id beats class per fixed specificity, multiple classes
+disagreeing is a tie and unresolved, a class redeclared anywhere in the file is unresolved,
+alpha != 1 anywhere is unresolved, a `background-image`/gradient ancestor blocks resolution,
+and reaching the document root with no background declared anywhere is unresolved — no
+default-to-white guess, unlike tier-2's real-browser default, because static analysis
+cannot know whether an external stylesheet sets it). No external CSS (`<link>`) is ever
+consulted. Reuses `parseColor`/`relLuminance`/`contrastRatio` from `tier2-audit.mjs`
+(imported, not duplicated); only hex-color parsing is new (getComputedStyle never returns
+hex, authored CSS commonly does).
+
+**FP calibration, two rounds** (`plans/2026-07-25-ws-b-contrast-calibration.md`, full
+detail — current numbers at the top of that file, initial-pass numbers kept below for the
+audit trail):
+
+1. Round 1: caught a genuine false-certainty before any fix shipped — a class absent from
+   the file's own `<style>` blocks (e.g. an external Tailwind `bg-white` utility class) was
+   treated as "nothing declared here" and the walk fell through to an unrelated ancestor's
+   inline background, producing a false 1.00:1 ratio. **Fix**: an element carrying ANY
+   class that doesn't resolve to a certain background via a same-file rule now BLOCKS that
+   level of the walk instead of being skipped past. Effect: resolved pairs 196 → 41 (26 →
+   21 sites), sub-threshold 17 → 16.
+2. Round 2 (hakuso HIGH): the rule-extraction regex matched only the trailing
+   `[.#][\w-]+` token before `{`, so a compound (`.a.b`), descendant (`.parent .child`), or
+   element-qualified (`div.c4`) selector was mis-recorded under its bare tail token —
+   resolving on any element carrying just that one class. **Fix**: capture the full
+   selector prelude, split on `,`, and only record entries matching the WHOLE string
+   `^[.#][\w-]+$`; anything else is never recorded (same "unresolved by omission" as an
+   external class). This retroactively invalidated most of round 1's "verified" OneTrust
+   findings — the round-1 manual check (grep for a substring like
+   `#onetrust-pc-btn-handler {`) only confirmed the token appeared before a `{`, not that
+   it WAS the whole selector; the real rule was a descendant selector
+   (`#onetrust-banner-sdk #onetrust-pc-btn-handler`). Effect: resolved pairs 41 → 22
+   (21 → **9** sites — below the initial ≥10-site bar, flagged explicitly, not padded to
+   hit a number), sub-threshold 16 → 4. One pair was also GAINED (a comma-separated
+   selector list the old regex could only match the last entry of).
+
+Both fixes are strictly conservative (can only turn a resolved pair into an unresolved
+one, except the one comma-list recovery in round 2, which is a correctness gain, not a
+laxer rule). Golden vectors unaffected by either fix (fingerprint-only diff both times).
+Regression tests for both bug classes: `test/static-contrast.test.mjs` ("an unresolved
+class on the fg element itself blocks the walk", plus the three compound/descendant/
+element-qualified leak-shape tests and their controls). Score-neutrality re-confirmed
+post-round-2 on a real snapshot (contrast category stays `not-machine-checkable`/`fail:0`
+regardless). Small single-benchmark sample both rounds, not a bounded FP-rate claim — and
+round 2's own lesson (a substring-grep "verification" missed a real bug) is recorded so a
+future calibration pass reads the full selector prelude, not a token match.
+
 ## L3 — external validity protocol
 
 **Paired benchmark** (`benchmark/2026-07-05/`): re-run on the stored snapshots after

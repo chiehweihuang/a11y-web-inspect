@@ -408,6 +408,14 @@ const FINDING_I18N = {
     zh: { title: '框架缺少 title', description: '<iframe> 沒有 title，螢幕閱讀器使用者在進入前無法得知框架內容。', fix: '加入 title="..." 描述框架內容。', standard: 'WCAG 4.1.2 要求每個可互動元件（含框架）都要有可程式化辨識的名稱；<iframe> 沒有 title，螢幕閱讀器使用者在進入前無法得知框架內容。' },
     en: { title: 'Frame is missing a title', description: 'An <iframe> without a title gives screen-reader users no way to know what the frame contains before entering it.', fix: 'Add title="..." describing the frame content.', standard: 'WCAG 4.1.2 requires every interactive component, including frames, to expose a programmatically determinable name; an <iframe> without a title gives screen-reader users no way to know what it contains before entering it.' },
   },
+  'static-contrast-sub-threshold': {
+    zh: { title: '靜態可解析的對比配對低於門檻', description: '從 inline style 或同檔案 <style> 區塊解析出的字色／底色配對，計算後低於 4.5:1。', fix: '提高前景與背景的對比，或在真實瀏覽器中確認（此配對只從靜態原始碼解析，尚未在瀏覽器中驗證）。', standard: 'WCAG 1.4.3 要求一般文字的對比至少達 4.5:1；本項目是從原始碼中「確定無疑」的字面顏色配對計算出來的參考值，僅供佐證用，不計入分數，仍需搭配瀏覽器或 tier-2 工具做最終確認。' },
+    en: { title: 'Statically-resolvable contrast pair is below the threshold', description: 'A foreground/background color pair resolved from inline styles or a same-file <style> block computes below 4.5:1.', fix: 'Increase the foreground/background contrast, or confirm in a real browser (this pair was resolved from static source only, not yet browser-verified).', standard: 'WCAG 1.4.3 requires normal text to reach at least a 4.5:1 contrast ratio; this is a reference value computed from a literal, unambiguous color pair found in the source — evidence only, never scored, and still needs a real-browser or tier-2 confirmation.' },
+  },
+  'static-contrast-evidence': {
+    zh: { title: '靜態可解析對比配對彙總', description: '本次掃描中，所有能從靜態原始碼確定解析出的字色／底色配對總數，及其中低於 4.5:1 的數量。', fix: '檢視個別的低於門檻發現項，並用瀏覽器或 tier-2 工具做完整的對比稽核。', standard: 'WCAG 1.4.3 的對比要求需要瀏覽器算出的最終樣式才能完整驗證；本項目是靜態掃描能確定解析的配對彙總（inline／同檔案 style 區塊，不含外部 CSS 或 cascade 推測），作為佐證證據，從不計入分數。' },
+    en: { title: 'Static-contrast-resolvable pairs, summarized', description: 'The total count of foreground/background pairs this scan could resolve with certainty from static source, and how many of those are below 4.5:1.', fix: 'Review the individual sub-threshold findings, and run a real-browser or tier-2 contrast audit for full coverage.', standard: 'WCAG 1.4.3 contrast ultimately needs browser-computed styles to verify fully; this is a summary of pairs the static scan could resolve with certainty (inline / same-file style blocks only, no external CSS or cascade guessing) — evidence only, never scored.' },
+  },
 };
 
 const DEFAULT_JURISDICTIONS = [

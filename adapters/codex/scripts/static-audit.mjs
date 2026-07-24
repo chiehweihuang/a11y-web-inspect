@@ -12,6 +12,7 @@ import { extractText, assessLang } from './lang-detect.mjs';
 import { detectAuthBarriers, detectAuthBarriersInSource } from './auth-detect.mjs';
 import { assessPdf } from './pdf-detect.mjs';
 import { detectQualityFlags } from './quality-detect.mjs';
+import { parseColor, relLuminance, contrastRatio } from './tier2-audit.mjs';
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.nuxt', 'coverage']);
 const FILE_PATTERN = /\.(html?|css|scss|less|jsx|tsx|vue|svelte|js|cjs|mjs|ts|pdf)$/i;
@@ -81,7 +82,7 @@ const SEV_REPEAT_CAP = 3;
 // (axe / capture-recipe components are added when Tier-2 findings are merged with their own
 // engine provenance; the pure static engine here is axe-free, so claiming an axe version would
 // be dishonest.)
-const DETECTOR_VERSION = 'beacon-static-audit@9';
+const DETECTOR_VERSION = 'beacon-static-audit@10';
 
 // A category with 1-2 total machine checks is a coin-flip denominator (a single fail
 // reads identically to a six-check 100). N=3 is a CALIBRATION DECISION, not a physical
@@ -306,6 +307,209 @@ function computeLabelRanges(text, maskedRanges = []) {
     depth += 1;
   }
   return ranges;
+}
+
+// ---------------------------------------------------------------------------------------
+// Workstream B (engine @10): static contrast reference value. EVIDENCE ONLY, never a score
+// (contrast stays 'not-machine-checkable' — every finding below uses check:'review', which
+// addFinding never routes into the fail/severity accounting). Reuses the color/ratio math
+// from tier2-audit.mjs (parseColor/relLuminance/contrastRatio) rather than duplicating it;
+// only hex-color parsing is new here (getComputedStyle, tier2's source, never returns hex).
+//
+// Resolvability is deliberately narrow — "any doubt -> not resolvable" (v3.2's lesson: static
+// CSS resolution that guesses is a lie). A pair only counts if:
+//   - the foreground is a literal, opaque (alpha=1) color on the text-bearing element itself
+//     (inline `style`, or exactly one same-FILE `<style>` rule matching its id/class with no
+//     conflicting redeclaration — id beats class per fixed CSS specificity; ties across
+//     multiple classes are NOT resolved, since which wins depends on stylesheet source order);
+//   - the background is the same kind of certain, opaque literal color, found on that same
+//     element or by walking DIRECT ancestors outward, stopping (unresolved) at the first
+//     ancestor whose own background is declared but uncertain (gradient/url/var/alpha<1/tie);
+//   - reaching the document root with NO background declared anywhere is UNRESOLVED, never a
+//     default-to-white guess (external stylesheets commonly set body background; static
+//     analysis of one file cannot know that).
+//   - No external CSS (`<link>`) is ever consulted. No alpha compositing across layers.
+// ponytail: uniform 4.5:1 threshold only (matches the plan's own evidence-line wording) — no
+// static large-text (18pt/14pt-bold) carve-out; that needs the same certain-literal treatment
+// for font-size/weight and isn't asked for here.
+const STATIC_CONTRAST_MIN = 4.5;
+const TAG_ATTRS_RE = /<(\/?)([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
+
+function attrValue(attrs, name) {
+  const m = attrs.match(new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i'));
+  if (!m) return null;
+  return m[2] !== undefined ? m[2] : m[3];
+}
+
+// Extends tier2-audit.mjs's parseColor (rgb()/rgba() only, its source is getComputedStyle
+// output) with hex, since authored CSS commonly uses hex. Named colors / var() / currentColor
+// are NOT accepted — not certain enough to resolve without a real cascade.
+function parseStaticColor(value) {
+  const v = String(value || '').trim();
+  const hex = v.match(/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3 || h.length === 4) h = [...h].map((c) => c + c).join('');
+    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    const a = h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1;
+    return { r, g, b, a };
+  }
+  return parseColor(v);
+}
+
+// One inline `style="..."` string -> a resolved color per logical property, or null if the
+// value can't be trusted (unparseable, or BOTH `background` and `background-color` present —
+// ponytail: not modelling shorthand-vs-longhand precedence inside one block, rare enough that
+// declining to resolve costs nothing real). `undefined` = the property was never declared.
+function resolveInlineColor(style, prop) {
+  if (!style) return undefined;
+  if (prop === 'bg') {
+    const hasShort = /(?:^|;)\s*background\s*:/i.test(style);
+    const hasLong = /(?:^|;)\s*background-color\s*:/i.test(style);
+    if (hasShort && hasLong) return null; // ambiguous precedence, decline
+    const key = hasShort ? 'background' : (hasLong ? 'background-color' : null);
+    if (!key) return undefined;
+    const matches = [...style.matchAll(new RegExp(`(?:^|;)\\s*${key}\\s*:\\s*([^;]+?)\\s*(?:;|$)`, 'gi'))];
+    if (!matches.length) return undefined;
+    return parseStaticColor(matches[matches.length - 1][1]); // last-in-block wins (well-defined, not cascade-guessing)
+  }
+  const matches = [...style.matchAll(/(?:^|;)\s*color\s*:\s*([^;]+?)\s*(?:;|$)/gi)];
+  if (!matches.length) return undefined;
+  return parseStaticColor(matches[matches.length - 1][1]);
+}
+
+// Same-FILE <style> blocks only (never a linked stylesheet) -> Map<'.class'|'#id', color|null>
+// per logical property ('color' | 'bg'). A selector redeclared anywhere in the file (even with
+// the same value — ponytail: not worth an equality check for this rare case) becomes null.
+function extractSameFileStyleRules(text) {
+  const colorRules = new Map(), bgRules = new Map();
+  const record = (map, selector, value) => {
+    if (map.has(selector)) map.set(selector, null); // redeclared -> ambiguous
+    else map.set(selector, value === undefined ? null : value);
+  };
+  for (const styleMatch of text.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+    const css = stripAtMedia(styleMatch[1]);
+    // Capture the FULL prelude before `{` (hakuso HIGH, 2026-07-25): matching only a
+    // trailing `[.#][\w-]+` token let `.c2a.c2b`, `.parent .child`, and `div.c4` get
+    // mis-recorded under their bare tail token, resolving on ANY element carrying just
+    // that one class/id — a false certainty for the exact reason this feature exists.
+    // Split the prelude on `,` and keep only entries that are a WHOLE bare class or id
+    // (`^[.#][\w-]+$`); a compound/descendant/element-qualified/pseudo/attribute selector
+    // is simply never recorded — the same "unresolved by omission" treatment as an
+    // external class, not a special block (nothing false gets INTO the map either way).
+    for (const ruleMatch of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const [, prelude, body] = ruleMatch;
+      const selectors = prelude.split(',').map((s) => s.trim()).filter((s) => /^[.#][\w-]+$/.test(s));
+      for (const selector of selectors) {
+        // resolveInlineColor already returns null when both `background` and
+        // `background-color` are present in the same block (ambiguous precedence).
+        if (/(?:^|;)\s*background(?:-color)?\s*:/i.test(body)) record(bgRules, selector, resolveInlineColor(body, 'bg'));
+        if (/(?:^|;)\s*color\s*:/i.test(body)) record(colorRules, selector, resolveInlineColor(body, 'color'));
+      }
+    }
+  }
+  return { colorRules, bgRules };
+}
+
+// id specificity always beats class (fixed by spec, not source-order-dependent -> safe to
+// apply). Multiple classes matching the SAME property is a genuine tie (order-dependent) ->
+// unresolved. Returns undefined (never declared) | null (declared, uncertain) | {r,g,b,a}.
+function resolveClassIdColor(id, classNames, rulesMap) {
+  if (id && rulesMap.has('#' + id)) return rulesMap.get('#' + id);
+  let found;
+  for (const cls of classNames) {
+    if (!rulesMap.has('.' + cls)) continue;
+    const v = rulesMap.get('.' + cls);
+    if (found === undefined) found = v;
+    else if (found === null || v === null || found.r !== v?.r || found.g !== v?.g || found.b !== v?.b || found.a !== v?.a) found = null;
+  }
+  return found;
+}
+
+function resolveElementProp(id, classNames, inlineStyle, prop, rulesMap) {
+  const inline = resolveInlineColor(inlineStyle, prop);
+  if (inline !== undefined) return inline;
+  return resolveClassIdColor(id, classNames, rulesMap);
+}
+
+function certainOpaque(v) {
+  return v && v.a === 1 ? v : (v === undefined ? undefined : null); // alpha != 1 (incl. null-sentinel) -> uncertain
+}
+
+// Walks the raw tag stream with an explicit ancestor stack (mirrors computeHiddenRanges'
+// approach — no full DOM available). For each visible element with direct text, resolves a
+// certain fg (self only) and bg (self, else nearest ancestor with a certain bg; stops
+// unresolved at the first ancestor whose bg is declared-but-uncertain, or at the document
+// root if no bg was ever declared). Findings go through the single addFinding() funnel like
+// every other detector; check:'review' keeps this category out of scoring (P1 comment above).
+function computeStaticContrastFindings(text, rel, hiddenRanges, maskedRanges, styleRules, stats, findings) {
+  const inMasked = (i) => maskedRanges.some(([s, e]) => i >= s && i < e);
+  const inHidden = (i) => hiddenRanges.some(([s, e]) => i >= s && i < e);
+  let resolved = 0, subThreshold = 0;
+  const stack = []; // { tag, bg: undefined|null|{r,g,b,a} }
+  let m;
+  TAG_ATTRS_RE.lastIndex = 0;
+  while ((m = TAG_ATTRS_RE.exec(text))) {
+    if (inMasked(m.index) || inHidden(m.index)) continue;
+    const [full, close, rawTag, attrs] = m;
+    const tag = rawTag.toLowerCase();
+    if (tag === 'script' || tag === 'style') continue;
+    if (close) {
+      for (let i = stack.length - 1; i >= 0; i--) if (stack[i].tag === tag) { stack.splice(i); break; }
+      continue;
+    }
+    const isVoid = VOID_TAGS.has(tag) || attrs.endsWith('/');
+    const id = attrValue(attrs, 'id');
+    const classAttr = attrValue(attrs, 'class');
+    const classNames = classAttr ? classAttr.trim().split(/\s+/).filter(Boolean) : [];
+    const style = attrValue(attrs, 'style');
+    let ownBg = certainOpaque(resolveElementProp(id, classNames, style, 'bg', styleRules.bgRules));
+    // hakuso-style self-audit finding (calibration, 2026-07-25): a class that never appears in
+    // this file's <style> blocks is NOT proof nothing sets this element's own background —
+    // external/framework CSS commonly does (caught live: a Tailwind `bg-white` utility class on
+    // an icon span was silently walked past, picking up an unrelated ANCESTOR's inline
+    // background instead, i.e. a false-certainty 1:1 ratio). Any class we cannot resolve blocks
+    // this level rather than passing the walk through it.
+    if (ownBg === undefined && classNames.length > 0) ownBg = null;
+    if (!isVoid) stack.push({ tag, bg: ownBg });
+
+    // Direct text immediately following this open tag, up to the next '<'.
+    const textStart = m.index + full.length;
+    const nextLt = text.indexOf('<', textStart);
+    const directText = text.slice(textStart, nextLt === -1 ? text.length : nextLt);
+    if (isVoid || !directText.trim()) continue;
+
+    const fg = certainOpaque(resolveElementProp(id, classNames, style, 'color', styleRules.colorRules));
+    if (!fg) continue; // no certain fg on this element -> not a candidate pair
+
+    let bg = ownBg;
+    if (bg === undefined) {
+      for (let i = stack.length - 2; i >= 0; i--) { // stack top is this element itself
+        bg = certainOpaque(stack[i].bg);
+        if (bg !== undefined) break;
+      }
+    }
+    if (!bg) continue; // uncertain-ancestor block, or reached the root with nothing declared
+
+    resolved += 1;
+    const ratio = contrastRatio(fg, bg);
+    if (ratio >= STATIC_CONTRAST_MIN) continue;
+    subThreshold += 1;
+    addFinding(findings, stats, {
+      key: 'static-contrast-sub-threshold',
+      category: 'contrast',
+      severity: 'warning',
+      check: 'review',
+      wcag: 'WCAG 2.2: 1.4.3 Contrast (Minimum)',
+      title: `Statically-resolvable contrast ${ratio.toFixed(2)}:1 is below 4.5:1`,
+      affected_users: 'Low-vision users and users in high ambient light',
+      location: `${rel}:${lineOf(text, m.index)}`,
+      description: `Literal foreground rgb(${fg.r}, ${fg.g}, ${fg.b}) against literal background rgb(${bg.r}, ${bg.g}, ${bg.b}) yields ${ratio.toFixed(2)}:1, below the 4.5:1 minimum. Statically certain (inline/same-file styles only) — confirm in a real browser or with the tier-2 harness before treating as final.`,
+      fix: 'Increase the foreground/background contrast, or verify in a real browser — this pair was resolved from static markup only.',
+      computed: { fg, bg, ratio: Number(ratio.toFixed(3)) },
+    });
+  }
+  return { resolved, subThreshold };
 }
 
 function makeStats() {
@@ -901,6 +1105,16 @@ function scanFile(file, root, stats, findings) {
         });
       } else addCheck(stats, 'agent', 'pass');
     }
+
+    // Workstream B (engine @10): static contrast reference value — evidence only, see the
+    // block comment above computeStaticContrastFindings. Aggregated across every scanned
+    // file into stats.contrast._staticPairs; the single evidence-line finding is emitted
+    // once in main() after the whole scan, not per file.
+    const styleRules = extractSameFileStyleRules(text);
+    const { resolved, subThreshold } = computeStaticContrastFindings(text, rel, hiddenRanges, masked, styleRules, stats, findings);
+    const staticPairs = (stats.contrast._staticPairs ||= { resolved: 0, subThreshold: 0 });
+    staticPairs.resolved += resolved;
+    staticPairs.subThreshold += subThreshold;
   }
 
   if (style || markup) {
@@ -1247,6 +1461,25 @@ function main() {
   for (const file of files) scanFile(file, root, stats, findings);
   addSiteAgentReadinessFindings(opts.paths, files, root, stats, findings);
   if (opts.mergeFindings) mergeExternalFindings(opts.mergeFindings, stats, findings);
+
+  // Workstream B evidence line — site-wide total, once, only when at least one pair was
+  // statically resolvable at all (nothing to report otherwise). Never a score (check:'review').
+  const staticPairs = stats.contrast._staticPairs;
+  if (staticPairs && staticPairs.resolved > 0) {
+    addFinding(findings, stats, {
+      key: 'static-contrast-evidence',
+      category: 'contrast',
+      severity: 'tip',
+      check: 'review',
+      wcag: 'WCAG 2.2: 1.4.3 Contrast (Minimum)',
+      title: `Statically-resolvable contrast pairs: ${staticPairs.subThreshold} of ${staticPairs.resolved} below 4.5:1`,
+      affected_users: 'Low-vision users and users in high ambient light',
+      location: 'site-wide (inline/same-file styles only)',
+      description: `可靜態解析的 ${staticPairs.resolved} 組配對中，${staticPairs.subThreshold} 組低於 4.5:1。Static-only evidence (inline styles / same-file <style> blocks with no cascade ambiguity) — not a full contrast audit; most real contrast comes from external stylesheets this pass cannot see. See the tier-2 harness for browser-measured contrast.`,
+      fix: 'Review the individual static-contrast-sub-threshold findings, and run the tier-2 browser harness (or axe-core) for full contrast coverage.',
+      computed: { resolved: staticPairs.resolved, subThreshold: staticPairs.subThreshold },
+    });
+  }
 
   const categories = CATEGORY_ORDER.map(id => {
     const cat = stats[id];
