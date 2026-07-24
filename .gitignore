@@ -7,3 +7,7 @@
 .firecrawl/
 /_*.mjs
 /*.png
+
+# review artifacts (screenshots, regenerated review copies)
+plans/**/*.png
+plans/2026-07-22-ws-b-screens/
