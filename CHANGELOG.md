@@ -1,5 +1,31 @@
 # Changelog
 
+## [3.2.0] — 2026-07-24
+
+### Features
+
+- review-round refinements — score scope-binding, h-scroll ban, standard lines, evidence clamp, life-safety states (67aeaee)
+- information-architecture redesign — decision hero, evidence cards, fix-action groups, client summary (v3.2.0 WS-B) (fed948d)
+- thin-evidence category state (beacon-static-audit@9) (1a8f6ba)
+
+### Bug Fixes
+
+- move golden regen out of node --test discovery (dac4032)
+
+### Documentation
+
+- horizontal-scroll ban — layout integrity gate item 5 (c6e0ced)
+- landing badge to @9 coverage (23%) + changelog WS-B summary (da1d5b4)
+- narrow font ban to PMingLiU — deliberate serif faces allowed with review (c4f6c82)
+- sans-serif font floor — ban Ming/Mincho fallback incl. ja glyph ranges (a15f20e)
+- layout integrity gate — wide-viewport column collapse + dead space (blocking) (a407567)
+- v3.2.0 execution plan — thin-evidence states (engine @9) + report IA redesign (7582309)
+- curate the 3.1.0 section; align translation version lines (f6e025c)
+
+### Chores
+
+- ignore review artifacts (screenshots, review copies) under plans/ (17a27f2)
+
 ## [3.2.0] — Workstream A (engine @9): thin-evidence category state
 
 Engine `beacon-static-audit@9`. Score-affecting change from the 2026-07-22 evidence-states
