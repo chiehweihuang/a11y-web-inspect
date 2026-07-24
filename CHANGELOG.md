@@ -2,34 +2,10 @@
 
 ## [3.2.0] — 2026-07-24
 
-### Features
-
-- review-round refinements — score scope-binding, h-scroll ban, standard lines, evidence clamp, life-safety states (67aeaee)
-- information-architecture redesign — decision hero, evidence cards, fix-action groups, client summary (v3.2.0 WS-B) (fed948d)
-- thin-evidence category state (beacon-static-audit@9) (1a8f6ba)
-
-### Bug Fixes
-
-- move golden regen out of node --test discovery (dac4032)
-
-### Documentation
-
-- horizontal-scroll ban — layout integrity gate item 5 (c6e0ced)
-- landing badge to @9 coverage (23%) + changelog WS-B summary (da1d5b4)
-- narrow font ban to PMingLiU — deliberate serif faces allowed with review (c4f6c82)
-- sans-serif font floor — ban Ming/Mincho fallback incl. ja glyph ranges (a15f20e)
-- layout integrity gate — wide-viewport column collapse + dead space (blocking) (a407567)
-- v3.2.0 execution plan — thin-evidence states (engine @9) + report IA redesign (7582309)
-- curate the 3.1.0 section; align translation version lines (f6e025c)
-
-### Chores
-
-- ignore review artifacts (screenshots, review copies) under plans/ (17a27f2)
-
-## [3.2.0] — Workstream A (engine @9): thin-evidence category state
-
-Engine `beacon-static-audit@9`. Score-affecting change from the 2026-07-22 evidence-states
-plan; report IA redesign (Workstream B) tracks separately in the same release.
+Engine `beacon-static-audit@9` (thin-evidence category state) + report information
+architecture redesign (Workstream B) + a review round on the new report (score
+scope-binding, standard lines, evidence clamp, life-safety banner) + new governance
+gates (layout integrity, font floor, horizontal-scroll ban), all in the same release.
 
 - **New category state `insufficient-evidence`**: a category that would otherwise be
   `scored` but has fewer than 3 total machine checks (`pass + fail < 3`) now reports
@@ -88,6 +64,25 @@ plan; report IA redesign (Workstream B) tracks separately in the same release.
   (localStorage-persisted), plus the Layout Integrity Gate and sans-serif font-floor
   rules (explicit CJK-safe stacks on every `font-family`, including `pre`/`code`, so
   CJK text never falls back to a legacy Ming/Mincho face).
+- **Review round on the new hero**: the score ring caption now reads "N/100・機測部分"
+  with a coverage-only line, scoping the number to what was actually machine-measured;
+  the confidence-low sentence is removed from the rendered report (still recorded in
+  the audit JSON's `confidence_level`). A bilingual "標準・Standard" line — what the
+  cited WCAG criterion actually requires — now precedes every fix line across all 27
+  finding keys, grounded in `core/references/wcag-quick.md`; the two keys that had a
+  detector but no rendered copy (`html-lang-mismatch`, `html-lang-mismatch-review`)
+  gained their missing text in the same pass, covered by a new coverage test (330/330
+  green). Manual/insufficient category cards gain a pointer sentence toward tier-2
+  (browser/human) measurement. The life-safety banner, dropped when Workstream B
+  rewrote the hero, is restored in the new layout.
+- **New governance gates** (enforced in this guide, the advisor pattern table, the
+  `bright-raven-uiux`/`akegarasu-design` skills, and `~/.codex/AGENTS.md`): a Layout
+  Integrity Gate (text-measure floor, content-driven height, full-width sweep at
+  320-1920 plus a non-breakpoint width); a sans-serif font floor across zh/en/ja
+  including code blocks, later narrowed to ban only PMingLiU/MingLiU (other serif
+  faces remain a deliberate, reviewed choice); and a horizontal-scroll ban (nav/chips
+  wrap, long strings and tables break-wrap or reflow instead of `overflow-x`, verified
+  with a `scrollWidth <= clientWidth` assertion).
 
 ## [3.1.0] — 2026-07-22
 

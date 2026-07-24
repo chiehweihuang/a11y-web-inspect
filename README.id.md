@@ -47,7 +47,7 @@ Tambahkan marketplace:
 }
 ```
 
-Plugin facts: `beacon`, version `3.1.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## Interpretasi Skor
 
