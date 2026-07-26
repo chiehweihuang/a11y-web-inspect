@@ -463,6 +463,10 @@ function computeStaticContrastFindings(text, rel, hiddenRanges, maskedRanges, st
     const classAttr = attrValue(attrs, 'class');
     const classNames = classAttr ? classAttr.trim().split(/\s+/).filter(Boolean) : [];
     const style = attrValue(attrs, 'style');
+    // WS-B broad FP pass (2026-07-26, 100291.html:2790): an <img> sibling records itself on
+    // ITS PARENT frame so a later position:absolute sibling knows a real photographic
+    // backdrop sits behind it -- see blocksClimb below.
+    if (tag === 'img' && stack.length) stack[stack.length - 1].sawImgChild = true;
     let ownBg = certainOpaque(resolveElementProp(id, classNames, style, 'bg', styleRules.bgRules));
     // hakuso-style self-audit finding (calibration, 2026-07-25): a class that never appears in
     // this file's <style> blocks is NOT proof nothing sets this element's own background —
@@ -471,7 +475,17 @@ function computeStaticContrastFindings(text, rel, hiddenRanges, maskedRanges, st
     // background instead, i.e. a false-certainty 1:1 ratio). Any class we cannot resolve blocks
     // this level rather than passing the walk through it.
     if (ownBg === undefined && classNames.length > 0) ownBg = null;
-    if (!isVoid) stack.push({ tag, bg: ownBg });
+    // WS-B broad FP pass (2026-07-26): a `position:absolute`/`fixed` element removes itself
+    // from normal flow -- when its own parent already has a photographic <img> sibling (the
+    // common "photo behind, absolutely-positioned caption on top" carousel/hero shape), the
+    // ancestor chain ABOVE this point is not the real visual backdrop. Confirmed false
+    // positive: 100291.html:2790, a caption `<a>` inside such an overlay resolved against a
+    // distant, unrelated ancestor's white page background (1.00:1 white-on-white) because no
+    // intervening <div> declared any background at all, so the walk climbed straight past the
+    // photo. Same honesty rule as the background-image case: block the climb, don't guess.
+    const posAbs = /(?:^|;)\s*position\s*:\s*(absolute|fixed)\b/i.test(style || '');
+    const blocksClimb = posAbs && stack.length > 0 && stack[stack.length - 1].sawImgChild === true;
+    if (!isVoid) stack.push({ tag, bg: ownBg, blocksClimb });
 
     // Direct text immediately following this open tag, up to the next '<'.
     const textStart = m.index + full.length;
@@ -483,10 +497,18 @@ function computeStaticContrastFindings(text, rel, hiddenRanges, maskedRanges, st
     if (!fg) continue; // no certain fg on this element -> not a candidate pair
 
     let bg = ownBg;
+    // hakuso MEDIUM-A (2026-07-27 final pass): the climb below starts one level ABOVE the
+    // current element, so when the text sits DIRECTLY on the blocksClimb element itself
+    // (not a descendant of it), its own flag was never consulted.
+    if (bg === undefined && stack[stack.length - 1]?.blocksClimb) bg = null;
     if (bg === undefined) {
       for (let i = stack.length - 2; i >= 0; i--) { // stack top is this element itself
         bg = certainOpaque(stack[i].bg);
         if (bg !== undefined) break;
+        // This ancestor declares nothing itself, but climbing PAST it is unsafe (see
+        // blocksClimb comment above) -- stop here as unresolved rather than reaching a
+        // further, visually-unrelated ancestor's background.
+        if (stack[i].blocksClimb) { bg = null; break; }
       }
     }
     if (!bg) continue; // uncertain-ancestor block, or reached the root with nothing declared
@@ -1378,9 +1400,43 @@ function testingRecommendations(categories) {
   return recommendations;
 }
 
+// Numeric fields tier2MeasuredHTML (generate-report.mjs) interpolates raw into HTML with no
+// escaping of its own (c.ratio, c.fg.r/g/b, c.bg.r/g/b, c.required, c.width, c.height) --
+// merged findings are untrusted input (P1 comment below), so anything that doesn't coerce
+// cleanly to a finite number is dropped rather than guessed or passed through raw.
+function sanitizeComputed(computed) {
+  if (!computed || typeof computed !== 'object') return undefined;
+  // hakuso MEDIUM-B (2026-07-27 final pass): Number(null|''|false|[]) is 0 and finite, so a
+  // missing field would coerce to a fabricated 0 instead of being dropped. Reject anything
+  // that isn't already a number or numeric string before coercing.
+  const n = (v) => {
+    if (v === null || v === '' || (typeof v !== 'number' && typeof v !== 'string')) return null;
+    const x = Number(v);
+    return Number.isFinite(x) ? x : null;
+  };
+  const rgb = (v) => {
+    const r = n(v?.r), g = n(v?.g), b = n(v?.b);
+    return (r === null || g === null || b === null) ? null : { r, g, b };
+  };
+  if (computed.ratio !== undefined) {
+    const ratio = n(computed.ratio), fg = rgb(computed.fg), bg = rgb(computed.bg), required = n(computed.required);
+    // LOW-C: a required that fails coercion would otherwise render "required undefined:1" --
+    // drop the whole computed object, same as a missing ratio/fg/bg.
+    if (ratio === null || !fg || !bg || required === null) return undefined;
+    return { ratio, fg, bg, required };
+  }
+  if (computed.width !== undefined) {
+    const width = n(computed.width), height = n(computed.height);
+    if (width === null || height === null) return undefined;
+    return { width, height, spacingExceptionMet: computed.spacingExceptionMet === false ? false : undefined };
+  }
+  return undefined;
+}
+
 // P1: the SOLE channel for Tier-2/manual findings (axe contrast, focus, human review) to
 // enter the scored artifact. The agent feeds findings as data; the script — never the
 // agent — applies the matrix and recomputes the verdict. Untrusted input: validated here.
+// Returns the parsed raw payload so main() can inspect it for tier-2 provenance metadata.
 function mergeExternalFindings(file, stats, findings) {
   let raw;
   try { raw = JSON.parse(readFileSync(file, 'utf8')); }
@@ -1420,10 +1476,14 @@ function mergeExternalFindings(file, stats, findings) {
       fix: f.fix,
       source: f.source || 'merged',
       check,
+      computed: sanitizeComputed(f.computed),
+      selector: typeof f.selector === 'string' ? f.selector : undefined,
+      viewport: typeof f.viewport === 'string' ? f.viewport : undefined,
     });
     merged += 1;
   }
   console.error(`--merge-findings: merged ${merged}, skipped ${skipped} from ${file}`);
+  return raw;
 }
 
 // P8: the LLM's irreducible semantic judgment (meaningful-alt quality, reading-order sense,
@@ -1460,7 +1520,16 @@ function main() {
 
   for (const file of files) scanFile(file, root, stats, findings);
   addSiteAgentReadinessFindings(opts.paths, files, root, stats, findings);
-  if (opts.mergeFindings) mergeExternalFindings(opts.mergeFindings, stats, findings);
+  const mergedRaw = opts.mergeFindings ? mergeExternalFindings(opts.mergeFindings, stats, findings) : null;
+  // HIGH-1 (2026-07-26 merge audit): when the merged payload IS a tier-2 artifact (not just
+  // a bare findings array), carry its metadata+summary through so the report can render the
+  // provenance chip (computeTier2EvidenceByCategory) — findings themselves already merged
+  // in above; this only adds the "how much was measured" denominator alongside them.
+  const tier2 = (typeof mergedRaw?.metadata?.engine_fingerprint === 'string'
+    && mergedRaw.metadata.engine_fingerprint.startsWith('beacon-tier2-audit')
+    && Array.isArray(mergedRaw?.summary?.by_viewport))
+    ? { metadata: mergedRaw.metadata, summary: mergedRaw.summary }
+    : null;
 
   // Contrast verification gate (inspect.md "do not skip"; hakuso+codex found this was
   // doc-promised but not code-backed — the native scan only ever bumps a silent review
@@ -1586,6 +1655,7 @@ function main() {
   // Attach the quarantined LLM-judgment block AFTER scoring — it is never folded into
   // findings, stats, or any score (P8 structural separation).
   if (opts.llmJudgment) audit.llm_judgment = loadLlmJudgment(opts.llmJudgment);
+  if (tier2) audit.tier2 = tier2;
 
   writeFileSync(opts.output, JSON.stringify(audit, null, 2));
   console.log(`Wrote ${opts.output}`);

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>tier2 dark-canvas fixture (Finding B extension, 2026-07-26 tier2 calibration)</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  /* No background-color set anywhere in the ancestor chain -- this text relies entirely on
+     the page's default canvas. `color-scheme: dark` makes the browser paint that canvas dark
+     (confirmed on the linear.app snapshot: html/body both report a fully transparent
+     backgroundColor, yet the page renders on a solid near-black canvas), so a compositor that
+     hardcodes white as the default canvas gets this exactly backwards. */
+  #dark-canvas-text { color: rgb(255, 255, 255); font-size: 16px; padding: 8px; }
+</style>
+</head>
+<body>
+  <div id="dark-canvas-text">White text with no explicit background on a dark-canvas page.</div>
+</body>
+</html>

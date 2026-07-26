@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tier2 disabled-control fixture (Finding C, 2026-07-26 tier2 calibration)</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  button, .low-contrast { color: rgb(200, 200, 200); background: rgb(255, 255, 255); font-size: 16px; }
+</style>
+</head>
+<body>
+  <!-- WCAG 1.4.3 exempts "incidental text ... that is part of an inactive user interface
+       component" -- disabled controls must be excluded from contrast sampling entirely,
+       not reported as a fail. -->
+  <button id="disabled-btn" class="low-contrast" disabled>Disabled button, low contrast, must be excluded</button>
+  <div id="aria-disabled-div" class="low-contrast" aria-disabled="true">ARIA-disabled text, low contrast, must be excluded</div>
+  <button id="enabled-btn" class="low-contrast">Enabled button, same low contrast, must still be reported</button>
+</body>
+</html>

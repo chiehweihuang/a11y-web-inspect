@@ -12,6 +12,7 @@ import {
   parseColor, relLuminance, contrastRatio, compositeLayers, isLargeText,
   analyzeContrastSamples, analyzeTouchTargets,
   captureContrastSamples, captureTouchTargets, loadPlaywright, TIER2_VIEWPORTS,
+  runTier2Audit,
 } from '../core/scripts/tier2-audit.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -255,4 +256,126 @@ test('fixture: touch-targets.html differs by viewport as designed (18x18 shrink 
   } finally {
     await browser.close();
   }
+});
+
+// --- 2026-07-26 tier2 calibration bugfixes ----------------------------------------------
+// Four real detector defects found by hand-adjudicating a wild-population run (not corpus
+// artifacts): see plans/2026-07-26-tier2-calibration.md "6 blockers" for the full writeup.
+
+test('fixture: contrast-overlay.html -- non-ancestor-painted backgrounds (pseudo-element, ' +
+  'inset box-shadow, non-ancestor sibling) are reported unresolvable, never a guessed pass/fail (Finding B)',
+  { skip: !pwAvailable && 'tier2: playwright unavailable on this machine' }, async () => {
+  const url = pathToFileURL(join(FIXTURES, 'contrast-overlay.html')).href;
+  const browser = await pw.chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(url, { waitUntil: 'load' });
+    const samples = await captureContrastSamples(page);
+    const findings = analyzeContrastSamples(samples, '1280x900');
+    const byKeySelector = findings.map((f) => `${f.key}:${f.selector}`).sort();
+    assert.deepEqual(byKeySelector, [
+      'tier2-contrast-unresolvable:#pseudo-text',
+      'tier2-contrast-unresolvable:#shadow-text',
+      'tier2-contrast-unresolvable:#sibling-text',
+      'tier2-contrast-fail:#control-fail', // regression control: ordinary fails still fire
+    ].sort());
+    // regression control: an ordinary decorative (non-inset) drop-shadow on a correctly
+    // resolved opaque background must not be swept into "unresolvable" just for having a
+    // box-shadow at all.
+    assert.ok(!byKeySelector.some((k) => k.endsWith(':#dropshadow-safe')));
+    await page.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test('fixture: contrast-dark-canvas.html -- text relying on the page\'s default canvas is ' +
+  'unresolvable (not asserted white) when the page opts into color-scheme: dark (Finding B extension)',
+  { skip: !pwAvailable && 'tier2: playwright unavailable on this machine' }, async () => {
+  const url = pathToFileURL(join(FIXTURES, 'contrast-dark-canvas.html')).href;
+  const browser = await pw.chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(url, { waitUntil: 'load' });
+    const samples = await captureContrastSamples(page);
+    const findings = analyzeContrastSamples(samples, '1280x900');
+    const byKeySelector = findings.map((f) => `${f.key}:${f.selector}`).sort();
+    assert.deepEqual(byKeySelector, ['tier2-contrast-unresolvable:#dark-canvas-text']);
+    await page.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test('fixture: contrast-disabled.html -- disabled and aria-disabled controls are excluded ' +
+  'from contrast sampling entirely, per WCAG 1.4.3\'s inactive-component exemption (Finding C)',
+  { skip: !pwAvailable && 'tier2: playwright unavailable on this machine' }, async () => {
+  const url = pathToFileURL(join(FIXTURES, 'contrast-disabled.html')).href;
+  const browser = await pw.chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(url, { waitUntil: 'load' });
+    const samples = await captureContrastSamples(page);
+    const findings = analyzeContrastSamples(samples, '1280x900');
+    const byKeySelector = findings.map((f) => `${f.key}:${f.selector}`).sort();
+    // same low-contrast color on all three elements -- only the enabled one should surface.
+    assert.deepEqual(byKeySelector, ['tier2-contrast-fail:#enabled-btn']);
+    await page.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test('fixture: settle.html -- a deferred DOM mutation settles before capture, and 3 repeated ' +
+  'full runs produce byte-identical findings (Finding D)',
+  { skip: !pwAvailable && 'tier2: playwright unavailable on this machine' }, async () => {
+  const url = pathToFileURL(join(FIXTURES, 'settle.html')).href;
+  const serialized = [];
+  for (let i = 0; i < 3; i++) {
+    const audit = await runTier2Audit({
+      url, viewports: [TIER2_VIEWPORTS[0]], date: '2026-07-26', playwrightModule: pw,
+    });
+    serialized.push(JSON.stringify(audit.findings));
+  }
+  assert.equal(serialized[1], serialized[0]);
+  assert.equal(serialized[2], serialized[0]);
+  const findings = JSON.parse(serialized[0]);
+  // the 150ms-deferred mutation must have already applied by capture time -- proves the
+  // settle wait actually settled, not just that a broken state happens to be stable.
+  assert.ok(!findings.some((f) => f.selector === '#delayed'));
+});
+
+test('runTier2Audit: a per-viewport capture crash (execution context destroyed by the ' +
+  'page\'s own navigation, e.g. zoom.us) is caught and recorded, not thrown -- the run ' +
+  'continues instead of crashing the whole process (Finding E)', async () => {
+  const crashMessage = 'Execution context was destroyed, most likely because of a navigation';
+  const fakePlaywright = {
+    chromium: {
+      async launch() {
+        return {
+          async newPage() {
+            return {
+              async route() {},
+              async goto() {},
+              async waitForLoadState() {},
+              async waitForTimeout() {},
+              async evaluate() { throw new Error(crashMessage); },
+              async close() {},
+            };
+          },
+          async close() {},
+        };
+      },
+    },
+  };
+  const audit = await runTier2Audit({
+    url: 'http://example.test/fake-zoom',
+    viewports: [TIER2_VIEWPORTS[0]],
+    date: '2026-07-26',
+    playwrightModule: fakePlaywright,
+  });
+  assert.equal(audit.summary.total_findings, 0);
+  assert.equal(audit.summary.by_viewport.length, 1);
+  assert.equal(audit.summary.by_viewport[0].viewport, '320x720');
+  assert.match(audit.summary.by_viewport[0].error, /Execution context was destroyed/);
 });

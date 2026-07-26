@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tier2 non-ancestor background fixture (Finding B, 2026-07-26 tier2 calibration)</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  .row { padding: 8px; width: 200px; height: 40px; box-sizing: border-box; }
+
+  /* Case 1: a ::before pseudo-element paints the real background; the ancestor
+     backgroundColor walk only ever sees transparent layers. */
+  #pseudo-wrap { position: relative; background: transparent; }
+  #pseudo-wrap::before { content: ""; position: absolute; inset: 0; background: rgb(0, 0, 0); z-index: 0; }
+  #pseudo-text { position: relative; z-index: 1; color: rgb(255, 255, 255); font-size: 16px; }
+
+  /* Case 2: an inset box-shadow paints the real background (a common CSS trick); own/ancestor
+     backgroundColor stays transparent. */
+  #shadow-wrap { background: transparent; box-shadow: inset 0 0 0 999px rgb(0, 0, 0); }
+  #shadow-text { color: rgb(255, 255, 255); font-size: 16px; }
+
+  /* Case 3: a non-ancestor sibling supplies the visible background via absolute positioning +
+     stacking -- not reachable by any ancestor walk at all. */
+  #sibling-wrap { position: relative; width: 200px; height: 40px; }
+  #sibling-bg { position: absolute; inset: 0; background: rgb(0, 0, 0); z-index: 0; }
+  #sibling-text { position: absolute; inset: 0; z-index: 1; color: rgb(255, 255, 255); font-size: 16px; }
+
+  /* Control: an ordinary transparent-on-white failing pair with no overlay tricks -- must
+     still be reported as a real fail, proving the new detection doesn't swallow real fails. */
+  #control-fail { color: rgb(153, 153, 153); font-size: 16px; }
+
+  /* Control: an ordinary decorative drop-shadow (not inset) on an opaque, correctly-resolved
+     background -- must NOT be flagged unresolvable just for having a box-shadow at all. */
+  #dropshadow-safe { background: rgb(0, 0, 0); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); color: rgb(255, 255, 255); font-size: 16px; }
+</style>
+</head>
+<body>
+  <div class="row" id="pseudo-wrap"><span id="pseudo-text">Pseudo-element background</span></div>
+  <div class="row" id="shadow-wrap"><span id="shadow-text">Inset box-shadow background</span></div>
+  <div class="row" id="sibling-wrap"><div id="sibling-bg"></div><div id="sibling-text">Sibling background</div></div>
+  <div class="row" id="control-fail">Ordinary failing gray text control.</div>
+  <div class="row" id="dropshadow-safe">Ordinary card with a decorative drop shadow.</div>
+</body>
+</html>

@@ -190,6 +190,65 @@ test('a background-image ancestor blocks resolution (never a guessed ratio)', ()
   assert.equal(contrastFindings(audit, 'static-contrast-evidence').length, 0);
 });
 
+// WS-B broad FP pass (2026-07-26, plans/2026-07-26-contrast-calibration-broad.md):
+// 100291.html:2790, a real confirmed false positive. A caption <a> sits inside an
+// absolutely-positioned overlay whose real visual backdrop is a photographic <img>
+// sibling, not a CSS background. None of the intervening <div>s declare a background at
+// all, so the old walk climbed straight past the photo and resolved white text against a
+// distant, visually-unrelated ancestor's white page background -- a nonsensical 1.00:1
+// "finding" for text a real user sees on top of a photo. Same honesty rule as the
+// background-image case: an <img> sibling behind a position:absolute overlay blocks the
+// walk instead of guessing.
+test('an absolutely-positioned overlay over a sibling <img> blocks the bg walk (100291.html:2790 false positive)', () => {
+  // Deliberately classless intervening <div>s: a class attribute already blocks the walk
+  // via the pre-existing "unresolved class" rule (2026-07-25 calibration finding, tested
+  // above), which would mask whether THIS fix does anything. This must reproduce the FP
+  // (a sub-threshold finding) if the img-sibling/position:absolute block is removed.
+  const audit = runScanner(page(
+    '<div style="background: rgb(255, 255, 255);">' +
+      '<div>' +
+        '<img src="photo.jpg" alt="Person relaxing on a couch">' +
+        '<div style="position: absolute;">' +
+          '<a style="color: rgb(255, 255, 255);">Try Alexa for Shopping</a>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  ));
+  assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 0);
+  assert.equal(contrastFindings(audit, 'static-contrast-evidence').length, 0); // not even a resolved-pass credit
+});
+
+// hakuso MEDIUM-A (2026-07-27 final pass): same leak, but the text sits DIRECTLY on the
+// position:absolute element (no wrapping <a>-only-child level) -- the climb starts one
+// level above the current element, so the element's OWN blocksClimb flag must also be
+// consulted, not just its ancestors'.
+test('an absolutely-positioned overlay carrying the text itself (not a child) also blocks the walk', () => {
+  const audit = runScanner(page(
+    '<div style="background: rgb(255, 255, 255);">' +
+      '<div>' +
+        '<img src="photo.jpg" alt="Person relaxing on a couch">' +
+        '<div style="position: absolute; color: rgb(255, 255, 255);">Try Alexa for Shopping</div>' +
+      '</div>' +
+    '</div>'
+  ));
+  assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 0);
+  assert.equal(contrastFindings(audit, 'static-contrast-evidence').length, 0);
+});
+
+// Regression control: position:absolute alone must NOT block resolution -- only a real
+// <img> sibling behind it does. Proves the fix is scoped to the actual leak shape, not a
+// blanket "never resolve through position:absolute" rule.
+test('control: position:absolute WITHOUT a sibling <img> still resolves against an ancestor background', () => {
+  const audit = runScanner(page(
+    '<div style="background: rgb(255, 255, 255);">' +
+      '<div style="position: absolute;">' +
+        '<p style="color: rgb(153, 153, 153);">text</p>' +
+      '</div>' +
+    '</div>'
+  ));
+  assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 1);
+});
+
 test('reaching the document root with no background declared anywhere is unresolved (no default-white guess)', () => {
   const audit = runScanner(page('<p style="color:#000000;">text, no bg anywhere</p>'));
   assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 0);

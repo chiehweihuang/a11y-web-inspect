@@ -32,7 +32,7 @@ import { join, resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
-const DETECTOR_VERSION = 'beacon-tier2-audit@1';
+const DETECTOR_VERSION = 'beacon-tier2-audit@2';
 
 export const TIER2_VIEWPORTS = [
   { width: 320, height: 720, label: '320x720' },
@@ -129,25 +129,53 @@ function baseFinding(f) {
   };
 }
 
-// samples: [{ selector, fgStr, bgLayerStrs, bgUnresolved, fontSizePx, bold }]
+// HIGH-2 (2026-07-26 merge audit): four distinct signals can mark a sample unresolvable
+// (see browserCollectContrastSamples' bgUnresolvedReason below) — name the actual one
+// instead of always blaming "image or gradient". Falls back to the generic four-cause
+// description when a sample carries no reason (e.g. a hand-built specimen/test fixture).
+const UNRESOLVABLE_REASON_TEXT = {
+  'image-or-gradient': {
+    title: 'Text contrast could not be resolved (background is an image or gradient)',
+    description: (sel) => `An ancestor of "${sel}" paints a background-image (photo or gradient), so the effective background color cannot be computed without rendering the image itself.`,
+  },
+  'pseudo-or-inset-shadow': {
+    title: 'Text contrast could not be resolved (background painted by a pseudo-element or inset shadow)',
+    description: (sel) => `The visible background behind "${sel}" is painted by a ::before/::after pseudo-element or an inset box-shadow, not a plain background-color an ancestor walk can see.`,
+  },
+  'non-ancestor-overlay': {
+    title: 'Text contrast could not be resolved (a non-ancestor element paints behind it)',
+    description: (sel) => `A non-ancestor element (sibling/cousin, stacked via position + z-index) overlaps "${sel}" and paints its real visible background, which no ancestor walk can reach.`,
+  },
+  'dark-canvas': {
+    title: 'Text contrast could not be resolved (page relies on a dark default canvas)',
+    description: (sel) => `No ancestor of "${sel}" declares an opaque background, and the page opts into color-scheme: dark, so the browser's default canvas is dark rather than the assumed white.`,
+  },
+};
+const GENERIC_UNRESOLVABLE_TEXT = {
+  title: 'Text contrast could not be resolved (effective background not determinable from computed styles)',
+  description: (sel) => `The effective background behind "${sel}" cannot be computed from styles alone — an ancestor paints a background-image or gradient, a pseudo-element or inset box-shadow paints behind the text, a non-ancestor element overlaps it, or the page relies on a dark default canvas (color-scheme: dark).`,
+};
+
+// samples: [{ selector, fgStr, bgLayerStrs, bgUnresolved, bgUnresolvedReason, fontSizePx, bold }]
 export function analyzeContrastSamples(samples, viewport) {
   const findings = [];
   for (const s of samples) {
     const location = `${s.selector} (viewport ${viewport})`;
     if (s.bgUnresolved) {
+      const reasonText = UNRESOLVABLE_REASON_TEXT[s.bgUnresolvedReason] || GENERIC_UNRESOLVABLE_TEXT;
       findings.push(baseFinding({
         key: 'tier2-contrast-unresolvable',
         category: 'contrast',
         severity: 'tip',
         check: 'review',
         wcag: 'WCAG 2.2: 1.4.3 Contrast (Minimum)',
-        title: 'Text contrast could not be verified (image or gradient background)',
+        title: reasonText.title,
         affected_users: 'Low-vision users — verify manually, the background could not be resolved statically',
         location,
         selector: s.selector,
         viewport,
-        description: `The element behind "${s.selector}" paints a background-image (photo or gradient), so the effective background color cannot be computed without rendering the image itself.`,
-        fix: 'Verify contrast manually against the rendered image/gradient, or add a solid-color fallback/overlay behind the text that meets the contrast threshold.',
+        description: reasonText.description(s.selector),
+        fix: 'Verify contrast manually against the real rendered page, or add a solid-color fallback/overlay behind the text that meets the contrast threshold.',
       }));
       continue;
     }
@@ -259,7 +287,12 @@ export function analyzeTouchTargets(targets, viewport) {
 /* istanbul ignore next -- exercised via the fixture integration tests, not directly unit-tested */
 function browserCollectContrastSamples() {
   function isHidden(el) {
-    if (el.closest('[aria-hidden="true"], [hidden]')) return true;
+    // WCAG 1.4.3 exempts "incidental text ... that is part of an inactive user interface
+    // component" -- disabled controls (and aria-disabled equivalents) have no contrast
+    // requirement, so they must never be sampled (Finding C, 2026-07-26 tier2 calibration:
+    // a Mailchimp disabled survey-modal button was misreported as a fail). Mirrors the
+    // el.disabled check browserCollectTouchTargets already has.
+    if (el.closest('[aria-hidden="true"], [hidden], [disabled], [aria-disabled="true"]')) return true;
     let node = el;
     while (node && node.nodeType === 1) {
       const cs = getComputedStyle(node);
@@ -287,19 +320,72 @@ function browserCollectContrastSamples() {
     const m = String(str || '').match(/^rgba?\([^,]+,[^,]+,[^,]+(?:,\s*([\d.]+)\s*)?\)$/i);
     return m ? (m[1] === undefined ? 1 : Number(m[1])) : 0;
   }
+  // Finding B (2026-07-26 tier2 calibration): a background painted by a pseudo-element, an
+  // inset box-shadow (a common "paint the backdrop via a giant inset shadow" CSS trick), or a
+  // differently-styled NON-ancestor element stacked behind (sibling/cousin via absolute
+  // positioning + z-index) is invisible to a plain ancestor backgroundColor walk -- confirmed
+  // on real, CSS-intact renders (Wix, Linear.app, Atlassian pill/button components), not a
+  // corpus artifact. Guessing a color here would trade one wrong answer for another, so any of
+  // these three signals marks the sample unresolvable instead -- the same honesty boundary
+  // this detector already has for image/gradient backgrounds.
+  function hasPseudoBg(node) {
+    for (const pseudo of ['::before', '::after']) {
+      const pcs = getComputedStyle(node, pseudo);
+      if (pcs.content === 'none') continue; // no box generated, nothing painted
+      if (pcs.backgroundImage && pcs.backgroundImage !== 'none') return true;
+      if (alphaOf(pcs.backgroundColor) > 0) return true;
+    }
+    return false;
+  }
+  function hasInsetBoxShadow(node) {
+    return /inset/.test(getComputedStyle(node).boxShadow);
+  }
+  // document.elementsFromPoint looks native-first-choice here, but it silently EXCLUDES
+  // `pointer-events: none` elements from hit-testing -- and that is exactly how real
+  // decorative background/indicator layers are commonly built (confirmed on a Wix
+  // "bgLayers" sibling div and an Atlassian aria-hidden sliding-tab-indicator div, both
+  // pointer-events:none, both real). A plain geometric rect-overlap scan has no such
+  // blind spot.
+  function rectsOverlap(a, b) {
+    return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+  }
+  function hasNonAncestorOverlay(el, rect, allElements) {
+    for (const candidate of allElements) {
+      if (candidate === el || candidate.contains(el) || el.contains(candidate)) continue;
+      const r = candidate.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0 || !rectsOverlap(rect, r)) continue;
+      const cs = getComputedStyle(candidate);
+      if (alphaOf(cs.backgroundColor) > 0) return true;
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return true;
+      if (/inset/.test(cs.boxShadow)) return true;
+    }
+    return false;
+  }
   function collectBgLayers(el) {
     const layers = [];
     let node = el;
+    let suspiciousOverlay = false;
+    let defaultsToCanvas = false;
     while (node) {
       const cs = getComputedStyle(node);
-      if (cs.backgroundImage && cs.backgroundImage !== 'none') return { layers, unresolved: true };
+      if (hasPseudoBg(node) || hasInsetBoxShadow(node)) suspiciousOverlay = true;
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return { layers, unresolved: true, suspiciousOverlay, defaultsToCanvas: false };
       layers.push(cs.backgroundColor);
       if (alphaOf(cs.backgroundColor) >= 1) break;
-      if (node === document.documentElement) break;
+      if (node === document.documentElement) { defaultsToCanvas = true; break; }
       node = node.parentElement;
     }
-    return { layers, unresolved: false };
+    return { layers, unresolved: false, suspiciousOverlay, defaultsToCanvas };
   }
+
+  // Finding B extension (2026-07-26 tier2 calibration, linear.app): when no ancestor has an
+  // opaque background at all, this detector's compositor falls back to a hardcoded white
+  // canvas -- but the browser paints a DARK canvas by default whenever the page opts into
+  // `color-scheme: dark` (confirmed: linear.app's html/body both report a fully transparent
+  // backgroundColor, yet the page renders on a solid near-black canvas). Guessing white here
+  // is exactly as wrong as guessing any other color -- computed once, page-wide, since
+  // color-scheme is a root-level property.
+  const pageDefaultsToDarkCanvas = /dark/.test(getComputedStyle(document.documentElement).colorScheme);
 
   const samples = [];
   const all = document.body.querySelectorAll('*');
@@ -311,12 +397,22 @@ function browserCollectContrastSamples() {
     const rect = el.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) continue;
     const cs = getComputedStyle(el);
-    const { layers, unresolved } = collectBgLayers(el);
+    const { layers, unresolved, suspiciousOverlay, defaultsToCanvas } = collectBgLayers(el);
+    // HIGH-2 (2026-07-26 merge audit): record WHICH signal fired, not just that one did, so
+    // the finding can name the actual cause instead of always blaming "image or gradient".
+    // Order matches the original short-circuit priority — once already unresolved/
+    // suspicious, skip the pricier overlap scan.
+    let bgUnresolvedReason = null;
+    if (unresolved) bgUnresolvedReason = 'image-or-gradient';
+    else if (suspiciousOverlay) bgUnresolvedReason = 'pseudo-or-inset-shadow';
+    else if (defaultsToCanvas && pageDefaultsToDarkCanvas) bgUnresolvedReason = 'dark-canvas';
+    else if (hasNonAncestorOverlay(el, rect, all)) bgUnresolvedReason = 'non-ancestor-overlay';
     samples.push({
       selector: getSelector(el),
       fgStr: cs.color,
       bgLayerStrs: layers,
-      bgUnresolved: unresolved,
+      bgUnresolved: bgUnresolvedReason !== null,
+      bgUnresolvedReason,
       fontSizePx: parseFloat(cs.fontSize),
       bold: cs.fontWeight === 'bold' || Number(cs.fontWeight) >= 700,
     });
@@ -433,6 +529,13 @@ function toLoadableUrl(input) {
   return pathToFileURL(resolve(input)).href;
 }
 
+// Finding D (2026-07-26 tier2 calibration): pages with deferred/animated DOM mutations
+// (consent banners, bot-checks, lazy-hydrated widgets) produce different finding counts
+// run-to-run when captured immediately at domcontentloaded -- measured on the wayfair.com
+// PerimeterX snapshot: 0ms after domcontentloaded -> 1 finding, 300ms/1000ms/3000ms -> 5
+// findings, stable from 300ms on. Full trade-off note: plans/2026-07-26-tier2-bugfix-notes.md.
+const SETTLE_QUIET_MS = 500;
+
 export async function runTier2Audit({ url, viewports = TIER2_VIEWPORTS, date, playwrightModule } = {}) {
   const pw = playwrightModule || await loadPlaywright();
   const loadUrl = toLoadableUrl(url);
@@ -442,40 +545,55 @@ export async function runTier2Audit({ url, viewports = TIER2_VIEWPORTS, date, pl
   try {
     for (const vp of viewports) {
       const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
-      // A saved local snapshot (file://) is analyzed as static markup, not re-fetched live:
-      // real wild captures (e.g. the rakuten.co.jp benchmark snapshot) ship blocking
-      // <script src="https://..."> tags to hosts that are unreachable offline, which
-      // otherwise hang the parser waiting on a dead network request. Abort anything that
-      // isn't the snapshot file itself. Live http(s) targets are left alone (they need
-      // their own network to render correctly).
-      if (loadUrl.startsWith('file:///')) {
-        await page.route('**/*', (route) => {
-          const reqUrl = route.request().url();
-          // file:/// (no host) is a genuine local path. file://<host>/... (two slashes,
-          // a protocol-relative "//host/path" resolved against a file:// base) is NOT —
-          // on Windows this is a UNC network-share lookup and hangs for a long time
-          // resolving a nonexistent host (hit on the rakuten.co.jp benchmark snapshot,
-          // which document.write()s a protocol-relative <img src="//..."> tracking pixel).
-          if (reqUrl.startsWith('file:///')) route.continue();
-          else route.abort();
+      try {
+        // A saved local snapshot (file://) is analyzed as static markup, not re-fetched live:
+        // real wild captures (e.g. the rakuten.co.jp benchmark snapshot) ship blocking
+        // <script src="https://..."> tags to hosts that are unreachable offline, which
+        // otherwise hang the parser waiting on a dead network request. Abort anything that
+        // isn't the snapshot file itself. Live http(s) targets are left alone (they need
+        // their own network to render correctly).
+        if (loadUrl.startsWith('file:///')) {
+          await page.route('**/*', (route) => {
+            const reqUrl = route.request().url();
+            // file:/// (no host) is a genuine local path. file://<host>/... (two slashes,
+            // a protocol-relative "//host/path" resolved against a file:// base) is NOT —
+            // on Windows this is a UNC network-share lookup and hangs for a long time
+            // resolving a nonexistent host (hit on the rakuten.co.jp benchmark snapshot,
+            // which document.write()s a protocol-relative <img src="//..."> tracking pixel).
+            if (reqUrl.startsWith('file:///')) route.continue();
+            else route.abort();
+          });
+        }
+        // domcontentloaded, not 'load': aborted subresources above still count as "failed to
+        // load" for the 'load' event's purposes on some resource types — domcontentloaded only
+        // waits for HTML parsing, matching the capture recipe already pinned in VALIDATION.md L0.
+        await page.goto(loadUrl, { waitUntil: 'domcontentloaded' });
+        // Settle (Finding D): best-effort wait for 'load' too (aborted subresources above mean
+        // it may never fire on some sites, hence the short timeout + swallow), then a fixed
+        // quiet window, before any capture -- so repeated runs on the same page are deterministic.
+        await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
+        await page.waitForTimeout(SETTLE_QUIET_MS);
+        const contrastSamples = await captureContrastSamples(page);
+        const touchTargets = await captureTouchTargets(page);
+        const contrastFindings = analyzeContrastSamples(contrastSamples, vp.label);
+        const touchFindings = analyzeTouchTargets(touchTargets, vp.label);
+        findings.push(...contrastFindings, ...touchFindings);
+        byViewport.push({
+          viewport: vp.label,
+          contrast_samples: contrastSamples.length,
+          touch_targets: touchTargets.length,
+          findings: contrastFindings.length + touchFindings.length,
         });
+      } catch (err) {
+        // Finding E (2026-07-26 tier2 calibration, zoom.us idx 87): a page's OWN client-side
+        // navigation can destroy the execution context mid-capture ("Execution context was
+        // destroyed, most likely because of a navigation"), which otherwise kills the whole
+        // CLI process. One page's own script must not take down a whole batch/CI run --
+        // record the failure for this viewport and move on to the next one.
+        byViewport.push({ viewport: vp.label, error: String((err && err.message) || err) });
+      } finally {
+        await page.close();
       }
-      // domcontentloaded, not 'load': aborted subresources above still count as "failed to
-      // load" for the 'load' event's purposes on some resource types — domcontentloaded only
-      // waits for HTML parsing, matching the capture recipe already pinned in VALIDATION.md L0.
-      await page.goto(loadUrl, { waitUntil: 'domcontentloaded' });
-      const contrastSamples = await captureContrastSamples(page);
-      const touchTargets = await captureTouchTargets(page);
-      const contrastFindings = analyzeContrastSamples(contrastSamples, vp.label);
-      const touchFindings = analyzeTouchTargets(touchTargets, vp.label);
-      findings.push(...contrastFindings, ...touchFindings);
-      byViewport.push({
-        viewport: vp.label,
-        contrast_samples: contrastSamples.length,
-        touch_targets: touchTargets.length,
-        findings: contrastFindings.length + touchFindings.length,
-      });
-      await page.close();
     }
   } finally {
     await browser.close();
@@ -501,12 +619,15 @@ function buildArtifact({ url, findings, byViewport, date }) {
       tool_version: 'beacon tier-2 native measurement harness (Playwright, axe-free)',
       engine_fingerprint: DETECTOR_VERSION,
       audit_tier: 'Tier 2 (native browser measurement: contrast + touch targets)',
-      viewports: byViewport.map(v => v.viewport),
+      // LOW-D (2026-07-27 final pass): a crashed viewport ({viewport, error}, no samples)
+      // must not read as measured to a human summarizing this artifact (inspect.md Step 3).
+      viewports: byViewport.filter(v => !v.error).map(v => v.viewport),
+      ...(byViewport.some(v => v.error) ? { viewports_failed: byViewport.filter(v => v.error).map(v => v.viewport) } : {}),
       audit_methods: [
-        'Computed foreground/background contrast per visible text element (ancestor-walk + alpha compositing; image/gradient backgrounds reported unresolvable, never guessed)',
+        'Computed foreground/background contrast per visible text element (ancestor-walk + alpha compositing; backgrounds that cannot be resolved from computed styles (image/gradient, pseudo-element or inset-shadow paint, non-ancestor overlap, dark default canvas) are reported unresolvable, never guessed)',
         'Interactive-element bounding-box size vs WCAG 2.5.8 24×24px floor, with the spacing exception; 44px best-practice recorded as advisory',
       ],
-      note: 'Findings + evidence only — these categories do not yet enter the weighted score (scoring wiring is a separate, undecided step; see plans/2026-07-25-v3.3-browser-measurements.md Workstream A step 4).',
+      note: 'Findings + evidence only: this artifact carries no score. These findings reach `audit-results.json` only through an explicit `--merge-findings` run, which CAN move the score once the category reaches `THIN_EVIDENCE_MIN`; whether the default inspect flow should merge automatically is the open decision (see plans/2026-07-25-v3.3-browser-measurements.md Workstream A step 4).',
     },
     summary: {
       total_findings: findings.length,

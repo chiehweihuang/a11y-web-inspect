@@ -420,6 +420,22 @@ const FINDING_I18N = {
     zh: { title: '對比未經驗證，請執行 Tier 2', description: '本次只掃描了靜態 markup／CSS，沒有合併任何瀏覽器算出的對比證據（Beacon 原生 tier2-audit.mjs 或 axe-core），所以真實的計算後樣式對比從未被渲染引擎驗證過。', fix: '執行 node scripts/tier2-audit.mjs（預設）或 axe-core，再用 --merge-findings 併入結果以取得驗證過的對比覆蓋率。', standard: 'WCAG 1.4.3 的對比比例需要瀏覽器計算後的樣式才能完整驗證；純靜態掃描無法看到真實渲染後的顏色，因此明確標記為未驗證，而非默默略過或誤報通過。' },
     en: { title: 'Contrast not verified, run Tier 2', description: 'This run only scanned static markup/CSS; no browser-rendered contrast evidence (Beacon-native tier2-audit.mjs or axe-core) was merged in, so real computed-style contrast was never exercised by a rendering engine.', fix: 'Run node scripts/tier2-audit.mjs (default) or an axe-core pass, then fold its findings in with --merge-findings for verified contrast coverage.', standard: 'WCAG 1.4.3 contrast ratios require browser-computed styles to verify fully; a static-only scan cannot see real rendered color, so this is flagged explicitly as unverified rather than silently skipped or reported as a false pass.' },
   },
+  'tier2-contrast-fail': {
+    zh: { title: '瀏覽器量測對比低於門檻', description: '在真實瀏覽器渲染後，量測到的文字前景／背景對比低於 WCAG 門檻。', fix: '提高前景與背景的對比，直到一般文字達到 4.5:1、大型文字達到 3:1。', standard: 'WCAG 1.4.3 要求一般文字對比至少 4.5:1，大型文字（18pt 以上，或 14pt 以上粗體）至少 3:1；本項目由瀏覽器實際渲染後的計算樣式量測得出，比靜態解析更確定。這類發現預設只以證據呈現；只有在明確以 --merge-findings 併入時才會進入分數，併入後一旦該類別的機測數達到門檻就會計分。' },
+    en: { title: 'Browser-measured contrast is below the threshold', description: 'After rendering in a real browser, the measured text foreground/background contrast is below the WCAG threshold.', fix: 'Increase the foreground/background contrast until it reaches 4.5:1 for normal text or 3:1 for large text.', standard: 'WCAG 1.4.3 requires normal text to reach at least 4.5:1 contrast, and large text (18pt+, or 14pt+ bold) at least 3:1; this is measured from real browser-rendered computed styles, stronger evidence than static parsing. Presented as evidence by default; it affects the score only when it is explicitly merged with --merge-findings, at which point the category can become scored once it has enough machine checks.' },
+  },
+  'tier2-contrast-unresolvable': {
+    zh: { title: '文字對比無法解析（無法從計算樣式判定有效底色）', description: '該文字的有效底色無法單純從計算樣式推算：祖先元素繪製圖片或漸層、由 pseudo-element 或 inset box-shadow 繪製背景、有非祖先元素疊在其後，或頁面採用深色預設畫布（color-scheme: dark）。', fix: '以人工方式對照實際渲染結果確認對比，或在文字後方加上純色 fallback／覆蓋層以確保達到門檻。', standard: 'WCAG 1.4.3 的對比門檻仍然適用，但本工具誠實回報「無法解析」而非亂猜一個底色；這類項目需要人工確認，從不計入分數。' },
+    en: { title: 'Text contrast could not be resolved (effective background not determinable from computed styles)', description: 'The effective background behind this text cannot be computed from styles alone — an ancestor paints a background-image or gradient, a pseudo-element or inset box-shadow paints behind the text, a non-ancestor element overlaps it, or the page relies on a dark default canvas (color-scheme: dark).', fix: 'Verify contrast manually against the actual rendered page, or add a solid-color fallback/overlay behind the text to ensure it meets the threshold.', standard: 'The WCAG 1.4.3 threshold still applies, but this tool honestly reports "unresolvable" instead of guessing a background color; these need manual confirmation and are never scored.' },
+  },
+  'tier2-touch-target-fail': {
+    zh: { title: '瀏覽器量測觸控目標低於最小尺寸', description: '量測到的可互動元件尺寸低於 24×24px 下限，且鄰近元件落在間距例外的範圍內，因此不適用例外。', fix: '將目標放大至至少 24×24 CSS px，或讓中心與鄰近目標間距至少 24px。', standard: 'WCAG 2.5.8 要求可互動目標至少 24×24 CSS px；尺寸不足時，仍可透過與其他目標保持至少 24px 的中心點間距（以中心為圓心的間距圓）滿足例外，但當鄰近目標落在該間距圓內時，例外不成立。' },
+    en: { title: 'Browser-measured touch target is below the minimum size', description: 'The measured interactive element is below the 24×24px floor, and a neighboring element falls inside the spacing exception\'s radius, so the exception does not apply.', fix: 'Enlarge the target to at least 24×24 CSS px, or move it at least 24px center-to-center from neighboring targets.', standard: 'WCAG 2.5.8 requires interactive targets to be at least 24×24 CSS px; an undersized target can still satisfy the exception by keeping at least 24px of center-to-center spacing (a spacing circle around its center) from other targets, but the exception does not apply when a neighboring target falls inside that circle.' },
+  },
+  'tier2-touch-target-advisory': {
+    zh: { title: '觸控目標達到下限，但低於建議尺寸', description: '目標達到 WCAG 24×24px 下限，但小於 44×44px 的建議舒適尺寸。', fix: '版面允許時，考慮放大至 44×44 CSS px；這是最佳實務建議，不是 WCAG 違規。', standard: 'WCAG 2.5.8 的法定下限是 24×24 CSS px；44×44px 是業界建議的舒適觸控尺寸（非 WCAG 硬性規定），本項目僅作為佐證證據，從不計入分數。' },
+    en: { title: 'Touch target meets the floor but is below the recommended size', description: 'The target meets the WCAG 24×24px minimum but is smaller than the 44×44px best-practice comfortable size.', fix: 'Consider enlarging to 44×44 CSS px where layout allows; this is a best-practice recommendation, not a WCAG violation.', standard: 'The WCAG 2.5.8 legal floor is 24×24 CSS px; 44×44px is an industry best-practice comfort size, not a WCAG requirement — this is evidence only and never scored.' },
+  },
 };
 
 const DEFAULT_JURISDICTIONS = [
@@ -605,6 +621,37 @@ function localizedText(value) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+// Tier-2 provenance: tier2-audit.mjs stamps every finding with
+// source:'beacon-tier2-audit@<n>' (DETECTOR_VERSION) — never overridden per-finding — so a
+// prefix check is a stable way to tell "browser-measured" findings from static/axe ones,
+// independent of the exact engine version string.
+function isTier2Finding(f) {
+  return typeof f?.source === 'string' && f.source.startsWith('beacon-tier2-audit');
+}
+
+// Measured-evidence counts for the category cards (item 1: provenance label + counts).
+// Deliberately read from audit.tier2.summary.by_viewport (the denominator: samples/targets
+// actually looked at, pass or fail) rather than from findings alone — findings only carry
+// fails/reviews, so counting findings would silently hide "we measured N, all passed".
+// audit.tier2 carries ONLY metadata+summary (no findings — those live in audit.findings
+// already, spliced in alongside the static ones); see merge note in this file's report to
+// the team lead. Never touches audit.summary/score — evidence display only.
+function computeTier2EvidenceByCategory(audit) {
+  const byViewport = asArray(audit?.tier2?.summary?.by_viewport);
+  if (!byViewport.length) return {};
+  // MEDIUM-1 (2026-07-26 merge audit): a viewport whose capture threw is recorded as
+  // {viewport, error} with no numeric fields (core/scripts/tier2-audit.mjs) — it measured
+  // nothing, so it must not appear in the "measured at" viewport label list.
+  const erroredCount = byViewport.filter(v => v.error).length;
+  const viewports = byViewport.filter(v => !v.error).map(v => v.viewport).filter(Boolean);
+  const contrastMeasured = byViewport.reduce((s, v) => s + (v.contrast_samples || 0), 0);
+  const touchMeasured = byViewport.reduce((s, v) => s + (v.touch_targets || 0), 0);
+  const out = {};
+  if (contrastMeasured > 0) out.contrast = { measured: contrastMeasured, viewports, erroredCount };
+  if (touchMeasured > 0) out.touch = { measured: touchMeasured, viewports, erroredCount };
+  return out;
 }
 
 function getAxeResults(audit) {
@@ -797,6 +844,7 @@ function buildJurisdictions(legal) {
 
 const reportFindings = buildReportFindings(audit);
 const axeResults = getAxeResults(audit);
+const tier2Evidence = computeTier2EvidenceByCategory(audit);
 const reportCounts = {
   total: reportFindings.length,
   critical: reportFindings.filter(f => f.severity === 'critical').length,
@@ -972,10 +1020,22 @@ function noIssuesHTML(cat) {
   return bi(zh, en);
 }
 
+// Item 1 (tier-2 report visibility): a small provenance chip + the measured
+// denominator (samples/targets actually looked at) for categories tier-2 touched.
+// Deliberately independent of cat.state/cat.score — never changes what those say.
+function tier2ProvenanceHTML(tier2Info) {
+  if (!tier2Info) return '';
+  const vp = tier2Info.viewports.join(' / ');
+  const errNote = tier2Info.erroredCount > 0
+    ? bi(`（${tier2Info.erroredCount} 個 viewport 擷取失敗）`, ` (${tier2Info.erroredCount} viewport${tier2Info.erroredCount > 1 ? 's' : ''} failed to capture)`)
+    : '';
+  return `<p class="cat-cause tier2-provenance"><span class="chip review">${bi('瀏覽器層量測（tier 2）', 'Browser-measured (tier 2)')}</span> ${bi(`已量測 ${tier2Info.measured} 項（${vp}）`, `${tier2Info.measured} measured (${vp})`)}${errNote}</p>`;
+}
+
 // One evidence-density card per category. Scored categories get a number;
 // every unscored state (not-machine-checkable / not-applicable /
 // insufficient-evidence) gets a text badge — a state, never a painted zero.
-function buildCategoryCardHTML(cat, prevCat, groupsByCat) {
+function buildCategoryCardHTML(cat, prevCat, groupsByCat, tier2Evidence) {
   const groups = groupsByCat.get(cat.id) || [];
   const scored = cat.state === 'scored';
   const auditable = cat.pass + cat.fail;
@@ -1012,15 +1072,15 @@ function buildCategoryCardHTML(cat, prevCat, groupsByCat) {
     causeHtml = t(STATE_DETAIL_KEYS[cat.state] || 'category_detail_manual');
   }
 
-  const inner = `<div class="cat-top"><div class="cat-name">${catName(cat)}</div>${topRight}</div>${evi}<p class="${causeClass}">${causeHtml}</p>`;
+  const inner = `<div class="cat-top"><div class="cat-name">${catName(cat)}</div>${topRight}</div>${evi}${tier2ProvenanceHTML(tier2Evidence?.[cat.id])}<p class="${causeClass}">${causeHtml}</p>`;
   const catAttr = ` data-category="${escapeHtml(cat.id)}"`;
   return isLink ? `<a class="${cardClass}"${catAttr} href="${linkHref}">${inner}</a>` : `<div class="${cardClass}"${catAttr}>${inner}</div>`;
 }
 
-function buildCategoryGridHTML(categories, previousCategories, groupsByCat) {
+function buildCategoryGridHTML(categories, previousCategories, groupsByCat, tier2Evidence) {
   const cards = categories.map(cat => {
     const prevCat = previousCategories?.find(p => p.id === cat.id) || null;
-    return buildCategoryCardHTML(cat, prevCat, groupsByCat);
+    return buildCategoryCardHTML(cat, prevCat, groupsByCat, tier2Evidence);
   }).join('');
   // AEO disclaimer sits right under the grid — it's the same epistemic caveat
   // for the 'agent' category regardless of whether that category has findings.
@@ -1053,6 +1113,37 @@ function buildLocationListHTML(locations) {
   return `<div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0">${shown}${more}</div>`;
 }
 
+// Item 2 (tier-2 report visibility): the actual measured value behind a tier-2
+// finding — contrast's computed ratio + color pair, touch's measured size (and,
+// when the spacing exception is what failed it, that it was a neighbor within
+// the 24px spacing circle that defeated it). Static/axe findings never carry
+// `computed` in this shape, so this only ever renders for tier-2 groups.
+function tier2MeasuredHTML(g) {
+  if (!isTier2Finding(g.sample)) return '';
+  const c = g.sample.computed;
+  if (!c) return '';
+  let zh, en;
+  if (g.category === 'contrast' && c.ratio !== undefined) {
+    zh = `對比 ${c.ratio}:1（前景 rgb(${c.fg.r}, ${c.fg.g}, ${c.fg.b}) 對背景 rgb(${c.bg.r}, ${c.bg.g}, ${c.bg.b})，門檻 ${c.required}:1）`;
+    en = `${c.ratio}:1 — foreground rgb(${c.fg.r}, ${c.fg.g}, ${c.fg.b}) vs background rgb(${c.bg.r}, ${c.bg.g}, ${c.bg.b}), required ${c.required}:1`;
+  } else if (g.category === 'touch' && c.width !== undefined) {
+    const spacingNoteZh = c.spacingExceptionMet === false ? '，另一個可互動元件落在 24px 間距例外圓內，因此例外不成立' : '';
+    const spacingNoteEn = c.spacingExceptionMet === false ? ', a neighboring interactive element falls inside the 24px spacing-exception circle, so the exception does not apply' : '';
+    zh = `${c.width.toFixed(0)}×${c.height.toFixed(0)}px${spacingNoteZh}`;
+    en = `${c.width.toFixed(0)}×${c.height.toFixed(0)}px${spacingNoteEn}`;
+  } else {
+    return '';
+  }
+  // MEDIUM-4 (2026-07-26 merge audit): the group's `computed` is only the FIRST instance's
+  // measurement; when the group has more than one location, say so rather than presenting
+  // one instance's ratio/size as if it applied to the whole group.
+  if (g.count > 1) {
+    zh += `（${g.count} 項中的第 1 項）`;
+    en += ` (1 of ${g.count})`;
+  }
+  return `<p class="standard-line tier2-measured"><strong>${bi('量測值', 'Measured')}:</strong> ${bi(zh, en)}</p>`;
+}
+
 function buildFindingGroupHTML(g) {
   const anchor = `fg-${slugify(g.key)}`;
   const diffHtml = g.sample.code_before
@@ -1070,6 +1161,7 @@ function buildFindingGroupHTML(g) {
         ${diffHtml}
         ${buildLocationListHTML(g.locations)}
         ${FINDING_I18N[g.key]?.zh?.standard ? `<p class="standard-line"><strong>${t('finding_standard')}:</strong> ${findingText(g.sample, 'standard')}</p>` : ''}
+        ${tier2MeasuredHTML(g)}
         ${g.fix ? `<p class="fix-line"><strong>${t('finding_fix')}:</strong> ${findingText(g.sample, 'fix')}</p>` : ''}
         ${buildLearnMoreHTML(g.sample)}
       </div>
@@ -2311,7 +2403,7 @@ ${buildHeroHTML(audit, previous, allGroups)}
     <p class="eyebrow"><span class="num">02</span> ${bi('證據層', 'Evidence')}</p>
     <h2 class="layer-h" id="h-evidence">${bi('每個分數旁邊都標出它背後有多少證據', 'Every score shows how much evidence stands behind it')}</h2>
     <p class="layer-sub">${bi('一個低分從大量檢查算出來，是確鑿的問題；一個低分只從一次檢查算出來，只是證據不足的旗標。密度條讓兩者一眼可辨。', 'A low score from many checks is a proven problem; a low score from one check is a thin-evidence flag, not a verdict. The density meter makes the difference visible at a glance.')}</p>
-    ${buildCategoryGridHTML(audit.summary.categories, previous?.summary?.categories, groupsByCat)}
+    ${buildCategoryGridHTML(audit.summary.categories, previous?.summary?.categories, groupsByCat, tier2Evidence)}
   </div>
 </section>
 

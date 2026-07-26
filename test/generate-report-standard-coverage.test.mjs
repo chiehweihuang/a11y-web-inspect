@@ -13,12 +13,14 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // this repo spawns it as a subprocess rather than importing it. Extracting a
 // key's FINDING_I18N zh/en sub-objects via [^}]* is safe here because none of
 // the title/description/fix/standard strings contain a literal '}'.
-test('every finding key the engine can emit carries a bilingual "standard" statement', () => {
+test('every finding key the engine (static or tier-2) can emit carries a bilingual "standard" statement', () => {
   const engineSrc = readFileSync(resolve(ROOT, 'core/scripts/static-audit.mjs'), 'utf8');
+  const tier2Src = readFileSync(resolve(ROOT, 'core/scripts/tier2-audit.mjs'), 'utf8');
   const reportSrc = readFileSync(resolve(ROOT, 'core/scripts/generate-report.mjs'), 'utf8');
 
-  const engineKeys = [...new Set([...engineSrc.matchAll(/key:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]))];
+  const engineKeys = [...new Set([...engineSrc.matchAll(/key:\s*'([a-z0-9-]+)'/g), ...tier2Src.matchAll(/key:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]))];
   assert.ok(engineKeys.length >= 20, `expected the engine to emit >=20 finding keys, found ${engineKeys.length} — extraction regex may have broken`);
+  assert.ok(engineKeys.includes('tier2-contrast-fail'), 'tier2-audit.mjs key extraction did not pick up tier2-contrast-fail — regex or file path broke');
 
   const missingEntry = [];
   const missingStandard = [];

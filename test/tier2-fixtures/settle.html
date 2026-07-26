@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tier2 settle fixture (Finding D, 2026-07-26 tier2 calibration)</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  #delayed { color: rgb(255, 255, 255); background: rgb(255, 255, 255); font-size: 16px; padding: 8px; }
+</style>
+</head>
+<body>
+  <div id="delayed">White text starts on a white background and switches to a black background
+    shortly after load, simulating a deferred/animated DOM mutation (consent banner, bot-check,
+    lazy-hydrated widget). A capture taken immediately at domcontentloaded sees the white-on-white
+    pre-mutation state; a settled capture must not.</div>
+  <script>
+    setTimeout(() => {
+      document.getElementById('delayed').style.backgroundColor = 'rgb(0, 0, 0)';
+    }, 150);
+  </script>
+</body>
+</html>
