@@ -145,7 +145,7 @@ node scripts/tier2-audit.mjs --url <url-or-file> --output tier2-results.json
 
 Playwright availability is detected in order: an explicit `PLAYWRIGHT_MODULE_PATH` env override (authoritative — a bad value fails immediately, no silent fallthrough), then `require.resolve('playwright')` from the caller's own project, then known global npm installs. If none resolves, the script fails LOUDLY with an actionable error (`npm i -g playwright` then `npx playwright install chromium`, or set the env var) — it never degrades silently.
 
-`tier2-results.json` is a SEPARATE artifact from `audit-results.json`: findings and evidence only, each finding carrying its own engine provenance (`source: beacon-tier2-audit@1`). Read and summarize it for the human (Step 3). Whether these categories automatically enter `audit-results.json`'s score and coverage is an intentionally undecided product question — this skill does not do that today. If a specific tier-2 finding should count toward the score anyway, feed it through the SAME `--merge-findings` mechanism already used for axe/manual findings (Step 6) — that is the existing, generic, manual mechanism, not new scoring machinery.
+`tier2-results.json` is a SEPARATE artifact from `audit-results.json`: findings and evidence only, each finding carrying its own engine provenance (`source: beacon-tier2-audit@2`). Read and summarize it for the human (Step 3). Whether these categories automatically enter `audit-results.json`'s score and coverage is an intentionally undecided product question — this skill does not do that today. If a specific tier-2 finding should count toward the score anyway, feed it through the SAME `--merge-findings` mechanism already used for axe/manual findings (Step 6) — that is the existing, generic, manual mechanism, not new scoring machinery.
 
 **Tier 2 — Playwright MCP Integration (optional, richer interactive checks):**
 
@@ -360,6 +360,7 @@ For each check item, record a structured finding (pass/fail/review-needed) with:
 - Information not conveyed by color alone
 - `prefers-contrast: more` + dark mode cross-test (Android Bold text triggers this)
 - CSS variables resolve correctly in both themes — use `var(--bg)` not `color: white`
+- When `tier2-audit.mjs` reports a `tier2-contrast-unresolvable` finding, its `description` names the actual cause (image/gradient, pseudo-element/inset-shadow paint, non-ancestor overlap, or dark default canvas) — carry that reason into your human summary instead of just saying "unresolvable"; the report's shared i18n text stays a general four-cause statement, so this is otherwise visible only to a reader of `tier2-results.json`.
 
 **3b. Keyboard Navigation** (id: `keyboard`)
 - All interactive elements reachable via Tab
@@ -594,6 +595,21 @@ node scripts/static-audit.mjs --scope "<scope>" \
   --merge-findings manual-findings.json \
   --output audit-results.json <file-or-dir>...
 ```
+
+**Warning — merging moves the score, it is not a free "add more evidence" step.** Once a
+category's merged evidence (pass + fail checks) reaches `THIN_EVIDENCE_MIN` (3), that
+category leaves `not-machine-checkable` / `insufficient-evidence` and becomes `scored` —
+which can shift `overall_score`, `coverage_percent`, and that category's own state, all in
+the SAME run. Measured example (`test/golden/clean.html`, a committed fixture pinned by
+`test/golden/clean.expected.json` so the numbers below cannot silently drift — reproduce
+with `node scripts/static-audit.mjs --scope golden-clean --date 2026-07-26 [--merge-findings
+<1-or-3 tier2-contrast-fail findings>.json] test/golden/clean.html`): contrast 0 pass/0 fail
+→ `not-machine-checkable`, overall 100, coverage 23%; merging 1 tier-2/axe contrast fail →
+still unscored, now `insufficient-evidence`, overall and coverage unchanged; merging 3 →
+contrast `scored` at 0, overall 100 → 64, coverage 23% → 36%. `confidence_level` stays `low`
+throughout this example — it only moves once a coverage change crosses the 60% band boundary
+(`static-audit.mjs`'s `coverage >= 60 ? 'medium' : 'low'`). Decide whether to merge with this
+in mind.
 
 The script re-scans, folds in your merged findings, applies the severity matrix and the
 category/overall formulas, and writes the authoritative artifact. Pass `--date <YYYY-MM-DD>`

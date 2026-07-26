@@ -4,7 +4,7 @@
 
 Claude Code 的 accessibility + AEO 检查 plugin。
 
-Beacon 是面向 agent-assisted UI 工作流的快速无障碍基线：先做静态启发式检查，有 live audit 时再用浏览器和 axe-core 补强，并用清楚的报告解释要修什么、为什么要修。
+Beacon 是面向 agent-assisted UI 工作流的快速无障碍基线：先做静态启发式检查，再用基于 Playwright 的 live audit 补强（axe-core 可选），并用清楚的报告解释要修什么、为什么要修。
 
 Beacon 不是合规证书，不是法律意见，也不能取代与障碍用户一起测试。高分只表示自动化检查在当前证据中找到的问题较少，不代表产品已经完全可达。
 
@@ -23,10 +23,10 @@ Beacon 在本地执行；除非你明确分享，站点文件会留在你的机�
 | Tier | 证据 | 强项 | 限制 |
 |---|---|---|---|
 | Tier 1 静态扫描 | `scripts/static-audit.mjs` 读取文件和 markup pattern。 | 快速、可重复、零浏览器依赖。 | 只是启发式基线，无法知道真实可见性、computed style、runtime focus 或真实 contrast。 |
-| Tier 2 live audit | Playwright + axe-core 的浏览器证据。 | 对 contrast、ARIA、visibility、runtime behavior 证据更强。 | 仍是自动化，不能证明真实任务完成率或文字是否易懂。 |
+| Tier 2 live audit | Beacon 自有的 `scripts/tier2-audit.mjs`（纯 Playwright——320px/1280px 下的 contrast 1.4.3 与 touch-target 尺寸 2.5.8）浏览器证据。axe-core 是 ARIA 有效性的可选交叉检查。 | 对 contrast、ARIA、visibility、runtime behavior 证据更强。 | 仍是自动化，不能证明真实任务完成率或文字是否易懂。 |
 | Tier 3 人工测试 | 手动走查与障碍用户测试。 | 验证认知负荷、任务完成、真实 assistive technology 使用。 | 需要规划，不能被 AI 取代。 |
 
-Tier 1 是快速基线，不是权威判定。若 Tier 1 和 Tier 2 不一致，优先相信 live browser 与 axe-backed evidence。静态层对隐藏元素、list 结构、CSS visibility 相关问题可能超报。
+Tier 1 是快速基线，不是权威判定。若 Tier 1 和 Tier 2 不一致，优先相信 live browser 证据（Beacon 自有的 Tier-2 harness，若跑过 axe 也一并参考）。静态层对隐藏元素、list 结构、CSS visibility 相关问题可能超报。
 
 ## 安装
 
@@ -45,7 +45,7 @@ Claude Code config 需要在 `extraKnownMarketplaces` 加入：
 }
 ```
 
-Plugin facts：`beacon`、version `3.2.0`、MIT、repository `chiehweihuang/beacon`。
+Plugin facts：`beacon`、version `3.3.0`、MIT、repository `chiehweihuang/beacon`。
 
 ## 分数解读
 
@@ -57,7 +57,7 @@ Plugin facts：`beacon`、version `3.2.0`、MIT、repository `chiehweihuang/beac
 | 50-89 | 发现了一些 barrier 或待复核项，请依受影响用户与严重程度排定 finding 优先级。 |
 | 0-49 | 建议优先复核，已检查的证据显示存在较严重的 barrier。 |
 
-每个分数都会附带 `coverage_percent`（实际测量到的 scoring weight 占比）。没有机器证据的类别会以状态（`not-machine-checkable` / `not-applicable`）取代数字，且一旦确认存在癫痫发作风险的 finding（WCAG 2.3.1），无论各类别权重如何，overall score 都会被限制在 0-49 区间。
+每个分数都会附带 `coverage_percent`（实际测量到的 scoring weight 占比）。没有机器证据的类别会以状态（`not-machine-checkable` / `not-applicable`）取代数字，机器检查只有 1-2 项的类别会以 `insufficient-evidence` 取代数字；一旦确认存在癫痫发作风险的 finding（WCAG 2.3.1），无论各类别权重如何，overall score 都会被限制在 0-49 区间。
 
 这些数字如何保持可信（可靠性、detector 有效性、score-semantics 性质、外部 benchmark、fairness invariant）已在 [VALIDATION.md](VALIDATION.md) 中规范并可执行；实测数据存放在 [benchmark/](benchmark/) 下。
 

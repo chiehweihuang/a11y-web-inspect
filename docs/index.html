@@ -16,7 +16,7 @@
   "name": "Beacon",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
-  "softwareVersion": "3.0.0",
+  "softwareVersion": "3.3.0",
   "description": "Accessibility (WCAG 2.2) and answer-engine-optimization inspection plugin for AI coding agents (Claude Code and Codex), with benchmark-validated scoring.",
   "license": "https://opensource.org/licenses/MIT",
   "url": "https://chiehweihuang.github.io/beacon/",
@@ -98,24 +98,24 @@
           <thead>
             <tr>
               <th scope="col">Measured</th>
-              <th scope="col">Beacon 3.0</th>
+              <th scope="col">Beacon 3.3 (engine @8 GT mapping)</th>
               <th scope="col">Lighthouse</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <th scope="row">Precision</th>
-              <td class="win">0.979</td>
+              <td class="win">1.000</td>
               <td>0.811</td>
             </tr>
             <tr>
               <th scope="row">Recall — violation patterns</th>
-              <td class="win">0.712</td>
+              <td class="win">0.727</td>
               <td>0.462</td>
             </tr>
             <tr>
               <th scope="row">Recall — violation instances</th>
-              <td class="win">0.826</td>
+              <td class="win">0.829</td>
               <td>0.225</td>
             </tr>
           </tbody>
@@ -135,11 +135,11 @@
   <section id="design" aria-labelledby="design-h">
     <div class="wrap">
       <h2 id="design-h">Will it fight your design?</h2>
-      <p class="section-lede">We classified all 885 findings the engine raised across an 88-site benchmark by their effect on the page's default appearance.</p>
+      <p class="section-lede">Findings fall into three buckets, by their effect on the page's default appearance.</p>
       <div class="stats">
-        <div class="stat"><span class="n">79%</span> <span class="d">change zero pixels — alt text, accessible names, label associations, heading levels, page language, structured data</span></div>
-        <div class="stat"><span class="n">11%</span> <span class="d">appear only in a state the user chose — keyboard focus, a narrow window, reduced motion</span></div>
-        <div class="stat"><span class="n">10%</span> <span class="d">change link wording or a CAPTCHA mechanism — copy decisions, not visual style</span></div>
+        <div class="stat"><span class="n">No pixels</span> <span class="d">alt text, accessible names, label associations, heading levels, page language, structured data</span></div>
+        <div class="stat"><span class="n">State-only</span> <span class="d">appear only in a state the user chose — keyboard focus, a narrow window, reduced motion</span></div>
+        <div class="stat"><span class="n">Copy, not style</span> <span class="d">link wording or a CAPTCHA mechanism — content decisions, not visual ones</span></div>
       </div>
       <p>Most accessibility debt is invisible to people it doesn't block. Fixing it doesn't touch your aesthetic — and this page is the demonstration: it is styled freely, audited by the engine it advertises, and the report is one click away.</p>
       <p><span class="badge">This page scores 100/100 (static tier, 23% of scoring weight measured) — read its audit below</span></p>
@@ -158,9 +158,9 @@
           <a href="reports/landing-self-audit.html">Open the self-audit report</a>
         </div>
         <div class="shot">
-          <span class="score fail">9 · fails</span>
+          <span class="score fail">0 · fails</span>
           <h3>A deliberately broken page</h3>
-          <p>The same report on a fixture riddled with violations — 17 findings, a stack of criticals, and the fail band in action.</p>
+          <p>The same report on a fixture riddled with violations — 18 findings, a stack of criticals, and the fail band in action.</p>
           <a href="reports/broken-fixture.html">Open the broken-fixture report</a>
         </div>
         <div class="shot">
@@ -208,7 +208,7 @@ node tools/deploy-codex.mjs</code></pre>
 
 <footer class="site">
   <div class="wrap">
-    <span>MIT · v3.0.0</span>
+    <span>MIT · v3.3.0</span>
     <a href="https://github.com/chiehweihuang/beacon">github.com/chiehweihuang/beacon</a>
     <a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md">Validation charter</a>
     <span>Built, styled, and audited with itself.</span>

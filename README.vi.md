@@ -6,7 +6,7 @@ Trạng thái bản dịch: pending native review.
 
 Plugin accessibility + AEO inspection cho Claude Code.
 
-Beacon là baseline kiểm tra accessibility nhanh cho quy trình UI có agent hỗ trợ. Beacon bắt đầu bằng static heuristic checks, sau đó có thể dùng live audit với Playwright và axe-core khi có browser evidence. Báo cáo giải thích cần sửa gì và vì sao.
+Beacon là baseline kiểm tra accessibility nhanh cho quy trình UI có agent hỗ trợ. Beacon bắt đầu bằng static heuristic checks, sau đó có thể dùng live audit dựa trên Playwright (axe-core là tùy chọn). Báo cáo giải thích cần sửa gì và vì sao.
 
 Beacon không phải chứng chỉ tuân thủ, không phải tư vấn pháp lý, và không thay thế kiểm thử với người dùng khuyết tật. Điểm cao chỉ có nghĩa là automated checks tìm thấy ít vấn đề hơn trong phạm vi bằng chứng hiện có.
 
@@ -25,10 +25,10 @@ Beacon chạy local; file website ở lại trên máy của bạn trừ khi b�
 | Tier | Evidence | Strength | Limitation |
 |---|---|---|---|
 | Tier 1 static scan | Files và markup patterns qua `scripts/static-audit.mjs`. | Nhanh, lặp lại được, không cần browser. | Chỉ là heuristic baseline. Không biết visibility thật, computed style, runtime focus, hoặc contrast thật. |
-| Tier 2 live audit | Browser evidence qua Playwright + axe-core. | Mạnh hơn cho contrast, ARIA, visibility, và runtime behavior. | Vẫn là tự động. Không chứng minh task success hay độ dễ hiểu với người dùng thật. |
+| Tier 2 live audit | Browser evidence qua `scripts/tier2-audit.mjs` của riêng Beacon (Playwright thuần — contrast 1.4.3 và kích thước touch-target 2.5.8 ở 320px/1280px). axe-core là cross-check tùy chọn cho tính hợp lệ ARIA. | Mạnh hơn cho contrast, ARIA, visibility, và runtime behavior. | Vẫn là tự động. Không chứng minh task success hay độ dễ hiểu với người dùng thật. |
 | Tier 3 human testing | Manual walkthrough và kiểm thử với người dùng khuyết tật. | Cần cho cognitive load, task completion, assistive technology thật, và usability. | Cần lập kế hoạch và không thể thay bằng AI. |
 
-Nếu Tier 1 và Tier 2 khác nhau, ưu tiên live browser và axe-backed evidence.
+Nếu Tier 1 và Tier 2 khác nhau, ưu tiên live browser evidence (Tier-2 harness của Beacon, cộng với axe nếu đã chạy).
 
 ## Installation
 
@@ -47,7 +47,7 @@ Thêm marketplace:
 }
 ```
 
-Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## Diễn Giải Điểm Số
 
@@ -59,7 +59,7 @@ Hãy dùng điểm số như một tín hiệu triage:
 | 50-89 | Đã tìm thấy một số barrier hoặc mục cần review. Ưu tiên findings theo người dùng bị ảnh hưởng và mức độ nghiêm trọng. |
 | 0-49 | Khuyến nghị review ưu tiên cao. Bằng chứng đã kiểm tra cho thấy có barrier đáng kể. |
 
-Mỗi điểm số đi kèm `coverage_percent`, tức là phần scoring weight thực sự được đo. Category không có bằng chứng máy sẽ báo cáo trạng thái (`not-machine-checkable` / `not-applicable`) thay vì con số, và một finding về nguy cơ co giật đã xác nhận (WCAG 2.3.1) sẽ giới hạn overall score vào band 0-49 bất kể trọng số category.
+Mỗi điểm số đi kèm `coverage_percent`, tức là phần scoring weight thực sự được đo. Category không có bằng chứng máy sẽ báo cáo trạng thái (`not-machine-checkable` / `not-applicable`) thay vì con số, category chỉ có 1-2 machine check sẽ báo cáo `insufficient-evidence` thay vì con số, và một finding về nguy cơ co giật đã xác nhận (WCAG 2.3.1) sẽ giới hạn overall score vào band 0-49 bất kể trọng số category.
 
 Cách các con số này được giữ trung thực (reliability, tính hợp lệ của detector, tính chất score-semantics, benchmark bên ngoài, và fairness invariant) được quy định và có thể thực thi trong [VALIDATION.md](VALIDATION.md); dữ liệu đo lường nằm trong [benchmark/](benchmark/).
 

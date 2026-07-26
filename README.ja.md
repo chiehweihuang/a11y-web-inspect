@@ -4,7 +4,7 @@
 
 Claude Code 向けの accessibility + AEO inspection plugin です。
 
-Beacon は agent-assisted UI 開発のための高速なアクセシビリティ基準チェックです。まず静的ヒューリスティックで確認し、可能な場合は Playwright と axe-core を使った live audit で補強します。レポートは、何を直すべきか、なぜ直すべきかを人間に分かる言葉で説明します。
+Beacon は agent-assisted UI 開発のための高速なアクセシビリティ基準チェックです。まず静的ヒューリスティックで確認し、Playwright ベースの live audit で補強します(axe-core は任意)。レポートは、何を直すべきか、なぜ直すべきかを人間に分かる言葉で説明します。
 
 Beacon は適合証明書ではなく、法律助言でもありません。障害のあるユーザーとのテストを置き換えるものでもありません。高いスコアは、確認できた証拠の範囲で自動チェックが見つけた問題が少ないことを示すだけです。
 
@@ -23,10 +23,10 @@ Beacon はローカルで実行され、サイトファイルは明示的に共�
 | Tier | Evidence | Strength | Limitation |
 |---|---|---|---|
 | Tier 1 static scan | `scripts/static-audit.mjs` による file と markup pattern。 | 高速、再現可能、browser 不要。 | ヒューリスティック基準です。可視性、computed style、runtime focus、実際の contrast は判断できません。 |
-| Tier 2 live audit | Playwright + axe-core による browser evidence。 | contrast、ARIA、visibility、runtime behavior で強い証拠が得られます。 | それでも自動化です。実際の task completion や言葉の分かりやすさは証明できません。 |
+| Tier 2 live audit | Beacon 自身の `scripts/tier2-audit.mjs`(素の Playwright — 320px/1280px での contrast 1.4.3 と touch-target サイズ 2.5.8)による browser evidence。axe-core は ARIA 妥当性チェックの任意のクロスチェックです。 | contrast、ARIA、visibility、runtime behavior で強い証拠が得られます。 | それでも自動化です。実際の task completion や言葉の分かりやすさは証明できません。 |
 | Tier 3 human testing | 手動確認と障害のあるユーザーとのテスト。 | cognitive load、task completion、実際の assistive technology 利用を確認できます。 | 計画が必要で、AI では置き換えられません。 |
 
-Tier 1 は高速な基準であり、最終判定ではありません。Tier 1 と Tier 2 が異なる場合は、live browser と axe-backed evidence を優先してください。
+Tier 1 は高速な基準であり、最終判定ではありません。Tier 1 と Tier 2 が異なる場合は、live browser evidence(Beacon の Tier-2 harness。axe を実行していればそれも)を優先してください。
 
 ## Installation
 
@@ -45,7 +45,7 @@ Claude Code config の `extraKnownMarketplaces` に追加します。
 }
 ```
 
-Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## スコアの解釈
 
@@ -57,7 +57,7 @@ Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
 | 50-89 | いくつかの barrier や要確認項目が見つかりました。影響を受けるユーザーと深刻度で findings の優先順位を付けてください。 |
 | 0-49 | 優先度の高いレビューを推奨します。検査された証拠は重大な barrier を示唆しています。 |
 
-すべてのスコアには `coverage_percent`(実際に測定された scoring weight の割合)が付きます。機械的な証拠がないカテゴリは数値の代わりに状態(`not-machine-checkable` / `not-applicable`)を報告し、確認された seizure リスクの finding(WCAG 2.3.1)がある場合は、カテゴリの重みに関わらず overall score が 0-49 帯に制限されます。
+すべてのスコアには `coverage_percent`(実際に測定された scoring weight の割合)が付きます。機械的な証拠がないカテゴリは数値の代わりに状態(`not-machine-checkable` / `not-applicable`)を報告し、機械チェックが1-2件しかないカテゴリは `insufficient-evidence` を報告します。確認された seizure リスクの finding(WCAG 2.3.1)がある場合は、カテゴリの重みに関わらず overall score が 0-49 帯に制限されます。
 
 これらの数値がどのように誠実さを保っているか(信頼性、detector の妥当性、score-semantics の性質、外部 benchmark、fairness invariant)は [VALIDATION.md](VALIDATION.md) に仕様化され、実行可能な形で記載されています。計測データは [benchmark/](benchmark/) 以下にあります。
 

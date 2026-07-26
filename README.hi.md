@@ -6,7 +6,7 @@ Translation status: pending native review.
 
 Claude Code के लिए accessibility + AEO inspection plugin.
 
-Beacon agent-assisted UI work के लिए एक तेज accessibility baseline है। यह पहले static heuristic checks चलाता है, और जब उपलब्ध हो तो Playwright और axe-core आधारित live audit से evidence को मजबूत करता है। Report बताती है कि क्या ठीक करना है और क्यों।
+Beacon agent-assisted UI work के लिए एक तेज accessibility baseline है। यह पहले static heuristic checks चलाता है, और Playwright-आधारित live audit से evidence को मजबूत करता है (axe-core वैकल्पिक है)। Report बताती है कि क्या ठीक करना है और क्यों।
 
 Beacon compliance certificate नहीं है, legal advice नहीं है, और disabled users के साथ testing का replacement नहीं है। High score का अर्थ केवल यह है कि available evidence में automated checks ने कम problems पाई हैं।
 
@@ -25,10 +25,10 @@ Beacon local रूप से चलता है; site files आपकी machi
 | Tier | Evidence | Strength | Limitation |
 |---|---|---|---|
 | Tier 1 static scan | `scripts/static-audit.mjs` से files और markup patterns। | तेज, repeatable, browser dependency नहीं। | केवल heuristic baseline। Real visibility, computed style, runtime focus, या true contrast नहीं जानता। |
-| Tier 2 live audit | Playwright + axe-core से browser evidence। | Contrast, ARIA, visibility, और runtime behavior के लिए मजबूत। | फिर भी automated है। Real task success या language clarity prove नहीं करता। |
+| Tier 2 live audit | Beacon के अपने `scripts/tier2-audit.mjs` (शुद्ध Playwright — 320px/1280px पर contrast 1.4.3 और touch-target आकार 2.5.8) से browser evidence। axe-core ARIA-validity के लिए एक वैकल्पिक cross-check है। | Contrast, ARIA, visibility, और runtime behavior के लिए मजबूत। | फिर भी automated है। Real task success या language clarity prove नहीं करता। |
 | Tier 3 human testing | Manual walkthrough और disabled users के साथ testing। | Cognitive load, task completion, real assistive technology, और usability के लिए जरूरी। | Planning चाहिए और AI इसे replace नहीं कर सकता। |
 
-यदि Tier 1 और Tier 2 अलग हों, live browser और axe-backed evidence को प्राथमिकता दें।
+यदि Tier 1 और Tier 2 अलग हों, live browser evidence (Beacon का अपना Tier-2 harness, और यदि चलाया हो तो axe भी) को प्राथमिकता दें।
 
 ## Installation
 
@@ -47,7 +47,7 @@ Marketplace जोड़ें:
 }
 ```
 
-Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## स्कोर की व्याख्या
 
@@ -59,7 +59,7 @@ Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
 | 50-89 | कुछ barrier या review items पाए गए। प्रभावित users और severity के आधार पर findings को प्राथमिकता दें। |
 | 0-49 | High-priority review की सलाह दी जाती है। जांची गई evidence substantial barriers का संकेत देती है। |
 
-हर स्कोर के साथ `coverage_percent` जुड़ा होता है, यानी scoring weight का वह हिस्सा जो वास्तव में measure हुआ। Machine evidence के बिना categories संख्या के बजाय एक स्थिति (`not-machine-checkable` / `not-applicable`) रिपोर्ट करती हैं, और एक confirmed seizure-risk finding (WCAG 2.3.1) category weights की परवाह किए बिना overall score को 0-49 band में सीमित कर देती है।
+हर स्कोर के साथ `coverage_percent` जुड़ा होता है, यानी scoring weight का वह हिस्सा जो वास्तव में measure हुआ। Machine evidence के बिना categories संख्या के बजाय एक स्थिति (`not-machine-checkable` / `not-applicable`) रिपोर्ट करती हैं, केवल 1-2 machine checks वाली category संख्या के बजाय `insufficient-evidence` रिपोर्ट करती है, और एक confirmed seizure-risk finding (WCAG 2.3.1) category weights की परवाह किए बिना overall score को 0-49 band में सीमित कर देती है।
 
 ये आंकड़े कैसे honest रखे जाते हैं (reliability, detector validity, score-semantics properties, external benchmarks, और fairness invariants), यह [VALIDATION.md](VALIDATION.md) में specify और executable रूप में दिया गया है; measured data [benchmark/](benchmark/) के तहत है।
 

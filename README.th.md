@@ -6,7 +6,7 @@
 
 Plugin สำหรับ accessibility + AEO inspection ใน Claude Code.
 
-Beacon เป็น baseline สำหรับตรวจ accessibility อย่างรวดเร็วในงาน UI ที่มี agent ช่วยทำงาน โดยเริ่มจาก static heuristic checks และสามารถเสริมด้วย live audit ผ่าน Playwright และ axe-core เมื่อมี browser evidence รายงานจะอธิบายว่าควรแก้อะไรและเพราะอะไร
+Beacon เป็น baseline สำหรับตรวจ accessibility อย่างรวดเร็วในงาน UI ที่มี agent ช่วยทำงาน โดยเริ่มจาก static heuristic checks และเสริมด้วย live audit ที่ใช้ Playwright เป็นหลัก (axe-core เป็นตัวเลือกเสริม) รายงานจะอธิบายว่าควรแก้อะไรและเพราะอะไร
 
 Beacon ไม่ใช่ใบรับรอง compliance ไม่ใช่คำแนะนำทางกฎหมาย และไม่สามารถแทนที่การทดสอบกับผู้ใช้พิการได้ คะแนนสูงหมายถึง automated checks พบปัญหาน้อยลงในหลักฐานที่ตรวจได้เท่านั้น
 
@@ -25,10 +25,10 @@ Beacon ทำงานแบบ local; ไฟล์เว็บไซต์อ�
 | Tier | Evidence | Strength | Limitation |
 |---|---|---|---|
 | Tier 1 static scan | Files และ markup patterns ผ่าน `scripts/static-audit.mjs` | เร็ว ทำซ้ำได้ ไม่ต้องใช้ browser | เป็น heuristic baseline เท่านั้น ไม่เห็น visibility จริง, computed style, runtime focus, หรือ contrast จริง |
-| Tier 2 live audit | Browser evidence ผ่าน Playwright + axe-core | ดีกว่าสำหรับ contrast, ARIA, visibility, และ runtime behavior | ยังเป็น automation ไม่พิสูจน์ task success หรือความเข้าใจของผู้ใช้จริง |
+| Tier 2 live audit | Browser evidence ผ่าน `scripts/tier2-audit.mjs` ของ Beacon เอง (Playwright ล้วน — contrast 1.4.3 และขนาด touch-target 2.5.8 ที่ 320px/1280px) axe-core เป็น cross-check เสริมสำหรับความถูกต้องของ ARIA | ดีกว่าสำหรับ contrast, ARIA, visibility, และ runtime behavior | ยังเป็น automation ไม่พิสูจน์ task success หรือความเข้าใจของผู้ใช้จริง |
 | Tier 3 human testing | Manual walkthrough และการทดสอบกับผู้ใช้พิการ | จำเป็นสำหรับ cognitive load, task completion, assistive technology จริง, และ usability | ต้องวางแผน และ AI แทนไม่ได้ |
 
-ถ้า Tier 1 และ Tier 2 ไม่ตรงกัน ให้เชื่อ live browser และ axe-backed evidence มากกว่า
+ถ้า Tier 1 และ Tier 2 ไม่ตรงกัน ให้เชื่อ live browser evidence (Tier-2 harness ของ Beacon เอง บวกกับ axe ถ้ารันไว้) มากกว่า
 
 ## Installation
 
@@ -47,7 +47,7 @@ Beacon ทำงานแบบ local; ไฟล์เว็บไซต์อ�
 }
 ```
 
-Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## ความหมายของคะแนน
 
@@ -59,7 +59,7 @@ Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
 | 50-89 | พบ barrier หรือรายการที่ต้องตรวจสอบเพิ่มเติมบางส่วน ให้จัดลำดับ findings ตามผู้ใช้ที่ได้รับผลกระทบและความรุนแรง |
 | 0-49 | แนะนำให้ตรวจสอบเป็นลำดับแรก หลักฐานที่ตรวจพบชี้ว่ามี barrier ที่รุนแรง |
 
-ทุกคะแนนจะมาพร้อม `coverage_percent` ซึ่งคือสัดส่วนของ scoring weight ที่วัดได้จริง หมวดที่ไม่มีหลักฐานเชิงเครื่องจะรายงานสถานะ (`not-machine-checkable` / `not-applicable`) แทนตัวเลข และ finding ความเสี่ยงชักที่ยืนยันแล้ว (WCAG 2.3.1) จะจำกัด overall score ให้อยู่ใน band 0-49 โดยไม่ขึ้นกับน้ำหนักของหมวดนั้น
+ทุกคะแนนจะมาพร้อม `coverage_percent` ซึ่งคือสัดส่วนของ scoring weight ที่วัดได้จริง หมวดที่ไม่มีหลักฐานเชิงเครื่องจะรายงานสถานะ (`not-machine-checkable` / `not-applicable`) แทนตัวเลข หมวดที่มี machine check เพียง 1-2 รายการจะรายงาน `insufficient-evidence` แทนตัวเลข และ finding ความเสี่ยงชักที่ยืนยันแล้ว (WCAG 2.3.1) จะจำกัด overall score ให้อยู่ใน band 0-49 โดยไม่ขึ้นกับน้ำหนักของหมวดนั้น
 
 ตัวเลขเหล่านี้ถูกรักษาความน่าเชื่อถืออย่างไร (reliability, ความถูกต้องของ detector, คุณสมบัติ score-semantics, benchmark ภายนอก, และ fairness invariant) ถูกระบุไว้และรันได้จริงใน [VALIDATION.md](VALIDATION.md) ข้อมูลที่วัดได้อยู่ใน [benchmark/](benchmark/)
 

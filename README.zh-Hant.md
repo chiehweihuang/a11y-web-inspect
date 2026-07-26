@@ -4,7 +4,7 @@
 
 Claude Code 的 accessibility + AEO 檢查 plugin。
 
-Beacon 是給 agent-assisted UI 工作流使用的快速無障礙基線：先用靜態啟發式檢查，有 live audit 時再用瀏覽器與 axe-core 補強，並用人看得懂的報告說明要修什麼、為什麼要修。
+Beacon 是給 agent-assisted UI 工作流使用的快速無障礙基線：先用靜態啟發式檢查，再用以 Playwright 為基礎的 live audit 補強（axe-core 為選用），並用人看得懂的報告說明要修什麼、為什麼要修。
 
 Beacon 不是合規證書，不是法律意見，也不能取代與障礙使用者一起測試。高分只表示自動化檢查在當前證據中找到較少問題，不代表產品已完全可達。
 
@@ -23,10 +23,10 @@ Beacon 在本機執行；除非你明確分享，站點檔案會留在你的機�
 | Tier | 證據 | 強項 | 限制 |
 |---|---|---|---|
 | Tier 1 靜態掃描 | `scripts/static-audit.mjs` 讀檔與 markup pattern。 | 快速、可重複、零瀏覽器依賴。 | 只能作為啟發式基線，無法知道真實可見性、computed style、runtime focus 或真實 contrast。 |
-| Tier 2 live audit | Playwright + axe-core 的瀏覽器證據。 | 對 contrast、ARIA、visibility、runtime behavior 證據更強。 | 仍是自動化，不能證明真實任務完成率或文字是否易懂。 |
+| Tier 2 live audit | Beacon 自有的 `scripts/tier2-audit.mjs`（純 Playwright——320px/1280px 下的 contrast 1.4.3 與 touch-target 尺寸 2.5.8）瀏覽器證據。axe-core 是 ARIA 有效性的選用交叉檢查。 | 對 contrast、ARIA、visibility、runtime behavior 證據更強。 | 仍是自動化，不能證明真實任務完成率或文字是否易懂。 |
 | Tier 3 人工測試 | 手動走查與障礙使用者測試。 | 驗證認知負荷、任務完成、真實 assistive technology 使用。 | 需要規劃，不能被 AI 取代。 |
 
-Tier 1 是快速基線，不是權威判定。若 Tier 1 和 Tier 2 不一致，優先相信 live browser 與 axe-backed evidence。靜態層對隱藏元素、list 結構、CSS visibility 相關問題可能超報。
+Tier 1 是快速基線，不是權威判定。若 Tier 1 和 Tier 2 不一致，優先相信 live browser 證據（Beacon 自有的 Tier-2 harness，若跑過 axe 也一併參考）。靜態層對隱藏元素、list 結構、CSS visibility 相關問題可能超報。
 
 ## 安裝
 
@@ -45,7 +45,7 @@ Claude Code config 需在 `extraKnownMarketplaces` 加入：
 }
 ```
 
-Plugin facts：`beacon`、version `3.2.0`、MIT、repository `chiehweihuang/beacon`。
+Plugin facts：`beacon`、version `3.3.0`、MIT、repository `chiehweihuang/beacon`。
 
 ## 分數解讀
 
@@ -57,7 +57,7 @@ Plugin facts：`beacon`、version `3.2.0`、MIT、repository `chiehweihuang/beac
 | 50-89 | 發現了一些 barrier 或待複核項，請依受影響使用者與嚴重程度排定 finding 優先順序。 |
 | 0-49 | 建議優先複核，已檢查的證據顯示存在較嚴重的 barrier。 |
 
-每個分數都會附帶 `coverage_percent`（實際測量到的 scoring weight 佔比）。沒有機器證據的類別會以狀態（`not-machine-checkable` / `not-applicable`）取代數字，且一旦確認存在癲癇發作風險的 finding（WCAG 2.3.1），無論各類別權重如何，overall score 都會被限制在 0-49 區間。
+每個分數都會附帶 `coverage_percent`（實際測量到的 scoring weight 佔比）。沒有機器證據的類別會以狀態（`not-machine-checkable` / `not-applicable`）取代數字，機器檢查只有 1-2 項的類別會以 `insufficient-evidence` 取代數字；一旦確認存在癲癇發作風險的 finding（WCAG 2.3.1），無論各類別權重如何，overall score 都會被限制在 0-49 區間。
 
 這些數字如何保持可信（可靠性、detector 有效性、score-semantics 性質、外部 benchmark、fairness invariant）已在 [VALIDATION.md](VALIDATION.md) 中規範並可執行；實測資料存放在 [benchmark/](benchmark/) 下。
 

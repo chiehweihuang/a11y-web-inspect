@@ -104,14 +104,33 @@ cause?** Fix the class, not the instance.
   average). Motivating case: rakuten.co.jp 40 → 54 (`responsive`/`motion` each had a
   single fail with no counterbalancing pass).
 
-### L2 — Tier-2 (browser-measured) thresholds, engine `beacon-tier2-audit@1`
+### L2 — Tier-2 (browser-measured) thresholds, engine `beacon-tier2-audit@2`
 
 Native Playwright measurement (contrast + touch targets), added 2026-07-25 (v3.3
-Workstream A). Findings + evidence only so far — these categories do NOT yet enter the
-weighted score; that wiring is a separate, undecided step (see
-`plans/2026-07-25-v3.3-browser-measurements.md` Workstream A step 4). Every threshold
-below is a CALIBRATION DECISION, not a physical constant — revisit with data the same way
-the static-tier N=3 floor and severity repeat-cap are tracked above.
+Workstream A). Findings render as evidence + findings by default because merge is an
+explicit, agent-initiated step (`--merge-findings`, `core/content/inspect.md` Step 6) —
+NOT because the scoring mechanism is undecided. `mergeExternalFindings()`
+(`core/scripts/static-audit.mjs` ~1440-1486) has been the sole channel for Tier-2/manual
+findings to enter the scored artifact since commit `a1d8cab` (2026-06-21), and
+`tier2-audit.mjs` findings use that exact same channel as axe or any manual finding. Once
+a category's merged evidence (pass + fail) reaches `THIN_EVIDENCE_MIN` (3), the category
+leaves `not-machine-checkable`/`insufficient-evidence` and becomes `scored`. Measured on
+the committed fixture `test/golden/clean.html` (pinned by `test/golden/clean.expected.json`,
+reproducible with `node scripts/static-audit.mjs --scope golden-clean --date 2026-07-26
+[--merge-findings <N tier2-contrast-fail findings>.json] test/golden/clean.html`): baseline
+contrast (0 pass/0 fail) → `not-machine-checkable`, overall 100, coverage 23%; +1 merged
+fail → `insufficient-evidence` (still overall 100, coverage 23%); +3 → contrast `scored` at
+0, overall 100 → 64, coverage 23% → 36%. `confidence_level` stays `low` throughout (the
+band boundary is 60% coverage) — it moves only when a coverage change crosses that
+boundary. What is genuinely undecided (USER DECISIONS, see
+`plans/2026-07-25-v3.3-browser-measurements.md` Workstream A step 4): (a) whether the
+default inspect flow should run tier-2 + auto-merge, so scores move by default rather than
+only on an explicit agent action; (b) whether `THIN_EVIDENCE_MIN=3` is the right threshold
+for a tier-2 source that can produce hundreds of checks per page, where one merge call
+instantly clears it; (c) how the report distinguishes a static-only score from a
+tier-2-inclusive one so the two numbers are never confusable. Every threshold below is a
+CALIBRATION DECISION, not a physical constant — revisit with data the same way the
+static-tier N=3 floor and severity repeat-cap are tracked above.
 
 - **Dependency policy (ruling 2026-07-25)**: this repo stays zero-dependency (no
   `package.json`). Playwright is detected at runtime, never installed as a dependency —
@@ -140,7 +159,59 @@ the static-tier N=3 floor and severity repeat-cap are tracked above.
   underneath) is worth revisiting if it proves too conservative on real pages (measured
   2026-07-25 on the rakuten.co.jp benchmark snapshot, engine @1: 1584/1917 samples
   unresolvable across both viewports — an image-heavy e-commerce page is close to a
-  worst case for this detector, not necessarily representative).
+  worst case for this detector, not necessarily representative). **Engine @2 (2026-07-26
+  calibration) broadened `unresolvable` to three more signals found on real, CSS-intact
+  renders, not corpus artifacts**: a background painted by a `::before`/`::after`
+  pseudo-element or an inset `box-shadow` (`hasPseudoBg`/`hasInsetBoxShadow`, confirmed on
+  Wix "Get Started"/"Thriving with Wix"); a non-ancestor sibling/cousin element stacked
+  behind via `position` + `z-index`, found with a geometric rect-overlap scan rather than
+  `document.elementsFromPoint` because that API silently excludes
+  `pointer-events: none` elements from hit-testing — exactly how the confirmed Wix
+  `bgLayers` div and Atlassian `aria-hidden` tab-indicator div are built
+  (`hasNonAncestorOverlay`); and a page that opts into `color-scheme: dark` with no opaque
+  ancestor background anywhere (`defaultsToCanvas` + `pageDefaultsToDarkCanvas`, confirmed
+  on linear.app, whose html/body both report a fully transparent `backgroundColor` yet the
+  page renders on a solid near-black canvas — the old compositor hardcoded a white default,
+  exactly backwards for that page). All three: block and report unresolvable, never guess,
+  the same honesty boundary as the original image/gradient case. Cost: the overlap scan is
+  O(elements-needing-the-check × total-elements-on-page); the full two-viewport audit on
+  the largest of the three confirming snapshots (wix.com, 2.2MB) still completed in ~4s.
+- **Disabled/`aria-disabled` contrast exemption** (engine @2, 2026-07-26 calibration):
+  `browserCollectContrastSamples` excludes any element inside
+  `[disabled], [aria-disabled="true"]` (via `el.closest(...)`, mirroring the existing
+  `[aria-hidden]`/`[hidden]` exclusion) from contrast sampling entirely, per WCAG 1.4.3's
+  own exemption for "incidental text ... that is part of an inactive user interface
+  component." Confirmed on two real false positives: a Mailchimp survey-modal button
+  (`disabled=""` confirmed via direct DOM check) and an en.wikipedia.org donation-banner
+  "Continue" button (screenshot showed a clearly grayed-out disabled state). Mirrors the
+  `el.disabled` check `browserCollectTouchTargets` already had for touch targets.
+- **Settle window** `SETTLE_QUIET_MS = 500` (engine @2, 2026-07-26 calibration,
+  `core/scripts/tier2-audit.mjs`): after `domcontentloaded`, the harness waits for the
+  `load` event (best-effort, 5s cap, swallowed — aborted subresources may prevent it from
+  firing on some sites) and then this fixed quiet window, before any capture. Measured on
+  a wayfair.com PerimeterX snapshot: 1 finding (unstable) at 0ms vs 5 findings (stable)
+  from 300ms on — 500ms gives a ~200ms safety margin above the measured stabilization
+  point, at a cost of +500ms × 2 viewports ≈ 1s per site. Distinct from L0's capture
+  recipe ("domcontentloaded + networkidle grace + 2s settle") — tier-2 uses `load` instead
+  of `networkidle` and a shorter 500ms window because it is calibrated against a single
+  measured PerimeterX case, not L0's broader corpus; the two recipes are not meant to be
+  the same number, only the same shape (wait for stability, then capture). Verified via
+  `test/tier2-fixtures/settle.html` (a 150ms-deferred DOM mutation): 3 full repeated
+  `runTier2Audit` runs on the same page produce byte-identical `findings` arrays.
+  `# ponytail: fixed delay, not adaptive (e.g. mutation-observer-based quiescence) —
+  revisit if a real site needs longer than 500ms to settle its deferred UI.`
+- **Per-viewport error capture** (engine @2, 2026-07-26 calibration, resilience behavior,
+  not a calibration threshold): `runTier2Audit`'s per-viewport loop wraps
+  goto/settle/capture/analyze in a try/catch; on error it records `{viewport, error:
+  <message>}` in `summary.by_viewport` for that viewport and continues to the next one
+  instead of throwing and killing the whole process. Verified two ways: a deterministic
+  unit test injecting a fake `playwrightModule` whose `page.evaluate` always throws the
+  exact zoom.us error message ("Execution context was destroyed, most likely because of a
+  navigation"), and the real zoom.us snapshot re-run 3 times — the navigation race
+  reproduced in all 3 runs (on a different viewport each time, consistent with a genuine
+  race), each time caught cleanly with the other viewport's findings intact. The "0
+  crashes" figure in the pre-@2 real-page smoke run below predates this guard and should
+  not be read as "this guard was never needed."
 - **Touch-target floor**: 24×24 CSS px (WCAG 2.2 SC 2.5.8 verbatim), with the spacing
   exception implemented per the SC's own technique: a 24px-diameter circle centered on an
   undersized target must not intersect ANOTHER target — where "another target" is that
@@ -161,16 +232,25 @@ the static-tier N=3 floor and severity repeat-cap are tracked above.
   `severity:'tip'`) whenever a target is below 44px in either dimension, REGARDLESS of
   whether it passed the 24px floor directly or via the spacing exception — this is
   explicitly not a WCAG requirement, so it must never contribute a `fail`.
-- Fixture ground truth: `test/tier2-fixtures/contrast.html` and
-  `test/tier2-fixtures/touch-targets.html`, hand-computed pass/fail/review pairs
-  (`test/tier2-audit.test.mjs`), including the composited semi-transparent-background case
-  (proves the alpha-blend math, not just presence/absence) and a viewport-dependent touch
-  target (proves the harness produces different findings at 320 vs 1280 when the same
-  element's CSS size changes under a media query).
-- Real-page smoke run (2026-07-25, rakuten.co.jp benchmark snapshot #97, both viewports):
-  2914 findings — 190 `tier2-contrast-fail`, 1584 `tier2-contrast-unresolvable`, 15
-  `tier2-touch-target-fail`, 1125 `tier2-touch-target-advisory`, 0 crashes. Not yet a wild
-  FP measurement (no human adjudication of these flags) — that is required before any of
+- Fixture ground truth (`test/tier2-fixtures/`, hand-computed pass/fail/review pairs,
+  `test/tier2-audit.test.mjs`): `contrast.html` and `touch-targets.html` (engine @1),
+  including the composited semi-transparent-background case (proves the alpha-blend math,
+  not just presence/absence) and a viewport-dependent touch target (proves the harness
+  produces different findings at 320 vs 1280 when the same element's CSS size changes
+  under a media query); plus four @2 calibration fixtures: `contrast-overlay.html`
+  (pseudo-element, inset-box-shadow, and non-ancestor-sibling backgrounds, plus a
+  regression control proving an ordinary decorative box-shadow is NOT swept into
+  unresolvable), `contrast-dark-canvas.html` (`color-scheme: dark` with no opaque
+  ancestor), `contrast-disabled.html` (disabled/`aria-disabled` contrast exemption), and
+  `settle.html` (a 150ms-deferred DOM mutation, proving 3 repeated full runs produce
+  byte-identical findings).
+- Real-page smoke run (2026-07-25, rakuten.co.jp benchmark snapshot #97, both viewports,
+  **engine @1**): 2914 findings — 190 `tier2-contrast-fail`, 1584
+  `tier2-contrast-unresolvable`, 15 `tier2-touch-target-fail`, 1125
+  `tier2-touch-target-advisory`, 0 crashes. @2's broadened unresolvable classification and
+  disabled-control contrast exemption (below) move these counts — this is a snapshot of
+  @1's behavior, not a re-measurement. Not yet a wild FP measurement (no human
+  adjudication of these flags) — that is required before any of
   these categories could feed a score (L1 new-detector protocol applies once step 4 is
   decided).
 
@@ -190,9 +270,9 @@ consulted. Reuses `parseColor`/`relLuminance`/`contrastRatio` from `tier2-audit.
 (imported, not duplicated); only hex-color parsing is new (getComputedStyle never returns
 hex, authored CSS commonly does).
 
-**FP calibration, two rounds** (`plans/2026-07-25-ws-b-contrast-calibration.md`, full
-detail — current numbers at the top of that file, initial-pass numbers kept below for the
-audit trail):
+**FP calibration, three rounds** (`plans/2026-07-25-ws-b-contrast-calibration.md` for
+rounds 1-2, `plans/2026-07-26-contrast-calibration-broad.md` for round 3 — current numbers
+at the top of those files, prior-pass numbers kept below for the audit trail):
 
 1. Round 1: caught a genuine false-certainty before any fix shipped — a class absent from
    the file's own `<style>` blocks (e.g. an external Tailwind `bg-white` utility class) was
@@ -215,6 +295,28 @@ audit trail):
    (21 → **9** sites — below the initial ≥10-site bar, flagged explicitly, not padded to
    hit a number), sub-threshold 16 → 4. One pair was also GAINED (a comma-separated
    selector list the old regex could only match the last entry of).
+3. Round 3 (broader population pass, `plans/2026-07-26-contrast-calibration-broad.md`):
+   broadened the population ~9x past round 2's 9-site sample — 774 files scanned (735
+   `survey-snapshots` + 26 `intake-snapshots` + 13 `run-2026-07-22-weekly` snapshots), 0
+   scan failures. 78 sites with ≥1 resolvable pair, 483 resolved pairs, 45 sub-threshold,
+   re-adjudicated against the literal CSS/inline-style text directly (never a substring
+   grep — the exact mistake round 2's methodology-correction section warns against
+   repeating). 44/45 confirmed GENUINE. **1 confirmed FALSE POSITIVE** (100291.html:2790):
+   a caption `<a>` inside an absolutely-positioned overlay whose real visual backdrop is a
+   photographic `<img>` sibling, not a CSS background — none of the intervening `<div>`s
+   declare any background at all, so the walk climbed straight past the photo and resolved
+   white text against a distant, unrelated ancestor's white page background (a nonsensical
+   1.00:1 white-on-white "finding" for text a real user sees on top of a photo). **Fix**
+   (folded into `beacon-static-audit@11` — this pass landed in the same uncommitted batch,
+   no separate version bump): a `position:absolute`/`fixed` element whose own parent
+   already has an `<img>` as a direct child now blocks the climb at that point rather than
+   reaching a further ancestor, the same honesty rule as the existing background-image
+   block. Miss-rate observation (not a bounded claim): 1/45 ≈ 2.2% in this population;
+   round 2's much smaller population found 0 misses and only surfaced this class because
+   the population grew ~22x — read as "broadening the corpus keeps surfacing real bugs at
+   a low but non-zero rate," not a rate to plan around. Regression test + control:
+   `test/static-contrast.test.mjs` ("an absolutely-positioned overlay over a sibling
+   `<img>` blocks the bg walk" + its position:absolute-without-`<img>` control).
 
 Both fixes are strictly conservative (can only turn a resolved pair into an unresolved
 one, except the one comma-list recovery in round 2, which is a correctness gain, not a
@@ -309,7 +411,7 @@ The report and any prose about Beacon may never state:
 ## Release gate (run in order)
 
 ```
-node --test                                   # 310+ tests, all green
+node --test                                   # 385 tests, all green
 node build.mjs --check                        # generated copies match core
 node tools/measure-detectors.mjs              # report-only characterization
 node tools/measure-semantic.mjs --min-precision 1.0 --min-recall 0.4
@@ -321,13 +423,13 @@ node tools/measure-semantic.mjs --min-precision 1.0 --min-recall 0.4
 
 Record in CHANGELOG: engine version, Spearman, and (when GT re-ran) P/R.
 
-## Measured state (2026-07-22, engine `beacon-static-audit@9`)
+## Measured state (2026-07-25, engines `beacon-static-audit@11` + `beacon-tier2-audit@2`)
 
 | Metric | Value |
 |---|---|
-| Spearman vs Lighthouse a11y (n=71) | 0.354 (@3) → 0.474 (@4) → 0.488 (@5/@6) → 0.480 (@7) → 0.477 (@8) → 0.468 (@9) |
-| Ground-truth P/R, pattern-level | @4: 0.600 / 0.591 → @6: 0.979 / 0.712 → @8/@9: **1.000 / 0.727** (48/48 TPs incl. the recovered aria-heading case; FP 0; @9 is category-level-neutral, findings unchanged) · Lighthouse 0.811 / 0.462 |
-| Ground-truth recall, instance-level | @4: 0.743 → @6: 0.826 → @8/@9: **0.829** · Lighthouse 0.225 |
+| Spearman vs Lighthouse a11y (n=71) | 0.354 (@3) → 0.474 (@4) → 0.488 (@5/@6) → 0.480 (@7) → 0.477 (@8) → 0.468 (@9); no @10/@11 rerun — both add only `check:'review'` findings, expected score-neutral (not yet empirically confirmed on the full cohort) |
+| Ground-truth P/R, pattern-level | @4: 0.600 / 0.591 → @6: 0.979 / 0.712 → @8/@9/@10/@11: **1.000 / 0.727** (48/48 TPs incl. the recovered aria-heading case; FP 0; @9-@11 are category-level-neutral, findings unchanged for GT purposes — contrast is not a GT criterion and `@10`/`@11` findings are all `check:'review'`, which GT's FP adjudication never touches) · Lighthouse 0.811 / 0.462 |
+| Ground-truth recall, instance-level | @4: 0.743 → @6: 0.826 → @8/@9/@10/@11: **0.829** · Lighthouse 0.225 |
 | @5 re-verification | 14/15 FP classes eliminated, 39/39 TPs retained, 18 new catches |
 | @7 wild input-label FP elimination | 46/57 findings were wrapped-input FPs → 0; only jnto (+20) and spotify (+8) moved |
 | @9 thin-evidence state (`insufficient-evidence`, N=3) | Spearman 0.477 → 0.468 (n=71); score-delta median \|Δ\| 7, p95 19, max 23 across 85 comparable sites, 18 band flips; `total_findings` byte-identical @8→@9 on all 85 sites incl. all 7 `gt-remap-6` sites (finding emission unaffected) |

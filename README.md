@@ -20,7 +20,7 @@ Beacon provides three Claude Code commands:
 
 | Command | Use it when | What you get |
 |---|---|---|
-| `beacon:inspect` | You have a page, component, HTML file, or UI change to review. | A 0-100 baseline score, 10 category scores, findings, jurisdiction context notes, remediation order, and an interactive HTML report — plus an optional Performance tab (Lighthouse performance/best-practices/SEO) when a browser is available. |
+| `beacon:inspect` | You have a page, component, HTML file, or UI change to review. | A 0-100 baseline score, 10 category scores, findings, jurisdiction context notes, remediation order, and an interactive HTML report — plus an optional Performance Signals section (Lighthouse performance/best-practices/SEO) when a browser is available. |
 | `beacon:guide` | You are about to design or code UI. | Accessible patterns, component guidance, WCAG reminders, and design tradeoffs before code is written. |
 | `beacon:advisor` | You are editing HTML, CSS, JSX, TSX, Vue, or Svelte. | Contextual accessibility prompts while you work. It also runs through the Claude Code PostToolUse hook for UI file edits. |
 
@@ -48,10 +48,10 @@ Beacon uses a three-tier model.
 | Tier | Evidence | Strength | Important limitation |
 |---|---|---|---|
 | Tier 1: static scan | Files and markup patterns through `scripts/static-audit.mjs`. | Fast, repeatable, zero browser dependency. Good for regression baselines. | Heuristic only. It cannot compute real visibility, computed styles, runtime focus behavior, or true contrast. Hidden elements may be over-reported. |
-| Tier 2: live audit | Browser evidence through Playwright and axe-core when available. | Stronger evidence for computed style, contrast, ARIA, visibility, and runtime behavior. | Still automated. It cannot prove task success or language clarity for real users. |
+| Tier 2: live audit | Browser evidence through Beacon's own `scripts/tier2-audit.mjs` (plain Playwright — contrast 1.4.3 and touch-target size 2.5.8 at 320px/1280px); axe-core is an optional cross-check for ARIA-validity rules. | Stronger evidence for computed style, contrast, ARIA, visibility, and runtime behavior. | Still automated. It cannot prove task success or language clarity for real users. |
 | Tier 3: human testing | Manual walkthroughs and tests with disabled users. | Required for cognitive load, task completion, real assistive technology behavior, and usability. | Takes planning and cannot be replaced by AI. |
 
-Tier 1 is a fast baseline, not the authority. If Tier 1 and Tier 2 disagree, prefer the live browser and axe-backed evidence. Static checks intentionally err on the side of surfacing review items, so dense real-world pages can have false positives, especially around hidden links, list structure, and anything that depends on CSS visibility.
+Tier 1 is a fast baseline, not the authority. If Tier 1 and Tier 2 disagree, prefer the live browser evidence (Beacon's Tier-2 harness, plus axe if you ran it). Static checks intentionally err on the side of surfacing review items, so dense real-world pages can have false positives, especially around hidden links, list structure, and anything that depends on CSS visibility.
 
 ## Installation
 
@@ -79,7 +79,7 @@ Plugin facts:
 | Field | Value |
 |---|---|
 | Name | `beacon` |
-| Version | `3.2.0` |
+| Version | `3.3.0` |
 | Repository | `chiehweihuang/beacon` |
 | License | MIT |
 | Author | chiehweihuang |
@@ -102,7 +102,7 @@ Use the score as a triage signal:
 | 50-89 | Some barriers or review items were found. Prioritize findings by affected users and severity. |
 | 0-49 | High-priority review recommended. The inspected evidence suggests substantial barriers. |
 
-Every score is paired with `coverage_percent`, the share of scoring weight actually measured. Categories without machine evidence report a state (`not-machine-checkable` / `not-applicable`) instead of a number, and a confirmed seizure-risk finding (WCAG 2.3.1) caps the overall score into the 0-49 band regardless of category weights.
+Every score is paired with `coverage_percent`, the share of scoring weight actually measured. Categories without machine evidence report a state (`not-machine-checkable` / `not-applicable`) instead of a number, and a category with only 1-2 machine checks reports `insufficient-evidence` instead of a number; a confirmed seizure-risk finding (WCAG 2.3.1) caps the overall score into the 0-49 band regardless of category weights.
 
 If a report says `requires_live_audit: true`, Beacon found signals that static evidence is not enough. That is common for client-rendered apps, hidden/conditional UI, runtime ARIA, computed contrast, and interactive behavior.
 
@@ -129,7 +129,7 @@ in [VALIDATION.md](VALIDATION.md); the measured data lives under [benchmark/](be
 
 ### Performance Signal (supplementary)
 
-When Lighthouse and Chrome are available, `beacon:inspect` also runs Lighthouse for **performance, best-practices, and SEO** — the categories axe-core does not cover — in parallel with the live audit, and shows them in a Performance tab. These are supplementary signals: they are **not** part of the 0-100 accessibility score, and axe-core remains the accessibility engine.
+When Lighthouse and Chrome are available, `beacon:inspect` also runs Lighthouse for **performance, best-practices, and SEO** — the categories Beacon's engine does not cover — in parallel with the live audit, and shows them in a Performance Signals section. These are supplementary signals: they are **not** part of the 0-100 accessibility score.
 
 Their value is cross-cutting root causes: one cause (such as an oversized DOM) mapped to every dimension it harms — performance, accessibility, and AEO at once — which no single-purpose tool surfaces on its own. Lighthouse scores vary run-to-run with device emulation and CPU throttle (the CLI default is mobile with 4x CPU throttle; `--preset=desktop` typically scores 15-25 points higher), so treat them as directional, not absolute.
 
@@ -170,7 +170,7 @@ Then read in this order:
 4. Methodology & Limits to understand evidence strength.
 5. Remediation priority for a practical fix order.
 6. Jurisdiction context notes if the surface is public-facing or regulated.
-7. Performance Signals tab, when present, for the Lighthouse performance/best-practices/SEO snapshot and its cross-cutting root causes. These scores are directional and separate from the accessibility score.
+7. Performance Signals section, when present, for the Lighthouse performance/best-practices/SEO snapshot and its cross-cutting root causes. These scores are directional and separate from the accessibility score.
 
 Do not use the score alone to decide release readiness. Keyboard walkthroughs, zoom/reflow checks, and assistive technology tests matter more than a clean-looking dashboard.
 
@@ -188,6 +188,8 @@ The Codex adapter carries the same accessibility and AEO knowledge without the C
 
 See [CHANGELOG.md](./CHANGELOG.md) for the full history. Recent highlights:
 
+- **3.3.0** — Native Tier-2 browser measurement harness (contrast 1.4.3, touch-target size 2.5.8; findings-only, scoring deferred), a static contrast reference value for certain literal pairs (review-severity, score-neutral), and axe-core optionalization with a code-backed contrast gate.
+- **3.2.0** — New `insufficient-evidence` category state (fewer than 3 machine checks reports a state instead of a coin-flip number) and a report information-architecture redesign (decision hero, evidence-density category cards, findings grouped by fix action).
 - **3.0.0** — Validated scoring semantics: unmeasured categories now report states instead of invented scores, every overall score carries measured-weight coverage, life-safety findings cap the score, and the committed validation suite covers reliability, detector validity, score properties, external benchmarks, fairness, and interpretation.
 - **2.3.0** — Held-out detector precision/recall improvements, including Latin-language mismatch detection and stricter false-positive guards.
 - **2.2.0** — Shared declarative Pattern Library used by both the Claude Code hook and Codex advisor, eliminating detector drift between runtimes.

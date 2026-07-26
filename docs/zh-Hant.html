@@ -16,7 +16,7 @@
   "name": "Beacon",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
-  "softwareVersion": "3.0.0",
+  "softwareVersion": "3.3.0",
   "inLanguage": "zh-Hant",
   "description": "給 AI 編碼代理（Claude Code、Codex）的無障礙（WCAG 2.2）與答案引擎最佳化檢測插件，評分經基準驗證。",
   "license": "https://opensource.org/licenses/MIT",
@@ -99,24 +99,24 @@
           <thead>
             <tr>
               <th scope="col">量測項</th>
-              <th scope="col">Beacon 3.0</th>
+              <th scope="col">Beacon 3.3（引擎 @8 GT 對映）</th>
               <th scope="col">Lighthouse</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <th scope="row">精度（precision）</th>
-              <td class="win">0.979</td>
+              <td class="win">1.000</td>
               <td>0.811</td>
             </tr>
             <tr>
               <th scope="row">召回率（recall）——問題模式</th>
-              <td class="win">0.712</td>
+              <td class="win">0.727</td>
               <td>0.462</td>
             </tr>
             <tr>
               <th scope="row">召回率——逐實例</th>
-              <td class="win">0.826</td>
+              <td class="win">0.829</td>
               <td>0.225</td>
             </tr>
           </tbody>
@@ -136,14 +136,14 @@
   <section id="design" aria-labelledby="design-h">
     <div class="wrap">
       <h2 id="design-h">它會不會跟你的設計美感打架？</h2>
-      <p class="section-lede">我們把引擎在 88 站基準上抓出的全部 885 條問題，按「修復後對頁面預設外觀的影響」分了類。</p>
+      <p class="section-lede">問題按「對頁面預設外觀的影響」分成三類。</p>
       <div class="stats">
-        <div class="stat"><span class="n">79%</span> <span class="d">修完零像素變化——替代文字、無障礙名稱、標籤關聯、標題層級、頁面語言、結構化資料</span></div>
-        <div class="stat"><span class="n">11%</span> <span class="d">只在使用者自己選擇的狀態下出現——鍵盤焦點、縮窄視窗、減少動態</span></div>
-        <div class="stat"><span class="n">10%</span> <span class="d">改的是連結措辭或驗證機制——文案決定，不是視覺風格</span></div>
+        <div class="stat"><span class="n">零像素</span> <span class="d">替代文字、無障礙名稱、標籤關聯、標題層級、頁面語言、結構化資料</span></div>
+        <div class="stat"><span class="n">僅特定狀態</span> <span class="d">只在使用者自己選擇的狀態下出現——鍵盤焦點、縮窄視窗、減少動態</span></div>
+        <div class="stat"><span class="n">文案，非風格</span> <span class="d">連結措辭或驗證機制——內容決定，不是視覺風格</span></div>
       </div>
       <p>大部分的無障礙欠債，對沒被它擋住的人是隱形的。修掉它不會動到你的美感——本頁就是示範：想怎麼設計就怎麼設計，然後用它宣傳的引擎檢測自己，報告一鍵可查。</p>
-      <p><span class="badge">本頁 100／100 分（靜態層，量測到 35% 評分權重）——報告在下方</span></p>
+      <p><span class="badge">本頁 100／100 分（靜態層，量測到 23% 評分權重）——報告在下方</span></p>
     </div>
   </section>
 
@@ -159,9 +159,9 @@
           <a href="reports/landing-self-audit.html">打開自我檢測報告</a>
         </div>
         <div class="shot">
-          <span class="score fail">9 分 · 不通過</span>
+          <span class="score fail">0 分 · 不通過</span>
           <h3>一頁故意弄壞的網頁</h3>
-          <p>同一套報告跑在塞滿違規的測試頁上——17 條問題、成串的嚴重級違規、不及格分數帶實際的樣子。</p>
+          <p>同一套報告跑在塞滿違規的測試頁上——18 條問題、成串的嚴重級違規、不及格分數帶實際的樣子。</p>
           <a href="reports/broken-fixture.html">打開壞頁示範報告</a>
         </div>
         <div class="shot">
@@ -208,7 +208,7 @@ node tools/deploy-codex.mjs</code></pre>
 
 <footer class="site">
   <div class="wrap">
-    <span>MIT · v3.0.0</span>
+    <span>MIT · v3.3.0</span>
     <a href="https://github.com/chiehweihuang/beacon">github.com/chiehweihuang/beacon</a>
     <a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md">驗證章程</a>
     <span>用自己的藥，治自己的頁。</span>

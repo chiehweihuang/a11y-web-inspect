@@ -6,7 +6,7 @@ Status terjemahan: pending native review.
 
 Plugin accessibility + AEO inspection untuk Claude Code.
 
-Beacon adalah baseline aksesibilitas cepat untuk kerja UI dengan bantuan agent. Beacon memulai dari static heuristic checks, lalu dapat diperkuat dengan live audit berbasis Playwright dan axe-core saat tersedia. Laporannya menjelaskan apa yang perlu diperbaiki dan mengapa.
+Beacon adalah baseline aksesibilitas cepat untuk kerja UI dengan bantuan agent. Beacon memulai dari static heuristic checks, lalu dapat diperkuat dengan live audit berbasis Playwright (axe-core opsional). Laporannya menjelaskan apa yang perlu diperbaiki dan mengapa.
 
 Beacon bukan sertifikat kepatuhan, bukan nasihat hukum, dan bukan pengganti pengujian dengan pengguna difabel. Skor tinggi hanya berarti automated checks menemukan lebih sedikit masalah pada bukti yang tersedia.
 
@@ -25,10 +25,10 @@ Beacon berjalan secara lokal; file situs tetap di mesin Anda kecuali Anda membag
 | Tier | Evidence | Strength | Limitation |
 |---|---|---|---|
 | Tier 1 static scan | File dan markup pattern melalui `scripts/static-audit.mjs`. | Cepat, repeatable, tanpa browser. | Heuristic baseline saja. Tidak bisa mengetahui visibility nyata, computed style, runtime focus, atau contrast sebenarnya. |
-| Tier 2 live audit | Browser evidence melalui Playwright + axe-core. | Lebih kuat untuk contrast, ARIA, visibility, dan runtime behavior. | Tetap otomatis. Tidak membuktikan task success atau kejelasan bahasa bagi pengguna nyata. |
+| Tier 2 live audit | Browser evidence melalui `scripts/tier2-audit.mjs` milik Beacon sendiri (Playwright murni — contrast 1.4.3 dan ukuran touch-target 2.5.8 pada 320px/1280px). axe-core adalah cross-check opsional untuk validitas ARIA. | Lebih kuat untuk contrast, ARIA, visibility, dan runtime behavior. | Tetap otomatis. Tidak membuktikan task success atau kejelasan bahasa bagi pengguna nyata. |
 | Tier 3 human testing | Manual walkthrough dan pengujian dengan pengguna difabel. | Diperlukan untuk cognitive load, task completion, assistive technology nyata, dan usability. | Perlu perencanaan dan tidak bisa digantikan AI. |
 
-Jika Tier 1 dan Tier 2 berbeda, prioritaskan live browser dan axe-backed evidence.
+Jika Tier 1 dan Tier 2 berbeda, prioritaskan live browser evidence (Tier-2 harness milik Beacon, ditambah axe jika dijalankan).
 
 ## Installation
 
@@ -47,7 +47,7 @@ Tambahkan marketplace:
 }
 ```
 
-Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## Interpretasi Skor
 
@@ -59,7 +59,7 @@ Gunakan skor sebagai sinyal triase:
 | 50-89 | Ditemukan beberapa barrier atau item yang perlu ditinjau. Prioritaskan findings berdasarkan pengguna yang terdampak dan tingkat keparahan. |
 | 0-49 | Disarankan peninjauan prioritas tinggi. Bukti yang diperiksa menunjukkan barrier yang substansial. |
 
-Setiap skor disertai `coverage_percent`, yaitu porsi scoring weight yang benar-benar terukur. Kategori tanpa bukti mesin melaporkan status (`not-machine-checkable` / `not-applicable`) alih-alih angka, dan finding risiko kejang yang terkonfirmasi (WCAG 2.3.1) membatasi overall score ke band 0-49 terlepas dari bobot kategori.
+Setiap skor disertai `coverage_percent`, yaitu porsi scoring weight yang benar-benar terukur. Kategori tanpa bukti mesin melaporkan status (`not-machine-checkable` / `not-applicable`) alih-alih angka, kategori dengan hanya 1-2 machine check melaporkan `insufficient-evidence` alih-alih angka, dan finding risiko kejang yang terkonfirmasi (WCAG 2.3.1) membatasi overall score ke band 0-49 terlepas dari bobot kategori.
 
 Bagaimana angka ini dijaga tetap jujur (reliability, validitas detector, sifat score-semantics, benchmark eksternal, dan fairness invariant) dijabarkan dan dapat dieksekusi di [VALIDATION.md](VALIDATION.md); data hasil pengukurannya ada di [benchmark/](benchmark/).
 

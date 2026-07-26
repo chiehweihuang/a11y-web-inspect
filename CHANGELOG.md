@@ -1,5 +1,94 @@
 # Changelog
 
+## [3.3.0] — 2026-07-26
+
+Native Tier-2 browser measurement harness (`beacon-tier2-audit@2`) + a static contrast
+reference value (`beacon-static-audit@10`) + axe-core optionalization with a code-backed
+contrast gate (`beacon-static-audit@11`).
+
+- **Native Tier-2 harness** (`core/scripts/tier2-audit.mjs`): a plain-Playwright browser
+  layer (no axe-core dependency) that measures WCAG 2.2 1.4.3 contrast and 2.5.8
+  touch-target size at 320px and 1280px viewports. Capture/analyze split mirrors
+  `focus-flow.mjs`: DOM/computed-style walking stays browser-side, all color math
+  (parsing, multi-layer alpha compositing, luminance, ratio) is pure and unit-tested.
+  **Findings-only by default, not score-inert**: the harness emits a separate
+  findings-only artifact with no automatic scoring — merging its findings with
+  `--merge-findings` (the same path axe already uses) CAN move `overall_score`,
+  `coverage_percent`, and the category's state, once the category's merged evidence
+  reaches `THIN_EVIDENCE_MIN`. What is deferred is auto-merging in the default `inspect`
+  flow, not the scoring mechanism itself. Touch-target spacing implements the real circle-vs-circle test for
+  undersized neighbors (an earlier circle-vs-rect version under-detected the 12-24px gap
+  band, fixed after a hakuso HIGH finding). Background resolution refuses to guess
+  through a background-image/gradient ancestor, and fully-transparent foreground text is
+  guarded (previously a false 1.00:1 fail). Repo stays dependency-free: the harness
+  detects an available Playwright at runtime and fails loudly, with actionable next
+  steps, when one isn't found; a new `tier2-browser` CI job installs Playwright +
+  Chromium into a scratch dir to exercise it.
+- **Tier-2 engine bump to `beacon-tier2-audit@2`** (2026-07-26 calibration pass,
+  `plans/2026-07-26-tier2-bugfix-notes.md` + `plans/2026-07-26-tier2-calibration.md`): four
+  real detector defects found by hand-adjudicating a wild-population run, not corpus
+  artifacts. (1) Non-ancestor backgrounds (Wix "Get Started"/"Thriving with Wix" sibling
+  overlay, Atlassian `#tab-teamwork` pill, linear.app's two hero-text spans relying on a
+  `color-scheme: dark` default canvas) now mark the sample `tier2-contrast-unresolvable`
+  instead of a guessed pass/fail — background resolution also now catches pseudo-element
+  and inset-box-shadow paint, not just background-image/gradient. (2) Disabled/
+  `aria-disabled` controls (confirmed on a Mailchimp survey-modal button and an
+  en.wikipedia.org donation banner) are excluded from contrast sampling entirely, per WCAG
+  1.4.3's inactive-component exemption. (3) A `SETTLE_QUIET_MS = 500` settle window
+  (measured on a wayfair.com PerimeterX snapshot: 1 unstable finding at 0ms, 5 stable
+  findings from 300ms on) makes repeated runs on the same page byte-identical. (4) A
+  per-viewport try/catch (confirmed on a real zoom.us snapshot's navigation race) records
+  `{viewport, error}` and continues to the next viewport instead of killing the whole
+  process.
+- **Tier-2 report rendering** (`core/scripts/generate-report.mjs`): the score/category
+  card gains a provenance chip + measured-value line for any category tier-2 findings
+  touched — a bilingual "Browser-measured (tier 2)" chip with the measured denominator
+  (samples/targets actually looked at, from `audit.tier2.summary.by_viewport`), and a
+  per-finding-group line rendering the actual measured ratio/color pair (contrast) or
+  width/height (touch), including the 24px spacing-exception note when that's why a touch
+  target failed. Four new bilingual `FINDING_I18N` keys (`tier2-contrast-fail`,
+  `tier2-contrast-unresolvable`, `tier2-touch-target-fail`, `tier2-touch-target-advisory`);
+  N unresolvable instances at the same key collapse into one finding group with an
+  aggregate `×N` count rather than one row per instance. Purely presentational: category
+  `state`/`score` are computed exactly as before this change and are never touched by it.
+- **Static contrast reference value** (`static-audit.mjs`'s contrast category): an
+  evidence line plus per-pair `check:'review'` findings for foreground/background pairs
+  that are certain from the source file alone (inline styles, or a same-file `<style>`
+  rule matched by a whole bare class/id selector — any doubt, including an
+  externally-defined class or `alpha < 1`, leaves the pair unresolved rather than
+  guessed). Every finding is review-severity, so this is **zero score effect** —
+  verified on real snapshots and both golden vectors. Calibrated in three rounds against
+  hand adjudication of the raw source, the third broadening the population to 774
+  snapshots / 78 sites with resolvable pairs (`plans/2026-07-26-contrast-calibration-broad.md`)
+  and catching a new false-positive shape: an absolutely-positioned overlay whose real
+  visual backdrop is a photographic `<img>` sibling, not a CSS background, was resolved
+  against a distant, unrelated ancestor's background instead (confirmed on
+  100291.html:2790, a 1.00:1 white-on-white false "finding"). Fixed the same way as the
+  existing background-image block: an `<img>` sibling behind a `position:absolute`/`fixed`
+  element now blocks the walk instead of guessing.
+- **Axe-core optionalization + code-backed contrast gate**: `inspect.md` now documents
+  `scripts/tier2-audit.mjs` as the default browser layer; axe-core moves from a required
+  baseline to an optional cross-check for ARIA-validity rules tier-2 doesn't cover yet.
+  The contrast-verification gate the doc always mandated was found doc-promised but not
+  code-backed — `static-audit.mjs` hardcoded `requires_live_audit: true` and never
+  emitted the mandated tip. Fixed at the root: the engine now checks, once after any
+  merge, whether real browser-verified contrast data was merged in, and emits a
+  bilingual, review-severity `contrast-not-verified` tip (or flips
+  `requires_live_audit`) accordingly. Golden vectors regenerated for the new tip; both
+  gained exactly one finding, scores unchanged.
+- **What did not change**: scoring semantics are untouched by this release — every
+  finding NATIVELY added by `@10`/`@11` (the static engine's own detectors) is
+  `check:'review'`, which never enters the fail/severity accounting on its own. The two
+  Tier-2 categories (contrast, touch) are ordinary weighted categories already in
+  `CATEGORY_WEIGHTS` — merging tier-2 findings with `--merge-findings` moves their score
+  exactly like any other merged finding, once merged evidence reaches
+  `THIN_EVIDENCE_MIN`; nothing about this release adds a new, permanently-unscored
+  category. Ground-truth P/R (`1.000 / 0.727 / 0.829`, pattern/instance) carries unchanged
+  from `@8`: neither GT criterion set nor FP adjudication touches `check:'review'`
+  findings. No benchmark Spearman rerun was performed for `@10`/`@11` — expected
+  score-neutral for the static engine's own findings per the argument above, not yet
+  empirically confirmed on the full cohort.
+
 ## [3.2.0] — 2026-07-24
 
 Engine `beacon-static-audit@9` (thin-evidence category state) + report information

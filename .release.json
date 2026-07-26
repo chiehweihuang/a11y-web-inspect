@@ -7,7 +7,15 @@
   "verify": "node build.mjs --check",
   "changelogFile": "CHANGELOG.md",
   "readmeSync": [
-    { "file": "README.md", "pattern": "| Version | `{VERSION}` |" }
+    { "file": "README.md", "pattern": "| Version | `{VERSION}` |" },
+    { "file": "README.ja.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
+    { "file": "README.ko.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
+    { "file": "README.zh-Hans.md", "pattern": "Plugin facts：`beacon`、version `{VERSION}`、MIT、repository `chiehweihuang/beacon`。" },
+    { "file": "README.zh-Hant.md", "pattern": "Plugin facts：`beacon`、version `{VERSION}`、MIT、repository `chiehweihuang/beacon`。" },
+    { "file": "README.id.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
+    { "file": "README.vi.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
+    { "file": "README.th.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
+    { "file": "README.hi.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." }
   ],
   "prePublish": ["gh auth switch --user chiehweihuang"],
   "postRelease": [

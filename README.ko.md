@@ -4,7 +4,7 @@
 
 Claude Code용 accessibility + AEO inspection plugin입니다.
 
-Beacon은 agent-assisted UI 작업을 위한 빠른 접근성 기준 점검 도구입니다. 먼저 정적 휴리스틱을 실행하고, 가능한 경우 Playwright와 axe-core 기반 live audit로 보강합니다. 보고서는 무엇을 고쳐야 하는지와 왜 중요한지를 사람이 읽기 쉬운 방식으로 설명합니다.
+Beacon은 agent-assisted UI 작업을 위한 빠른 접근성 기준 점검 도구입니다. 먼저 정적 휴리스틱을 실행하고, Playwright 기반 live audit로 보강합니다(axe-core는 선택 사항). 보고서는 무엇을 고쳐야 하는지와 왜 중요한지를 사람이 읽기 쉬운 방식으로 설명합니다.
 
 Beacon은 적합성 인증서가 아니며 법률 자문도 아닙니다. 장애가 있는 사용자와의 테스트를 대체하지 않습니다. 높은 점수는 확인된 증거 범위에서 자동 검사로 발견된 문제가 적다는 뜻일 뿐, 제품이 완전히 접근 가능하다는 증명은 아닙니다.
 
@@ -23,10 +23,10 @@ Beacon은 로컬에서 실행되며, 명시적으로 공유하지 않는 한 사
 | Tier | Evidence | Strength | Limitation |
 |---|---|---|---|
 | Tier 1 static scan | `scripts/static-audit.mjs`가 파일과 markup pattern을 검사합니다. | 빠르고 반복 가능하며 browser가 필요 없습니다. | 휴리스틱 기준입니다. 실제 visibility, computed style, runtime focus, true contrast는 알 수 없습니다. |
-| Tier 2 live audit | Playwright + axe-core의 browser evidence. | contrast, ARIA, visibility, runtime behavior에 더 강합니다. | 여전히 자동화입니다. 실제 task completion이나 문구의 이해 가능성은 증명하지 못합니다. |
+| Tier 2 live audit | Beacon 자체 `scripts/tier2-audit.mjs`(순수 Playwright — 320px/1280px에서 contrast 1.4.3, touch-target 크기 2.5.8)의 browser evidence. axe-core는 ARIA 유효성을 위한 선택적 cross-check입니다. | contrast, ARIA, visibility, runtime behavior에 더 강합니다. | 여전히 자동화입니다. 실제 task completion이나 문구의 이해 가능성은 증명하지 못합니다. |
 | Tier 3 human testing | 수동 점검과 장애 사용자 테스트. | cognitive load, task completion, 실제 assistive technology 사용을 확인합니다. | 계획이 필요하며 AI로 대체할 수 없습니다. |
 
-Tier 1은 빠른 기준선이지 최종 판정이 아닙니다. Tier 1과 Tier 2가 다르면 live browser와 axe-backed evidence를 우선하세요.
+Tier 1은 빠른 기준선이지 최종 판정이 아닙니다. Tier 1과 Tier 2가 다르면 live browser evidence(Beacon의 Tier-2 harness, axe를 실행했다면 그것도)를 우선하세요.
 
 ## Installation
 
@@ -45,7 +45,7 @@ Tier 1은 빠른 기준선이지 최종 판정이 아닙니다. Tier 1과 Tier 2
 }
 ```
 
-Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## 점수 해석
 
@@ -57,7 +57,7 @@ Plugin facts: `beacon`, version `3.2.0`, MIT, repository `chiehweihuang/beacon`.
 | 50-89 | 일부 barrier 또는 검토가 필요한 항목이 발견되었습니다. 영향받는 사용자와 심각도에 따라 findings의 우선순위를 정하세요. |
 | 0-49 | 우선순위가 높은 검토를 권장합니다. 검사된 증거는 상당한 barrier가 있음을 시사합니다. |
 
-모든 점수에는 `coverage_percent`(실제로 측정된 scoring weight의 비율)가 함께 표시됩니다. 기계적 증거가 없는 카테고리는 숫자 대신 상태(`not-machine-checkable` / `not-applicable`)를 표시하며, 확인된 발작 위험 finding(WCAG 2.3.1)이 있으면 카테고리 가중치와 관계없이 overall score가 0-49대로 제한됩니다.
+모든 점수에는 `coverage_percent`(실제로 측정된 scoring weight의 비율)가 함께 표시됩니다. 기계적 증거가 없는 카테고리는 숫자 대신 상태(`not-machine-checkable` / `not-applicable`)를 표시하며, 기계 점검이 1-2건뿐인 카테고리는 `insufficient-evidence`를 표시합니다. 확인된 발작 위험 finding(WCAG 2.3.1)이 있으면 카테고리 가중치와 관계없이 overall score가 0-49대로 제한됩니다.
 
 이 수치가 정직하게 유지되는 방식(신뢰성, detector 유효성, score-semantics 속성, 외부 benchmark, fairness invariant)은 [VALIDATION.md](VALIDATION.md)에 명세되어 실행 가능한 형태로 기록되어 있습니다. 측정 데이터는 [benchmark/](benchmark/) 아래에 있습니다.
 
