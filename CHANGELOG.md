@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.3.0] — 2026-07-27
+
+### Features
+
+- native plugin marketplace install + version sync; fix(engine): document-title and html-lang detection (beacon-static-audit@12) (9092710)
+- axe optionalization — native tier-2 default, code-backed contrast gate (beacon-static-audit@11) (7453725)
+- static contrast reference value — certain-literal pairs only (beacon-static-audit@10) (6e03fa0)
+- native browser measurement harness — contrast + touch targets (beacon-tier2-audit@1) (c2846d3)
+
+### Bug Fixes
+
+- four measurement defects + report wiring, evidence sanitation (beacon-tier2-audit@2) (6d22856)
+
+### Documentation
+
+- v3.3.0 claim reconciliation, calibrations, and plan corrections (acf7f1e)
+- v3.3 execution plan — tier-2 native measurements (contrast, touch), static contrast reference, axe optionalization (e35f51b)
+- curate the 3.2.0 section (026693a)
+
+### Chores
+
+- reset version to 3.2.0 so the release engine performs the 3.3.0 bump (f715634)
+
 ## [3.3.0] — 2026-07-26
 
 Native Tier-2 browser measurement harness (`beacon-tier2-audit@2`) + a static contrast
