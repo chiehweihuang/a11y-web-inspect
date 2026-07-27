@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { buildExtract } from '../core/scripts/lighthouse-extract.mjs';
+
+const SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'core/scripts/lighthouse-extract.mjs');
 
 // Minimal synthetic Lighthouse report (LH 13.x shape) exercising the paths that
 // matter: accessibility exclusion, metric mapping, the dom-size-insight rename,
@@ -110,4 +117,19 @@ test('handles a sparse report (no audits) without throwing', () => {
   assert.equal(e.dom, null);
   assert.deepEqual(e.metrics, []);
   assert.deepEqual(e.cross_cutting, []);
+});
+
+// CLI-level: --output may point to a directory that doesn't exist yet (hakuso HIGH-1,
+// 2026-07-27 codex-adapter audit — same missing-mkdir shape as static-audit/generate-report).
+test('CLI --output to a not-yet-existing nested directory: parent dirs are created, exit 0', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-lh-extract-nested-'));
+  try {
+    const lhPath = join(dir, 'lh.json');
+    writeFileSync(lhPath, JSON.stringify(lhr()));
+    const out = join(dir, 'reports', 'a11y', 'lighthouse.json');
+    execFileSync('node', [SCRIPT, lhPath, '--output', out], { stdio: ['ignore', 'pipe', 'pipe'] });
+    assert.ok(existsSync(out), 'lighthouse.json should exist under the freshly created reports/a11y/ dir');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

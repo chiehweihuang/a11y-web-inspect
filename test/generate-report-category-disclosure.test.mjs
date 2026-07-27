@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -55,6 +55,27 @@ test('category cards expose completed states as text (never a painted score), an
     // Testing recommendations stay bilingual.
     assert.match(html, /中文測試建議/);
     assert.match(html, /English testing recommendation/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// A nested --output path with no existing parent directory must not crash after the HTML
+// has already been built (hakuso HIGH-1, 2026-07-27 codex-adapter audit).
+test('--output to a not-yet-existing nested directory: parent dirs are created, exit 0', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-report-nested-'));
+  try {
+    const audit = join(dir, 'audit.json');
+    const report = join(dir, 'out', 'a11y', 'report.html');
+    writeFileSync(audit, JSON.stringify({
+      metadata: { date: '2026-01-01', scope: 'test', url: 'https://example.com/', standard: 'WCAG 2.2 AA' },
+      summary: { overall_score: 100, coverage_percent: 10, total_findings: 0, critical: 0, warnings: 0, tips: 0, categories: [] },
+      findings: [],
+      legal_risk: {},
+      testing_recommendations: [],
+    }));
+    execFileSync('node', [join(ROOT, 'core/scripts/generate-report.mjs'), audit, '--output', report]);
+    assert.ok(existsSync(report), 'report.html should exist under the freshly created out/a11y/ dir');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -26,7 +26,7 @@
 // Usage:
 //   node tier2-audit.mjs --url <url-or-file-path> --output tier2-results.json [--date iso]
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -662,6 +662,7 @@ function parseArgs(argv) {
 if (process.argv[1] && process.argv[1].endsWith('tier2-audit.mjs')) {
   const opts = parseArgs(process.argv.slice(2));
   const audit = await runTier2Audit(opts);
+  mkdirSync(dirname(opts.output), { recursive: true });
   writeFileSync(opts.output, JSON.stringify(audit, null, 2));
   console.log(`Wrote ${opts.output}`);
   console.log(`Tier-2 audit: ${audit.summary.total_findings} finding(s) across ${audit.metadata.viewports.join(', ')} (${audit.summary.critical} critical, ${audit.summary.warnings} warning, ${audit.summary.tips} tip)`);

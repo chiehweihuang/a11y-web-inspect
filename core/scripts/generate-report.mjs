@@ -9,7 +9,7 @@
  * Output: Interactive HTML report (Lighthouse-style)
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 
 const args = process.argv.slice(2);
@@ -2484,5 +2484,6 @@ ${buildFooterHTML(audit)}
 </body>
 </html>`;
 
+mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, html, 'utf8');
 console.log(`Report written to: ${outputPath}`);

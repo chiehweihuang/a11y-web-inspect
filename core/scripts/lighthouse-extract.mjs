@@ -28,8 +28,8 @@
  * sparse) object.
  */
 
-import { readFileSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const NOTE_ZH =
@@ -223,6 +223,7 @@ function main() {
     writeFileSync(mergePath, JSON.stringify(audit, null, 2));
     console.error(`merged lighthouse signal into ${mergePath}`);
   } else if (outputPath) {
+    mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, JSON.stringify(extract, null, 2));
     console.error(`wrote ${outputPath}`);
   } else {

@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -383,4 +383,22 @@ test('document-title-missing: a title inside a hidden body div still counts (mat
 <main><h1>Hi</h1></main>
 </body></html>`);
   assert.equal(titleMissingFindings(audit).length, 0, 'a <title> anywhere in the document (even body, even hidden) must count as present');
+});
+
+// SKILL.md documents `--output reports/a11y/audit-results.json`, which does not exist on a
+// project's first run. The scanner must create that parent directory, not crash after doing
+// all the analysis work (hakuso HIGH-1, 2026-07-27 codex-adapter audit).
+test('--output to a not-yet-existing nested directory: parent dirs are created, exit 0', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-detok-nested-'));
+  try {
+    const fixture = join(dir, 'page.html');
+    const out = join(dir, 'reports', 'a11y', 'audit-results.json');
+    writeFileSync(fixture, '<!DOCTYPE html><html lang="en"><head><title>t</title></head><body></body></html>');
+    execFileSync('node', [SCANNER, '--scope', 'nested-output-test', '--output', out, fixture], {
+      stdio: ['ignore', 'pipe', 'pipe'], cwd: dir,
+    });
+    assert.ok(existsSync(out), 'audit-results.json should exist under the freshly created reports/a11y/ dir');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

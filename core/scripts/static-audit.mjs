@@ -5,8 +5,8 @@
 // Usage:
 //   node static-audit.mjs --scope "My page" --output audit-results.json <file-or-dir>...
 
-import { readFileSync, writeFileSync, statSync, readdirSync } from 'fs';
-import { basename, join, relative } from 'path';
+import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from 'fs';
+import { basename, dirname, join, relative } from 'path';
 import { createHash } from 'crypto';
 import { extractText, assessLang, isWellFormedLangTag } from './lang-detect.mjs';
 import { detectAuthBarriers, detectAuthBarriersInSource } from './auth-detect.mjs';
@@ -1704,6 +1704,7 @@ function main() {
   if (opts.llmJudgment) audit.llm_judgment = loadLlmJudgment(opts.llmJudgment);
   if (tier2) audit.tier2 = tier2;
 
+  mkdirSync(dirname(opts.output), { recursive: true });
   writeFileSync(opts.output, JSON.stringify(audit, null, 2));
   console.log(`Wrote ${opts.output}`);
   console.log(`Static baseline score: ${overall ?? 'n/a'} at ${coverage}% weight coverage (${findings.length} finding(s), ${critical} critical, ${warnings} warning, ${tips} tip)${lifeSafety ? ' — LIFE-SAFETY GATE APPLIED' : ''}`);

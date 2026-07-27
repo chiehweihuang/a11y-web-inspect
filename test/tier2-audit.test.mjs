@@ -8,6 +8,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import {
   parseColor, relLuminance, contrastRatio, compositeLayers, isLargeText,
   analyzeContrastSamples, analyzeTouchTargets,
@@ -17,6 +20,7 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(HERE, 'tier2-fixtures');
+const SCRIPT = resolve(HERE, '..', 'core/scripts/tier2-audit.mjs');
 
 // --- pure color helpers -----------------------------------------------------------------
 
@@ -378,4 +382,42 @@ test('runTier2Audit: a per-viewport capture crash (execution context destroyed b
   assert.equal(audit.summary.by_viewport.length, 1);
   assert.equal(audit.summary.by_viewport[0].viewport, '320x720');
   assert.match(audit.summary.by_viewport[0].error, /Execution context was destroyed/);
+});
+
+// CLI-level: the documented --output path may point to a directory that doesn't exist yet
+// on a first run. No real browser needed — a fake Playwright module (PLAYWRIGHT_MODULE_PATH)
+// makes captures resolve to no samples/findings, isolating the write path itself
+// (hakuso HIGH-1, 2026-07-27 codex-adapter audit).
+test('CLI --output to a not-yet-existing nested directory: parent dirs are created, exit 0', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-tier2-nested-'));
+  try {
+    const fakePw = join(dir, 'fake-playwright.mjs');
+    writeFileSync(fakePw, `
+export const chromium = {
+  async launch() {
+    return {
+      async newPage() {
+        return {
+          async route() {},
+          async goto() {},
+          async waitForLoadState() {},
+          async waitForTimeout() {},
+          async evaluate() { return []; },
+          async close() {},
+        };
+      },
+      async close() {},
+    };
+  },
+};
+`);
+    const out = join(dir, 'reports', 'a11y', 'tier2-results.json');
+    execFileSync('node', [SCRIPT, '--url', 'http://example.test/fake', '--output', out], {
+      env: { ...process.env, PLAYWRIGHT_MODULE_PATH: fakePw },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    assert.ok(existsSync(out), 'tier2-results.json should exist under the freshly created reports/a11y/ dir');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
