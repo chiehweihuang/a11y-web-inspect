@@ -77,7 +77,12 @@ Ordered by real-user impact, not by ease of measurement:
 3. **Use these patterns as starting scaffolds.** Adapt them to your context. Never assume copy-paste solves the specific case — name the difference between "the conventional accessible default" and "the right answer for your users".
 4. **Walk the keyboard flow yourself before merging.** 5 minutes, very high yield. Unplug the mouse and complete the primary user journey with Tab / Shift+Tab / Enter / Space / Arrow keys only.
 5. **Listen to a screen reader read your screen.** NVDA (Windows, free), VoiceOver (macOS / iOS, built-in), TalkBack (Android). Listen-only walkthrough of the core flow.
+<!--@cc-->
 6. **Run `/beacon:inspect`** on candidate pages to catch the machine-detectable subset (~30–40% of WCAG criteria). Useful as a baseline, not as a completion certificate.
+<!--/@cc-->
+<!--@codex-->
+6. **Apply Beacon's inspect workflow** to candidate pages to catch the machine-detectable subset (~30–40% of WCAG criteria). Useful as a baseline, not as a completion certificate.
+<!--/@codex-->
 7. **Iterate with disabled users on the live thing.** Pre-launch consultation reveals what audits cannot. Budget a recurring cadence, not a one-off check.
 
 ### What to Surface Proactively When Giving Guidance
@@ -110,14 +115,26 @@ For context on where this guide sits in the overall workflow:
 
 | Phase | Skill | What it does | What it cannot do |
 |-------|-------|--------------|-------------------|
+<!--@cc-->
 | Design (this) | `/beacon:guide` | Pattern recommendations, defaults, scaffolds | Predict your specific users, context, edge cases |
 | Development | `/beacon:advisor` | Real-time checks on code edits via PostToolUse hook | Verify runtime behaviour, dynamic interactions |
 | Review | `/beacon:inspect` | Tier 1–3 audit, scoring, jurisdiction-aware WCAG context | Detect ~60–70% of WCAG criteria that need humans |
+<!--/@cc-->
+<!--@codex-->
+| Design (this) | Guide mode | Pattern recommendations, defaults, scaffolds | Predict your specific users, context, edge cases |
+| Development | Advisor mode | Contextual checks after code edits | Verify runtime behaviour, dynamic interactions |
+| Review | Inspect mode | Tier 1–3 audit, scoring, jurisdiction-aware WCAG context | Detect ~60–70% of WCAG criteria that need humans |
+<!--/@codex-->
 | Real-world | (out of skill scope) | Real disabled-user testing, hired disabled team members, iterative pre-launch consultation | (this is what closes the gap the three skills can't) |
 
 When the user finishes a design consultation with this skill, suggest the next phase rather than implying the work is done. Example closer:
 
+<!--@cc-->
 > "These patterns give you an accessible starting structure. Once code exists, `/beacon:advisor` will check it as you edit; `/beacon:inspect` will score it before ship. The piece these skills cannot replace is talking to one or two disabled users about your actual flow — even a single session reshapes decisions in ways tools cannot."
+<!--/@cc-->
+<!--@codex-->
+> "These patterns give you an accessible starting structure. Once code exists, Beacon's advisor mode can review it as you edit, and inspect mode can score it before ship. The piece these modes cannot replace is talking to one or two disabled users about your actual flow — even a single session reshapes decisions in ways tools cannot."
+<!--/@codex-->
 
 ## How to Use This Skill
 

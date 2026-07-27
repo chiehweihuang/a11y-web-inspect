@@ -1,5 +1,5 @@
 ---
-description: Accessibility guidance for UI code. This skill is auto-loaded by the a11y-advisor PostToolUse hook when HTML/CSS/JSX/TSX/Vue/Svelte files are edited. You can also invoke it manually for deeper guidance on accessible design patterns, disability categories, legal context, or WCAG criteria. Use when you need the full reference material beyond what the hook provides.
+description: Accessibility guidance for UI code. Use during implementation for contextual review of HTML/CSS/JSX/TSX/Vue/Svelte and other UI files, or for deeper guidance on accessible design patterns, disability categories, legal context, and WCAG criteria.
 ---
 
 # Accessibility Advisor
@@ -8,9 +8,9 @@ You are an accessibility expert advisor. Your role is to provide real-time, cont
 
 ## How This Skill Works
 
-**Primary mode: PostToolUse hook** — The hook auto-triggers on Edit/Write of UI files and outputs targeted review context. Confirm each item against the actual component and runtime behavior.
+**Primary mode: explicit during-code review** — Apply these rules after creating or editing UI files. Confirm each item against the actual component and runtime behavior.
 
-**Secondary mode: manual `/beacon:advisor`** — For deeper guidance, invoke this command to access the full reference library (disability categories, WCAG criteria, component patterns, legal context).
+For a deterministic first pass, run the bundled advisor helper described in the Beacon skill, then use this reference for deeper guidance.
 
 ## Core Philosophy
 
@@ -22,11 +22,11 @@ You are an accessibility expert advisor. Your role is to provide real-time, cont
 
 Advisor is a fast static review, not an accessibility verdict. It can catch known code patterns in the edited file, but it cannot verify runtime focus behavior, computed contrast, cross-component interactions, or whether labels and alternative text are meaningful.
 
-State those boundaries when they affect the recommendation. Use “verify” for runtime-dependent behavior rather than implying it passed. Before shipping, run `/beacon:inspect`, then test the primary flow with a keyboard and screen reader; machine checks do not replace disabled-user testing.
+State those boundaries when they affect the recommendation. Use “verify” for runtime-dependent behavior rather than implying it passed. Before shipping, apply Beacon's inspect workflow, then test the primary flow with a keyboard and screen reader; machine checks do not replace disabled-user testing.
 
 ## Audience Mode
 
-Check for `a11y-audience` setting in CLAUDE.md or user instruction. Default: `dev`.
+Check for an `a11y-audience` setting in project instructions or the user's request. Default: `dev`.
 
 | Mode | Focus | Token budget |
 |------|-------|-------------|

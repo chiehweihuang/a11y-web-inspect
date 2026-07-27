@@ -58,11 +58,11 @@ them in their respective `adapters/<surface>/`, not in `core/`.
 
 | Item | Surface | Why it stays separate |
 |---|---|---|
-| `hooks/hooks.json` | CC only | Codex has no PostToolUse / SessionStart hook system |
+| `hooks/hooks.json` | CC only | Beacon's Codex package does not install its Claude-specific PostToolUse / SessionStart hooks |
 | `scripts/a11y-advisor-hook.mjs` | CC only | PostToolUse hook: reads stdin hook payload, writes JSON `additionalContext`. Hook-shaped. |
 | `scripts/beacon-prompt-gate.mjs` | CC only | UserPromptSubmit gate — proactive invocation, Claude-specific |
 | `scripts/beacon-session-start.mjs` | CC only | SessionStart governance injection — Claude-specific |
-| `adapters/codex/scripts/advisor.mjs` | Codex only | Same detection logic as the CC hook, but shaped as a standalone CLI (`node advisor.mjs <file>`, exit 2 on issues) because Codex invokes by command, not hook |
+| `adapters/codex/scripts/advisor.mjs` | Codex only | Same detection logic as the CC hook, but shaped as an explicit standalone CLI (`node advisor.mjs <file>`, exit 2 on issues) |
 | `adapters/codex/references/goal-workflows.md` | Codex only | Codex's user interface is goals/skills, not slash commands — these are goal-phrasing patterns with no CC equivalent |
 | `adapters/codex/references/repeat-testing.md` | Codex only | Codex repeat-testing flow (CLI helpers). The heavyweight externalized version of this concept is the separate `a11y-skill-workspace` improve pipeline. |
 
@@ -75,7 +75,7 @@ Decisions about content that drifted and was pulled back across surfaces.
 - **Origin:** Codex adapter had `scripts/static-audit.mjs` (456-line deterministic Tier 1 static scanner producing `generate-report.mjs`-compatible JSON). CC had no equivalent — CC's inspect was purely agent-prose-driven (agent reads files, applies judgment, hand-writes `audit-results.json`).
 - **Decision:** backport to CC as a shared core capability. A deterministic Tier 1 baseline benefits CC too — it gives the inspect skill a reproducible starting point the agent can run, then enrich with judgment. It also serves as a reference implementation of the `audit-results.json` schema (which ROADMAP notes is otherwise undocumented).
 - **Landed:** `scripts/static-audit.mjs` (this branch). Verified: `static-audit.mjs → generate-report.mjs` chain produces a valid 134 KB report on a known-bad fixture (score 36, 19 findings).
-- **Known duplication:** `static-audit.mjs` now exists in BOTH `scripts/` (CC) and `adapters/codex/scripts/` (Codex self-contained copy). This duplication is inherent to Phase B — the Codex adapter must be self-contained because it deploys to `~/.codex/skills/beacon/` where it cannot reach the repo's `scripts/`. Phase A's `build.mjs` resolves this: `static-audit.mjs` lives once in `core/scripts/` and is copied into each built adapter.
+- **Known duplication:** `static-audit.mjs` now exists in BOTH `scripts/` (CC) and `adapters/codex/scripts/` (Codex self-contained copy). This duplication is inherent to Phase B — the Codex adapter must be self-contained because it deploys to `~/.codex/skills/beacon/` where it cannot reach the repo's `scripts/`. **Historical deployment note:** that path was replaced in v3.3.0 by native marketplace installation (`codex plugin marketplace add chiehweihuang/beacon`, then `codex plugin add beacon@beacon`). Phase A's `build.mjs` resolves the duplication: `static-audit.mjs` lives once in `core/scripts/` and is copied into each built adapter.
 - **Not yet wired:** `scripts/static-audit.mjs` is present but not yet referenced from `commands/inspect.md`'s flow. Wiring it into Step 2 / Step 2a is a deliberate follow-up, sequenced AFTER PR #6 (`feat/inspect-step2-default-on`) merges, to avoid a conflicting edit to the same Step 2 region. Until wired, it is invocable manually: `node scripts/static-audit.mjs --scope "..." --output audit-results.json <paths>`.
 - **Calibration note (non-blocking):** the deterministic script and agent-judgment Tier 1 can disagree on the same fixture (script found 19 findings / score 36 vs an agent's hand-audit of 13 findings / score 18 on bad-ecommerce). This agent-vs-script divergence is itself useful signal and is exactly what the `a11y-skill-workspace` pipeline is built to surface. Not reconciled here.
 

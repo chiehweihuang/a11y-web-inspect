@@ -1,13 +1,13 @@
 ---
 name: beacon
-description: "Use Beacon accessibility + AEO review in Codex. Trigger when the user asks for accessibility, a11y, WCAG, inclusive design, UI/UX audit, legal accessibility risk, AEO / answer-engine optimization, schema/meta/AI-crawlability, or when reviewing/building UI where accessibility matters. Ported from chiehweihuang/beacon for Codex; does not rely on Claude Code hooks."
+description: "Use Beacon accessibility + AEO review in Codex. Trigger when the user asks for accessibility, a11y, WCAG, inclusive design, UI/UX audit, legal accessibility risk, AEO / answer-engine optimization, schema/meta/AI-crawlability, or when reviewing/building UI where accessibility matters."
 ---
 
 # Beacon
 
-Use this skill to add Beacon's accessibility + AEO lens to Codex UI work. Beacon is strongest after or during UI work; pair it with `bright-raven-uiux` for Bright Raven philosophy and `akegarasu-design` for high-fidelity Codex prototypes when that skill is installed. Do not invoke Claude-side legacy design plugins from Codex.
+Use this skill to add Beacon's accessibility + AEO lens before, during, and after UI work. It is standalone; use other installed design skills only when they are relevant to the user's request.
 
-The user-facing interface is the skill / goal, not the command line. Bundled scripts are internal repeat-testing helpers Codex may run when useful.
+The user-facing interface is a plain-language request or skill invocation, not the command line. Bundled scripts are internal repeat-testing helpers Codex may run when useful.
 
 ## Modes
 
@@ -15,7 +15,7 @@ The user-facing interface is the skill / goal, not the command line. Bundled scr
 2. **Advisor during code**：when editing HTML, CSS, JSX, TSX, Vue, Svelte, SwiftUI, Android Compose, Flutter, React Native, or UI-like JS/TS.
 3. **Inspect after code**：when reviewing a page, component, prototype, PR, or live URL for accessibility / AEO risk.
 
-Codex does not run Beacon's Claude PostToolUse hook. Apply advisor mode manually when UI files are created or edited.
+Beacon's Codex package does not install a PostToolUse hook. Apply advisor mode explicitly when UI files are created or edited.
 
 ## Quick Workflow
 
@@ -44,23 +44,23 @@ Codex does not run Beacon's Claude PostToolUse hook. Apply advisor mode manually
 
 ## Reference Loading
 
-Load only the reference needed (paths are relative to the plugin root):
+Resolve the Beacon plugin root as the directory two levels above this `SKILL.md`. Load only the reference needed; the paths below are relative to this file:
 
-- Full design guidance: `references/beacon-guide.md`
-- During-code advisor rules: `references/beacon-advisor.md`
-- Full audit process: `references/beacon-inspect.md`
-- WCAG criteria: `references/wcag-quick.md`
-- Component patterns: `references/patterns.md`
-- Disability categories: `references/disabilities.md`
-- Legal context: `references/legal-brief.md`
-- Cases: `references/cases.md`
-- Document accessibility: `references/documents.md`
-- Auth-detect false-positive validation: `references/auth-detect-fp.md`
-- PDF-detect false-positive validation: `references/pdf-detect-fp.md`
+- Full design guidance: `../../references/beacon-guide.md`
+- During-code advisor rules: `../../references/beacon-advisor.md`
+- Full audit process: `../../references/beacon-inspect.md`
+- WCAG criteria: `../../references/wcag-quick.md`
+- Component patterns: `../../references/patterns.md`
+- Disability categories: `../../references/disabilities.md`
+- Legal context: `../../references/legal-brief.md`
+- Cases: `../../references/cases.md`
+- Document accessibility: `../../references/documents.md`
+- Auth-detect false-positive validation: `../../references/auth-detect-fp.md`
+- PDF-detect false-positive validation: `../../references/pdf-detect-fp.md`
 
 ## Goal / Skill Workflow
 
-When the user says to run Beacon, repeat Beacon, use `/goal`, or keep testing accessibility during UI iteration:
+When the user asks to run Beacon, repeat Beacon, or keep testing accessibility during UI iteration:
 
 1. Treat this skill as the operating contract.
 2. Run advisor checks after touching UI files.
@@ -82,43 +82,38 @@ Run the Beacon goal on this page: design guidance, implementation review, static
 每次你改 UI，都用 beacon 做 advisor review；完成後產出 accessibility summary。
 ```
 
-See `references/goal-workflows.md` for reusable goal patterns.
+See `../../references/goal-workflows.md` for reusable goal patterns.
 
 ## Internal Repeat Testing Helpers
 
-During UI iterations, Codex may run the advisor on touched files (run from the plugin root):
+Keep the shell working directory at the project being reviewed so project-relative inputs and outputs resolve correctly. Resolve `<beacon-plugin-root>` from this file, then run the advisor on touched files:
 
-```bash
-node scripts/advisor.mjs path/to/file.tsx
+```text
+node "<beacon-plugin-root>/scripts/advisor.mjs" path/to/file.tsx
 ```
 
 For a repeatable static baseline, Codex may run:
 
-```bash
-node scripts/static-audit.mjs \
-  --scope "Project UI" \
-  --output reports/a11y/audit-results.json \
-  src app public
+```text
+node "<beacon-plugin-root>/scripts/static-audit.mjs" --scope "Project UI" --output reports/a11y/audit-results.json src app public
 ```
 
 Then generate the HTML report:
 
-```bash
-node scripts/generate-report.mjs \
-  reports/a11y/audit-results.json \
-  --output reports/a11y/a11y-report.html
+```text
+node "<beacon-plugin-root>/scripts/generate-report.mjs" reports/a11y/audit-results.json --output reports/a11y/a11y-report.html
 ```
 
-These commands are not the required user interface. They exist so a skill / goal can repeat the same checks consistently instead of relying only on free-form review.
+These commands are not the required user interface. They exist so the skill can repeat the same checks consistently instead of relying only on free-form review. If Node.js is unavailable, continue with manual review and state that the automated baseline was not run.
 
-See `references/repeat-testing.md` and `references/goal-workflows.md` for the longer contract.
+See `../../references/repeat-testing.md` and `../../references/goal-workflows.md` for the longer contract.
 
 ## HTML Report
 
 If an audit JSON exists, generate Beacon's interactive report:
 
-```bash
-node scripts/generate-report.mjs audit-results.json --output a11y-report.html
+```text
+node "<beacon-plugin-root>/scripts/generate-report.mjs" audit-results.json --output a11y-report.html
 ```
 
 Do not invent a numeric score without an evidence-backed audit JSON. If you cannot verify runtime behavior, mark it unverifiable.

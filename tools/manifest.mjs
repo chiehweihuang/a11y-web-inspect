@@ -24,7 +24,19 @@ export const CODEX_PLUGIN_TEMPLATE = {
   license: 'MIT',
   keywords: ['codex', 'accessibility', 'a11y', 'aeo', 'wcag', 'inspection', 'inclusive-design'],
   skills: './skills/',
-  interface: { displayName: 'Beacon', shortDescription: 'Accessibility + AEO inspection for Codex', category: 'Engineering' },
+  interface: {
+    displayName: 'Beacon',
+    shortDescription: 'Accessibility + AEO inspection for Codex',
+    longDescription: 'Review UI code and rendered pages for accessibility and answer-engine optimization risks. Beacon combines static checks, optional browser evidence, WCAG 2.2 AA guidance, and local HTML reports; it is a baseline, not a compliance certificate.',
+    developerName: 'chiehweihuang',
+    category: 'Engineering',
+    capabilities: ['Interactive', 'Read', 'Write'],
+    defaultPrompt: [
+      'Review this UI for accessibility and AEO risks.',
+      'Apply Beacon while implementing this UI change.',
+      'Run a repeatable Beacon audit and summarize remaining risks.',
+    ],
+  },
 };
 
 export const GENERATED = [
