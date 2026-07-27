@@ -2,32 +2,11 @@
 
 ## [3.3.0] — 2026-07-27
 
-### Features
-
-- native plugin marketplace install + version sync; fix(engine): document-title and html-lang detection (beacon-static-audit@12) (9092710)
-- axe optionalization — native tier-2 default, code-backed contrast gate (beacon-static-audit@11) (7453725)
-- static contrast reference value — certain-literal pairs only (beacon-static-audit@10) (6e03fa0)
-- native browser measurement harness — contrast + touch targets (beacon-tier2-audit@1) (c2846d3)
-
-### Bug Fixes
-
-- four measurement defects + report wiring, evidence sanitation (beacon-tier2-audit@2) (6d22856)
-
-### Documentation
-
-- v3.3.0 claim reconciliation, calibrations, and plan corrections (acf7f1e)
-- v3.3 execution plan — tier-2 native measurements (contrast, touch), static contrast reference, axe optionalization (e35f51b)
-- curate the 3.2.0 section (026693a)
-
-### Chores
-
-- reset version to 3.2.0 so the release engine performs the 3.3.0 bump (f715634)
-
-## [3.3.0] — 2026-07-26
-
 Native Tier-2 browser measurement harness (`beacon-tier2-audit@2`) + a static contrast
 reference value (`beacon-static-audit@10`) + axe-core optionalization with a code-backed
-contrast gate (`beacon-static-audit@11`).
+contrast gate (`beacon-static-audit@11`) + two detector bugs found and fixed while
+self-measuring WCAG coverage (`beacon-static-audit@12`) + Codex distribution moving to
+a native plugin marketplace.
 
 - **Native Tier-2 harness** (`core/scripts/tier2-audit.mjs`): a plain-Playwright browser
   layer (no axe-core dependency) that measures WCAG 2.2 1.4.3 contrast and 2.5.8
@@ -121,11 +100,10 @@ contrast gate (`beacon-static-audit@11`).
   additionally scoped the search to before `</head>`/`<body>`, which a hakuso auditor caught
   in real Chromium as over-flagging real titled pages (a `<title>` in the body or a hidden
   ancestor still sets `document.title`); dropped, keeping only the svg-strip and the trim.
-  `html-lang-missing`'s
-  presence test matched the `xml:lang=` substring (no real `lang` attribute needed); it now
-  requires the whitespace that separates a real HTML attribute. A new `html-lang-invalid`
-  finding (bilingual `FINDING_I18N` entry) catches a malformed tag shape (e.g.
-  `lang="english"`) via a new `isWellFormedLangTag()` BCP-47-shape check in
+  `html-lang-missing`'s presence test matched the `xml:lang=` substring (no real `lang`
+  attribute needed); it now requires the whitespace that separates a real HTML attribute. A
+  new `html-lang-invalid` finding (bilingual `FINDING_I18N` entry) catches a malformed tag
+  shape (e.g. `lang="english"`) via a new `isWellFormedLangTag()` BCP-47-shape check in
   `lang-detect.mjs`, which previously fell through `assessLang` to `UNMODELLED` (silently
   unflagged) — a shape-valid-but-wrong code like `lang="jp"` is unaffected, still caught by
   `assessLang`'s existing country-code path. Golden vectors: fingerprint-only diff (neither
@@ -134,6 +112,28 @@ contrast gate (`beacon-static-audit@11`).
   `benchmark/2026-07-05/` population (ADDED 0 / REMOVED 0, final version). Full detail,
   including the head/body-scoping false positive found and fixed mid-pass: VALIDATION.md's
   `@12` engine section.
+- **Self-measured WCAG 2.2 A+AA coverage table** (`plans/2026-07-27-wcag-coverage-measurement.md`):
+  replaces inherited industry-hearsay coverage percentages with a criterion-by-criterion
+  table verified against the current detector code, not the doc's prior claims. After
+  resolving three inconsistently-applied machine-testability rows and shipping the `@12`
+  fixes above: **14/55 criteria (25.5%) have any coverage, 2/55 (3.6%) are fully decided**
+  by the engine alone; against the narrower machine-testable-in-principle subset (48
+  criteria) that is **14/48 (29.2%) any coverage, 2/48 (4.2%) fully decided**. 2.4.2 Page
+  Titled and 3.1.1 Language of Page are the only two FULL rows, and only because of the
+  `@12` fixes above — both were previously miscounted as FULL by a doc claim the code
+  didn't back. Full row-by-row detail and the machine-testability rule: the plan doc;
+  numbers cross-checked against VALIDATION.md's `@12` section.
+- **Codex distribution moves to a native plugin marketplace**: replaces the hand-copy
+  deploy script (`tools/deploy-codex.mjs`, removed) with Codex's own marketplace mechanism
+  — `.agents/plugins/marketplace.json` plus a generated
+  `adapters/codex/.codex-plugin/plugin.json` whose version is driven by
+  `.claude-plugin/plugin.json` through `build.mjs`, with a `build.mjs --check` guard and a
+  `.release.json` sync entry so the manifest can never ship a version behind. Install is
+  now:
+  ```bash
+  codex plugin marketplace add chiehweihuang/beacon
+  codex plugin add beacon@beacon
+  ```
 
 ## [3.2.0] — 2026-07-24
 
