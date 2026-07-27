@@ -100,10 +100,11 @@ Score के ऊपर context banner पहले पढ़ें। फिर 
 
 ## Codex
 
-Codex adapter `adapters/codex/` में है और यहां deploy होता है:
+Codex adapter `adapters/codex/` में है, इसे native Codex plugin के रूप में इंस्टॉल करें:
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 See [ADAPTERS.md](./ADAPTERS.md).

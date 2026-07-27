@@ -137,6 +137,19 @@ export function detectLatinLanguage(text) {
   return { lang: top, confidence: topRate };
 }
 
+// BCP-47 SHAPE check, not a registry lookup: primary subtag must be 2-3 ALPHA
+// characters (the ISO 639-1/639-2/639-3 length range), optionally followed by
+// "-" subtags of 1-8 alphanumerics each (script/region/variant/extension —
+// zh-Hant, en-US, zh-Hant-TW all pass). Catches garbage like "english" (7
+// letters, not a valid primary-subtag length) that assessLang would otherwise
+// silently punt to UNMODELLED. Does NOT check the primary subtag against the
+// real ISO 639 registry — a shape-valid-but-fake code, or a shape-valid
+// country code substituted for a language code ("jp" for "ja"), is a
+// different failure mode already handled by assessLang's COUNTRY_AS_LANG path.
+export function isWellFormedLangTag(tag) {
+  return /^[a-z]{2,3}(-[a-z0-9]{1,8})*$/i.test(String(tag ?? ''));
+}
+
 // declaredLang: the raw <html lang> value (e.g. "en", "zh-Hant").
 // plainText: extracted visible text (use extractText first if you have HTML).
 export function assessLang(declaredLang, plainText) {

@@ -16,7 +16,7 @@ test('every GENERATED entry has out, src, kind, overwrite=true', () => {
   for (const e of GENERATED) {
     assert.equal(typeof e.out, 'string');
     assert.equal(typeof e.src, 'string');
-    assert.match(e.kind, /^(variant:cc|variant:codex|copy)$/);
+    assert.match(e.kind, /^(variant:cc|variant:codex|copy|codex-plugin-manifest)$/);
     assert.equal(e.overwrite, true);
   }
 });
@@ -35,12 +35,39 @@ test('codex inspect maps to the same core src as variant:codex', () => {
   assert.equal(e.kind, 'variant:codex');
 });
 
+test('codex plugin manifest version is sourced from the canonical CC plugin.json', () => {
+  const e = GENERATED.find((x) => x.out === 'adapters/codex/.codex-plugin/plugin.json');
+  assert.ok(e);
+  assert.equal(e.src, '.claude-plugin/plugin.json');
+  assert.equal(e.kind, 'codex-plugin-manifest');
+});
+
+test('SKILL.md mentions every generated codex reference file (catches drift when core/content adds/removes a reference)', () => {
+  const skillPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'adapters/codex/skills/beacon/SKILL.md');
+  const skill = readFileSync(skillPath, 'utf8');
+  const refOuts = GENERATED
+    .filter((e) => e.out.startsWith('adapters/codex/references/') && e.out.endsWith('.md'))
+    .map((e) => e.out.replace('adapters/codex/', ''));
+  for (const ref of refOuts) {
+    assert.ok(skill.includes(ref), `SKILL.md does not mention ${ref} — update it when core/content changes the reference set`);
+  }
+});
+
+test('.agents/plugins/marketplace.json exists and points the beacon plugin at adapters/codex', () => {
+  const mktPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', '.agents/plugins/marketplace.json');
+  const mkt = JSON.parse(readFileSync(mktPath, 'utf8')); // throws if missing/renamed — that's the guard
+  const plugin = mkt.plugins.find((p) => p.name === 'beacon');
+  assert.ok(plugin, 'no "beacon" plugin entry in .agents/plugins/marketplace.json');
+  assert.equal(plugin.source.path, './adapters/codex');
+});
+
 test('no GENERATED out collides with a hand-kept file', () => {
   const handKept = new Set([
     'scripts/a11y-advisor-hook.mjs', 'scripts/beacon-prompt-gate.mjs', 'scripts/beacon-session-start.mjs',
     'hooks/hooks.json', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
-    'adapters/codex/SKILL.md', 'adapters/codex/references/goal-workflows.md',
+    'adapters/codex/skills/beacon/SKILL.md', 'adapters/codex/references/goal-workflows.md',
     'adapters/codex/references/repeat-testing.md', 'adapters/codex/scripts/advisor.mjs',
+    '.agents/plugins/marketplace.json',
   ]);
   for (const e of GENERATED) assert.ok(!handKept.has(e.out), `collision: ${e.out}`);
 });
@@ -75,6 +102,19 @@ test('build --check fails (exit 1) when a generated output is hand-edited, then 
     writeFileSync(target, original); // restore exactly
   }
   assert.equal(checkExitCode(), 0, '--check should pass again after restore');
+});
+
+test('build --check fails when the CC version bumps without regenerating the codex plugin manifest, then passes after rebuild', () => {
+  const versionFile = resolve(ROOT, '.claude-plugin/plugin.json');
+  const original = readFileSync(versionFile, 'utf8');
+  try {
+    const bumped = JSON.stringify({ ...JSON.parse(original), version: '999.999.999' }, null, 2) + '\n';
+    writeFileSync(versionFile, bumped); // canonical version moves; codex plugin.json is now stale
+    assert.notEqual(checkExitCode(), 0, '--check should fail: codex plugin manifest version no longer matches canonical');
+  } finally {
+    writeFileSync(versionFile, original); // restore exactly
+  }
+  assert.equal(checkExitCode(), 0, '--check should pass again once the canonical version is restored');
 });
 
 import { mkdtempSync, mkdirSync, writeFileSync as wf, rmSync } from 'node:fs';

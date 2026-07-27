@@ -100,10 +100,11 @@ Beacon 的 Agent/AEO 類別是可執行的結構檢查，不是 AI 引用保證�
 
 ## Codex
 
-Codex adapter 位於 `adapters/codex/`，部署到：
+Codex adapter 位於 `adapters/codex/`，以 Codex 原生插件方式安裝：
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 Codex 使用同一套 accessibility + AEO 知識，但沒有 Claude Code hook layer。詳見 [ADAPTERS.md](./ADAPTERS.md)。

@@ -8,6 +8,7 @@
   "changelogFile": "CHANGELOG.md",
   "readmeSync": [
     { "file": "README.md", "pattern": "| Version | `{VERSION}` |" },
+    { "file": "adapters/codex/.codex-plugin/plugin.json", "pattern": "\"version\": \"{VERSION}\"" },
     { "file": "README.ja.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
     { "file": "README.ko.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
     { "file": "README.zh-Hans.md", "pattern": "Plugin facts：`beacon`、version `{VERSION}`、MIT、repository `chiehweihuang/beacon`。" },
@@ -19,7 +20,6 @@
   ],
   "prePublish": ["gh auth switch --user chiehweihuang"],
   "postRelease": [
-    "node tools/deploy-codex.mjs",
     "gh auth switch --user devBrightRaven"
   ],
   "githubRelease": true

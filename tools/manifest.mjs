@@ -10,6 +10,23 @@ const SCRIPTS = ['static-audit', 'generate-report', 'lighthouse-extract', 'lang-
 const PATTERNS = ['web', 'pdf', 'wcag-catalog']; // declarative detector records + wcag catalog; shipped to both surfaces
 export const CONTENT = ['guide', 'inspect', 'advisor'];
 
+// Static (non-version) fields for the Codex plugin manifest. `version` is a
+// placeholder here — build.mjs always overwrites it from the canonical
+// `.claude-plugin/plugin.json`, so there is exactly one version number and
+// `--check` catches drift instead of a hand-edited copy going stale.
+export const CODEX_PLUGIN_TEMPLATE = {
+  name: 'beacon',
+  version: '0.0.0',
+  description: 'Accessibility + AEO inspection for Codex. Lighthouse-style 0-100 scoring across 10 categories, interactive HTML reports, jurisdiction-aware WCAG context, framework-specific fixes, and repeat-testing CLI helpers for advisor/static-audit/report generation.',
+  author: { name: 'chiehweihuang', url: 'https://github.com/chiehweihuang' },
+  homepage: 'https://github.com/chiehweihuang/beacon',
+  repository: 'https://github.com/chiehweihuang/beacon',
+  license: 'MIT',
+  keywords: ['codex', 'accessibility', 'a11y', 'aeo', 'wcag', 'inspection', 'inclusive-design'],
+  skills: './skills/',
+  interface: { displayName: 'Beacon', shortDescription: 'Accessibility + AEO inspection for Codex', category: 'Engineering' },
+};
+
 export const GENERATED = [
   // CC plugin (repo root)
   ...CONTENT.map((n) => ({ out: `commands/${n}.md`, src: `core/content/${n}.md`, kind: 'variant:cc', overwrite: true })),
@@ -21,6 +38,8 @@ export const GENERATED = [
   ...REFERENCES.map((n) => ({ out: `adapters/codex/references/${n}.md`, src: `core/references/${n}.md`, kind: 'copy', overwrite: true })),
   ...SCRIPTS.map((n) => ({ out: `adapters/codex/scripts/${n}.mjs`, src: `core/scripts/${n}.mjs`, kind: 'copy', overwrite: true })),
   ...PATTERNS.map((n) => ({ out: `adapters/codex/scripts/patterns/${n}.json`, src: `core/patterns/${n}.json`, kind: 'copy', overwrite: true })),
+  // Codex plugin manifest: version sourced from the canonical CC plugin.json.
+  { out: 'adapters/codex/.codex-plugin/plugin.json', src: '.claude-plugin/plugin.json', kind: 'codex-plugin-manifest', overwrite: true },
 ];
 
 // Every file present in core/ must map to >=1 GENERATED entry, else it would be

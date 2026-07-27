@@ -98,10 +98,11 @@ Read the context banner above the score first. Then review overall score, catego
 
 ## Codex
 
-Codex adapter lives in `adapters/codex/` and deploys to:
+Codex adapter lives in `adapters/codex/`; install it as a native Codex plugin:
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 See [ADAPTERS.md](./ADAPTERS.md).

@@ -185,13 +185,11 @@
     "source": { "source": "github", "repo": "chiehweihuang/beacon" }
   }
 }</code></pre>
-      <p>Using Codex instead? Build and deploy the included adapter:</p>
+      <p>Using Codex instead? Install it as a native Codex plugin:</p>
 
-<pre><code>git clone https://github.com/chiehweihuang/beacon.git
-cd beacon
-node build.mjs
-node tools/deploy-codex.mjs</code></pre>
-      <p class="footnote">This installs Beacon to <code>~/.codex/skills/beacon/</code>. Restart Codex after installation. See <a href="https://github.com/chiehweihuang/beacon/blob/master/ADAPTERS.md">ADAPTERS.md</a> for the runtime differences.</p>
+<pre><code>codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon</code></pre>
+      <p class="footnote">Restart Codex after installation. See <a href="https://github.com/chiehweihuang/beacon/blob/master/ADAPTERS.md">ADAPTERS.md</a> for the runtime differences.</p>
     </div>
   </section>
 

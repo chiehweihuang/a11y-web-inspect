@@ -100,10 +100,11 @@ External scanner อาจช่วยเสริมหรือแทนที
 
 ## Codex
 
-Codex adapter อยู่ใน `adapters/codex/` และ deploy ไปที่:
+Codex adapter อยู่ใน `adapters/codex/` ติดตั้งเป็น Codex plugin แบบเนทีฟ:
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 See [ADAPTERS.md](./ADAPTERS.md).

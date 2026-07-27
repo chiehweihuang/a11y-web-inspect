@@ -344,3 +344,43 @@ test('input-label-missing + image-alt-missing: an unbalanced <!-- inside a scrip
   assert.equal(imageAltFindings(audit).length, 1, 'the alt-less image between the fake <!-- and the real comment must still flag');
   assert.equal(inputLabelFindings(audit).length, 1, 'the bare input between the fake <!-- and the real comment must still flag');
 });
+
+// === regression: audit 2026-07-27 (plans/2026-07-27-wcag-coverage-measurement.md) ===
+// The old check `/<title\b[^>]*>[^<]+<\/title>/` matched ANY <title> anywhere in the
+// document (including inside an <svg>), and treated whitespace-only content as present.
+const titleMissingFindings = (audit) => audit.findings.filter((f) => f.key === 'document-title-missing');
+
+test('document-title-missing: an <svg><title> icon label is not a document title', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<svg aria-hidden="true"><title>icon label</title><path d="M0 0"/></svg>
+</main></body></html>`);
+  assert.equal(titleMissingFindings(audit).length, 1, 'a page with no real <title>, only an svg icon title, must still flag');
+});
+
+test('document-title-missing: whitespace-only <title> counts as absent', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>   </title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main><h1>Hi</h1></main></body></html>`);
+  assert.equal(titleMissingFindings(audit).length, 1, 'a whitespace-only <title> must flag the same as an empty one');
+});
+
+test('document-title-missing: positive control — a real title alongside an svg title does not flag', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>Real Page Title</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<svg aria-hidden="true"><title>icon label</title><path d="M0 0"/></svg>
+</main></body></html>`);
+  assert.equal(titleMissingFindings(audit).length, 0, 'a real head <title> must count even when an svg title also exists');
+});
+
+// regression (hakuso auditor, real Chromium): document.title is "first HTML <title>
+// element in the document, non-empty after trim" — location (body, hidden ancestor)
+// doesn't stop a browser from setting it, so a static check that scopes to <head> only
+// over-flags real titled pages (confirmed on a linear.app snapshot, 86-site diff).
+test('document-title-missing: a title inside a hidden body div still counts (matches document.title, not head-only scope)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<div hidden=""><title>Real Page Title</title><meta name="description" content="x"></div>
+<main><h1>Hi</h1></main>
+</body></html>`);
+  assert.equal(titleMissingFindings(audit).length, 0, 'a <title> anywhere in the document (even body, even hidden) must count as present');
+});

@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 
-import { assessLang, extractText, detectContentLanguage, detectLangParts, detectLatinLanguage } from '../core/scripts/lang-detect.mjs';
+import { assessLang, extractText, detectContentLanguage, detectLangParts, detectLatinLanguage, isWellFormedLangTag } from '../core/scripts/lang-detect.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCANNER = resolve(ROOT, 'core/scripts/static-audit.mjs');
@@ -126,6 +126,20 @@ test('INSUFFICIENT: mis-decoded (mojibake) content is not flagged as a mismatch'
   assert.equal(assessLang('ja', mojibake).status, 'INSUFFICIENT');
 });
 
+// --- isWellFormedLangTag: BCP-47 shape gate (audit 2026-07-27) -----------
+test('isWellFormedLangTag: valid tags (primary + optional subtags)', () => {
+  assert.ok(isWellFormedLangTag('en'));
+  assert.ok(isWellFormedLangTag('zh-Hant'));
+  assert.ok(isWellFormedLangTag('en-US'));
+  assert.ok(isWellFormedLangTag('zh-Hant-TW'));
+  assert.ok(isWellFormedLangTag('zh-tw')); // region subtag, lowercase tolerated
+});
+test('isWellFormedLangTag: a spelled-out language name is not a valid primary subtag', () => {
+  assert.equal(isWellFormedLangTag('english'), false); // 7 letters, not 2-3
+  assert.equal(isWellFormedLangTag(''), false);
+  assert.equal(isWellFormedLangTag(null), false);
+});
+
 // --- helpers -------------------------------------------------------------
 test('extractText strips script/style and decodes entities', () => {
   assert.equal(extractText('<p>中文</p><script>console.log("hi")</script>'), '中文');
@@ -194,4 +208,30 @@ test('parts: a mostly-foreign page is a 3.1.1 mismatch, not 3.1.2 parts', () => 
 test('static-audit does NOT emit html-lang-parts-unmarked (3.1.2 gated off after calibration: 0 TP / 2 FP)', () => {
   const audit = runScanner(`<!doctype html><html lang="en"><head><title>t</title></head><body><p>${'The annual report covers operations across regions. '.repeat(12)}</p><blockquote>${JPN.repeat(5)}</blockquote></body></html>`);
   assert.equal(audit.findings.filter((f) => f.key === 'html-lang-parts-unmarked').length, 0);
+});
+
+// === regression: audit 2026-07-27 (plans/2026-07-27-wcag-coverage-measurement.md) ===
+// The presence regex `/<html[^>]+lang=/` was satisfied by the `xml:lang=` substring
+// (only a bare \b boundary separated it from the real attribute), so a page with ONLY
+// xml:lang was reported as having a declared lang.
+test('html-lang-missing: xml:lang alone is NOT a real lang declaration', () => {
+  const audit = runScanner('<!doctype html><html xml:lang="en"><head><title>t</title></head><body><main><p>Hello world.</p></main></body></html>');
+  assert.equal(audit.findings.filter((f) => f.key === 'html-lang-missing').length, 1, 'xml:lang must not satisfy the real-lang presence check');
+});
+
+test('html-lang-invalid: a spelled-out language name is flagged, not silently punted to UNMODELLED', () => {
+  const audit = runScanner('<!doctype html><html lang="english"><head><title>t</title></head><body><main><p>This is a perfectly ordinary English paragraph about nothing in particular.</p></main></body></html>');
+  const invalid = audit.findings.filter((f) => f.key === 'html-lang-invalid');
+  assert.equal(invalid.length, 1, 'a malformed lang tag must flag');
+  assert.match(invalid[0].wcag, /3\.1\.1/);
+  // A malformed tag skips content-mismatch assessment entirely (nothing to compare against).
+  assert.equal(audit.findings.filter((f) => f.key === 'html-lang-missing').length, 0);
+  assert.equal(audit.findings.filter((f) => f.key === 'html-lang-mismatch').length, 0);
+  assert.equal(audit.findings.filter((f) => f.key === 'html-lang-mismatch-review').length, 0);
+});
+
+test('html-lang-invalid: positive control — a valid tag with a region subtag does not flag', () => {
+  const audit = runScanner(`<!doctype html><html lang="en-US"><head><title>t</title></head><body><main><p>${'The annual report covers operations across regions and business units. '.repeat(6)}</p></main></body></html>`);
+  assert.equal(audit.findings.filter((f) => f.key === 'html-lang-invalid').length, 0);
+  assert.equal(audit.findings.filter((f) => f.key === 'html-lang-missing').length, 0);
 });

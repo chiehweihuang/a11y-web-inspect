@@ -1,0 +1,27 @@
+{
+  "name": "beacon",
+  "version": "3.3.0",
+  "description": "Accessibility + AEO inspection for Codex. Lighthouse-style 0-100 scoring across 10 categories, interactive HTML reports, jurisdiction-aware WCAG context, framework-specific fixes, and repeat-testing CLI helpers for advisor/static-audit/report generation.",
+  "author": {
+    "name": "chiehweihuang",
+    "url": "https://github.com/chiehweihuang"
+  },
+  "homepage": "https://github.com/chiehweihuang/beacon",
+  "repository": "https://github.com/chiehweihuang/beacon",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "accessibility",
+    "a11y",
+    "aeo",
+    "wcag",
+    "inspection",
+    "inclusive-design"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Beacon",
+    "shortDescription": "Accessibility + AEO inspection for Codex",
+    "category": "Engineering"
+  }
+}

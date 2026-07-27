@@ -100,10 +100,11 @@ Baca context banner di atas skor terlebih dahulu. Lalu tinjau overall score, cat
 
 ## Codex
 
-Codex adapter berada di `adapters/codex/` dan dideploy ke:
+Codex adapter berada di `adapters/codex/`, dipasang sebagai plugin native Codex:
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 See [ADAPTERS.md](./ADAPTERS.md).

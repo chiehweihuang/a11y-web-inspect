@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, mkdtempSync, existsSync, rmSync, mkdirSync
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { GENERATED, validateCoreMapping, findOrphans } from './tools/manifest.mjs';
+import { GENERATED, validateCoreMapping, findOrphans, CODEX_PLUGIN_TEMPLATE } from './tools/manifest.mjs';
 import { buildVariant, assertNoStrayTokens, findDuplicatedLines } from './tools/markers.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)));
@@ -21,6 +21,10 @@ const readLF = (abs) => readFileSync(abs, 'utf8').replace(/\r\n?/g, '\n'); // no
 function render(entry) {
   const src = readLF(resolve(ROOT, entry.src));
   if (entry.kind === 'copy') return src;
+  if (entry.kind === 'codex-plugin-manifest') {
+    const { version } = JSON.parse(src); // canonical version from .claude-plugin/plugin.json
+    return JSON.stringify({ ...CODEX_PLUGIN_TEMPLATE, version }, null, 2) + '\n';
+  }
   const keep = entry.kind === 'variant:cc' ? 'cc' : 'codex';
   const out = buildVariant(src, keep);
   assertNoStrayTokens(out, entry.out);

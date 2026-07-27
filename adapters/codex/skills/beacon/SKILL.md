@@ -44,7 +44,7 @@ Codex does not run Beacon's Claude PostToolUse hook. Apply advisor mode manually
 
 ## Reference Loading
 
-Load only the reference needed:
+Load only the reference needed (paths are relative to the plugin root):
 
 - Full design guidance: `references/beacon-guide.md`
 - During-code advisor rules: `references/beacon-advisor.md`
@@ -55,6 +55,8 @@ Load only the reference needed:
 - Legal context: `references/legal-brief.md`
 - Cases: `references/cases.md`
 - Document accessibility: `references/documents.md`
+- Auth-detect false-positive validation: `references/auth-detect-fp.md`
+- PDF-detect false-positive validation: `references/pdf-detect-fp.md`
 
 ## Goal / Skill Workflow
 
@@ -84,16 +86,16 @@ See `references/goal-workflows.md` for reusable goal patterns.
 
 ## Internal Repeat Testing Helpers
 
-During UI iterations, Codex may run the advisor on touched files:
+During UI iterations, Codex may run the advisor on touched files (run from the plugin root):
 
 ```bash
-node ~/.codex/skills/beacon/scripts/advisor.mjs path/to/file.tsx
+node scripts/advisor.mjs path/to/file.tsx
 ```
 
 For a repeatable static baseline, Codex may run:
 
 ```bash
-node ~/.codex/skills/beacon/scripts/static-audit.mjs \
+node scripts/static-audit.mjs \
   --scope "Project UI" \
   --output reports/a11y/audit-results.json \
   src app public
@@ -102,7 +104,7 @@ node ~/.codex/skills/beacon/scripts/static-audit.mjs \
 Then generate the HTML report:
 
 ```bash
-node ~/.codex/skills/beacon/scripts/generate-report.mjs \
+node scripts/generate-report.mjs \
   reports/a11y/audit-results.json \
   --output reports/a11y/a11y-report.html
 ```
@@ -116,7 +118,7 @@ See `references/repeat-testing.md` and `references/goal-workflows.md` for the lo
 If an audit JSON exists, generate Beacon's interactive report:
 
 ```bash
-node ~/.codex/skills/beacon/scripts/generate-report.mjs audit-results.json --output a11y-report.html
+node scripts/generate-report.mjs audit-results.json --output a11y-report.html
 ```
 
 Do not invent a numeric score without an evidence-backed audit JSON. If you cannot verify runtime behavior, mark it unverifiable.

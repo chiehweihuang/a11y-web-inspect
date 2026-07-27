@@ -100,10 +100,11 @@ External scanner có thể bổ sung hoặc thay thế một phần structural c
 
 ## Codex
 
-Codex adapter nằm trong `adapters/codex/` và deploy tới:
+Codex adapter nằm trong `adapters/codex/`, cài đặt như một plugin Codex gốc:
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 See [ADAPTERS.md](./ADAPTERS.md).

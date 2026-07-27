@@ -14,11 +14,19 @@ divergent, and what still needs reconciliation.
 
 ## Surfaces
 
-| Surface | Lives in repo at | Deploys to | Extension mechanic |
+| Surface | Lives in repo at | Installs via | Extension mechanic |
 |---|---|---|---|
-| Claude Code (canonical) | repo root (`commands/`, `hooks/`, `scripts/`, `references/`, `.claude-plugin/`) | `~/.claude/plugins/cache/beacon/...` | `plugin.json` skills + PostToolUse / SessionStart / UserPromptSubmit hooks |
-| Codex | `adapters/codex/` | `~/.codex/skills/beacon/` | single `SKILL.md` + on-demand `references/` loading; CLI helper scripts |
+| Claude Code (canonical) | repo root (`commands/`, `hooks/`, `scripts/`, `references/`, `.claude-plugin/`) | `/plugin install beacon@beacon` (marketplace `.claude-plugin/`) | `plugin.json` skills + PostToolUse / SessionStart / UserPromptSubmit hooks |
+| Codex | `adapters/codex/` (plugin root) | `codex plugin marketplace add chiehweihuang/beacon && codex plugin add beacon@beacon` (marketplace `.agents/plugins/marketplace.json` at repo root; plugin manifest `adapters/codex/.codex-plugin/plugin.json`) | Codex Agent Skills — `skills/beacon/SKILL.md` + on-demand `references/` loading; CLI helper scripts at plugin-root-relative `scripts/` |
 | Copilot | (not yet) | — | — |
+
+Codex's plugin manifest schema (`.codex-plugin/plugin.json` + a marketplace root's
+`.agents/plugins/marketplace.json`) was reverse-engineered from OpenAI's own
+bundled plugins under `~/.codex/plugins/` (no committed JSON schema found) —
+see `plans/2026-07-27-codex-plugin-modernization.md` for the evidence. Codex
+also has an undocumented compat path that reads Claude Code's
+`.claude-plugin/` manifests directly; the native manifests above are the
+supported path this repo now ships, not a reliance on that compat path.
 
 The Claude Code layout at the repo root is the **canonical** source for shared
 knowledge content during Phase B. The Codex adapter is canonical for
@@ -74,8 +82,11 @@ Decisions about content that drifted and was pulled back across surfaces.
 ## Phase A — implemented (structure A2)
 
 > Build it with `node build.mjs`; verify with `node build.mjs --check`;
-> re-derive core from committed variants with `node extract.mjs`; deploy the
-> codex adapter with `node tools/deploy-codex.mjs`. Tests: `node --test test/*.test.mjs`.
+> re-derive core from committed variants with `node extract.mjs`; install the
+> codex adapter locally for dev with `codex plugin marketplace add . && codex
+> plugin add beacon@beacon` (re-run `plugin add` after edits to refresh the
+> cache — no separate deploy script; see the Codex row above). Tests:
+> `node --test test/*.test.mjs`.
 
 > Full design: `docs/superpowers/specs/2026-05-30-phase-a-core-extraction-design.md`
 > (spike-validated 14/0). An earlier sketch here proposed an A3-style layout with
@@ -97,8 +108,9 @@ beacon/
 
   commands/ references/ scripts/   BUILD OUTPUT at repo root (load paths UNCHANGED)
   scripts/{hook scripts} hooks/ .claude-plugin/   CC-only, hand-kept, build never touches
-  adapters/codex/   beacon-*.md + shared refs/scripts BUILT; SKILL.md + goal-workflows
-                    + repeat-testing + advisor.mjs hand-kept
+  adapters/codex/   beacon-*.md + shared refs/scripts BUILT; .codex-plugin/plugin.json +
+                    skills/beacon/SKILL.md + goal-workflows + repeat-testing + advisor.mjs
+                    hand-kept (adapters/codex/ is the Codex plugin root)
 ```
 
 `build.mjs` operates on an explicit `GENERATED` manifest (not whole directories)

@@ -176,10 +176,11 @@ Do not use the score alone to decide release readiness. Keyboard walkthroughs, z
 
 ## Codex Adapter
 
-Beacon also runs in Codex as a skill. The source lives in `adapters/codex/`; deploy it to:
+Beacon also runs in Codex as a native plugin. The source lives in `adapters/codex/`; install it:
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 The Codex adapter carries the same accessibility and AEO knowledge without the Claude Code hook layer. Codex invokes Beacon by skill or goal, not by PostToolUse hook. See [ADAPTERS.md](./ADAPTERS.md).

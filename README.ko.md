@@ -98,10 +98,11 @@ External scanner는 일부 구조 점검을 보강하거나 대체할 수 있지
 
 ## Codex
 
-Codex adapter는 `adapters/codex/`에 있으며 다음 위치로 배포합니다.
+Codex adapter는 `adapters/codex/`에 있으며, 네이티브 Codex 플러그인으로 설치합니다.
 
-```text
-~/.codex/skills/beacon/
+```bash
+codex plugin marketplace add chiehweihuang/beacon
+codex plugin add beacon@beacon
 ```
 
 See [ADAPTERS.md](./ADAPTERS.md).

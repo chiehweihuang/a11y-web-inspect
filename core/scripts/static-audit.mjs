@@ -8,7 +8,7 @@
 import { readFileSync, writeFileSync, statSync, readdirSync } from 'fs';
 import { basename, join, relative } from 'path';
 import { createHash } from 'crypto';
-import { extractText, assessLang } from './lang-detect.mjs';
+import { extractText, assessLang, isWellFormedLangTag } from './lang-detect.mjs';
 import { detectAuthBarriers, detectAuthBarriersInSource } from './auth-detect.mjs';
 import { assessPdf } from './pdf-detect.mjs';
 import { detectQualityFlags } from './quality-detect.mjs';
@@ -82,7 +82,7 @@ const SEV_REPEAT_CAP = 3;
 // (axe / capture-recipe components are added when Tier-2 findings are merged with their own
 // engine provenance; the pure static engine here is axe-free, so claiming an axe version would
 // be dishonest.)
-const DETECTOR_VERSION = 'beacon-static-audit@11';
+const DETECTOR_VERSION = 'beacon-static-audit@12';
 
 // A category with 1-2 total machine checks is a coin-flip denominator (a single fail
 // reads identically to a six-check 100). N=3 is a CALIBRATION DECISION, not a physical
@@ -546,6 +546,19 @@ function addCheck(stats, category, status) {
   else stats[category].review += 1;
 }
 
+// 2.4.2 Page Titled: mirrors `document.title` — the first HTML <title>
+// element ANYWHERE in the document (a browser's HTML parser accepts <title>
+// outside <head> too, and hidden/body placement doesn't stop it from setting
+// document.title; axe's doc-has-title agrees). An <svg><title> is a
+// different, SVG-namespaced element, not this one, so it's stripped first.
+// Returns the trimmed text content, or '' if no such <title> exists / it has
+// no non-whitespace content (a "hasTitle" caller just checks truthiness).
+function extractDocumentTitle(text) {
+  const noSvg = text.replace(/<svg\b[\s\S]*?<\/svg>/gi, ' ');
+  const m = noSvg.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  return m ? m[1].replace(/<[^>]*>/g, '').trim() : '';
+}
+
 function addFinding(findings, stats, f) {
   // `check` controls which stats bucket this finding lands in (default 'fail').
   // REVIEW-level findings pass check:'review' so they don't count as hard fails.
@@ -648,8 +661,15 @@ function scanFile(file, root, stats, findings) {
     const inHidden = (i) => hiddenRanges.some(([s, e]) => i >= s && i < e);
     const visible = (i) => !inMasked(i) && !inHidden(i);
 
-    addCheck(stats, 'screenreader', /<html[^>]+lang=/.test(text) || !/\.html?$/.test(file) ? 'pass' : 'fail');
-    if (/\.html?$/.test(file) && !/<html[^>]+lang=/.test(text)) {
+    // Real `lang` attribute only — NOT `xml:lang=`/`data-lang=`, which end in the
+    // same substring but are not a language declaration on <html> (a bare \b
+    // still matches right after the ':' in xml:lang, so word-boundary alone
+    // isn't enough). Require the whitespace that separates every real HTML
+    // attribute from the previous one. Quoted or unquoted value.
+    const langMatch = /\.html?$/.test(file) && text.match(/<html\b[^>]*\slang\s*=\s*["']?([^\s"'>]+)/i);
+
+    addCheck(stats, 'screenreader', langMatch || !/\.html?$/.test(file) ? 'pass' : 'fail');
+    if (/\.html?$/.test(file) && !langMatch) {
       addFinding(findings, stats, {
         key: 'html-lang-missing',
         category: 'screenreader',
@@ -663,16 +683,37 @@ function scanFile(file, root, stats, findings) {
         code_before: '<html>',
         code_after: '<html lang="zh-Hant">',
       });
+    } else if (langMatch && !isWellFormedLangTag(langMatch[1])) {
+      // Malformed tag (e.g. "english" — 7 letters, not a 2-3 letter primary
+      // subtag): a real 3.1.1 failure regardless of content, and not something
+      // content-language assessment below can meaningfully judge, so it gets
+      // its own finding instead of falling through to assessLang.
+      addFinding(findings, stats, {
+        key: 'html-lang-invalid',
+        category: 'screenreader',
+        severity: 'warning',
+        wcag: 'WCAG 2.2: 3.1.1 Language of Page',
+        title: 'Declared page language is not a valid language tag',
+        affected_users: 'Screen-reader users and translation users',
+        location: `${rel}:1`,
+        description: `<html lang="${langMatch[1]}"> is not a well-formed BCP-47 language tag, so assistive technology and translation tools cannot reliably interpret it.`,
+        fix: 'Use a valid BCP-47 language tag, such as <html lang="en"> or <html lang="zh-Hant">.',
+        code_before: `<html lang="${langMatch[1]}">`,
+        code_after: '<html lang="en">',
+      });
     }
 
-    // Declared lang present: does it match the actual content language? (3.1.1)
-    // The wrong-lang case axe/Lighthouse structurally miss — a declared lang is
-    // always syntactically valid. On JS-heavy pages the static text is too thin
-    // to judge, so assessLang returns INSUFFICIENT and we emit nothing (the
-    // Tier-2 rendered-DOM path covers those). See core/scripts/lang-detect.mjs.
-    const langDecl = /\.html?$/.test(file) && text.match(/<html[^>]*\blang=["']?([^\s"'>]+)/i); // quoted or unquoted
-    if (langDecl) {
-      const verdict = assessLang(langDecl[1], extractText(text));
+    // Declared lang present AND well-formed: does it match the actual content
+    // language? (3.1.1) The wrong-lang case axe/Lighthouse structurally miss —
+    // a declared lang is always syntactically valid. On JS-heavy pages the
+    // static text is too thin to judge, so assessLang returns INSUFFICIENT and
+    // we emit nothing (the Tier-2 rendered-DOM path covers those). See
+    // core/scripts/lang-detect.mjs. A malformed tag (handled above) skips this
+    // entirely — content-matching a tag that isn't a real language is moot,
+    // and assessLang's own COUNTRY_AS_LANG path still covers shape-valid-but-
+    // wrong codes like "jp"/"kr"/"cn"/"tw" via html-lang-mismatch below.
+    if (langMatch && isWellFormedLangTag(langMatch[1])) {
+      const verdict = assessLang(langMatch[1], extractText(text));
       const suggest = verdict.detectedLang || { han: 'zh-Hant', jpn: 'ja', hangul: 'ko', latin: 'en' }[verdict.detectedFamily] || 'the correct language';
       if (verdict.status === 'FLAG') {
         addFinding(findings, stats, {
@@ -712,7 +753,13 @@ function scanFile(file, root, stats, findings) {
       // function is retained for that redesign but is no longer wired into scoring.
     }
 
-    if (/\.html?$/.test(file) && !/<title\b[^>]*>[^<]+<\/title>/i.test(text)) {
+    // Document title (2.4.2): the first non-empty HTML <title> anywhere in
+    // the document — matches document.title semantics (location, including
+    // inside <body> or a hidden element, doesn't stop a browser from setting
+    // it). An inline <svg><title> is a different element type, excluded.
+    // Whitespace-only content (`<title>   </title>`) is treated as absent.
+    const docTitle = /\.html?$/.test(file) ? extractDocumentTitle(text) : null;
+    if (/\.html?$/.test(file) && !docTitle) {
       addFinding(findings, stats, {
         key: 'document-title-missing',
         category: 'screenreader',

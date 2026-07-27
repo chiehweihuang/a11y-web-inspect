@@ -353,6 +353,59 @@ snapshot (`beacon-benchmark-100` #97): diffing engine output before/after this f
 exactly one finding ADDED (`contrast-not-verified`), zero REMOVED, and `overall_score`/
 `critical`/`warnings` byte-identical.
 
+### Engine `beacon-static-audit@12` — document-title and html-lang presence/validity bugs (hakuso audit, `plans/2026-07-27-wcag-coverage-measurement.md`)
+
+The coverage-measurement audit ran fixtures against the code (not just the table) and found
+two of the three cited FULL-coverage rows were actually PARTIAL, both one-regex bugs:
+
+- **2.4.2 Page Titled** (`document-title-missing`): the check
+  `/<title\b[^>]*>[^<]+<\/title>/` matched a `<title>` ANYWHERE in the raw text, so a page
+  with an `<svg><title>icon label</title></svg>` and no real document title was reported
+  clean, and `[^<]+` (one-or-more, not one-or-more-non-whitespace) let
+  `<title>   </title>` pass as present. **Fix**: `extractDocumentTitle()` strips any inline
+  `<svg>...</svg>` first (an `<svg><title>` is a different, SVG-namespaced element, not the
+  document title), then requires the first remaining `<title>`'s trimmed text to be
+  non-empty. It intentionally does NOT scope to before `</head>`/`<body>` — a first attempt
+  did, and a hakuso auditor caught it in real Chromium: `document.title` is "the first HTML
+  `<title>` element in the document," and a browser's parser (and axe's `doc-has-title`)
+  honor one anywhere, body or hidden ancestor included; scoping to `<head>` over-flagged real
+  titled pages as missing (below).
+- **3.1.1 Language of Page** (`html-lang-missing` / new `html-lang-invalid`): the presence
+  test `/<html[^>]+lang=/` was satisfied by the `xml:lang=` substring (a bare `\b` boundary
+  still matches right after the `:` in `xml:lang`, so word-boundary alone doesn't exclude
+  it) — a page with only `xml:lang` was reported as having a declared language. There was
+  also no format-validity check at all: `<html lang="english">` passed silently, because
+  `assessLang`'s `declaredFamily()` falls through to `UNMODELLED` (no finding) for anything
+  it doesn't recognize as a real language or a known country-code substitution. **Fix**:
+  the presence/value regex now requires the whitespace that separates every real HTML
+  attribute (`/<html\b[^>]*\slang\s*=\s*["']?([^\s"'>]+)/`, excludes `xml:lang=`/
+  `data-lang=`), and a new `isWellFormedLangTag()` in `lang-detect.mjs` gates a well-formed
+  BCP-47 shape (2-3 ALPHA primary subtag, optional `-`-separated 1-8-alphanumeric subtags —
+  a SHAPE check, not an ISO 639 registry lookup) before content-mismatch assessment runs.
+  A malformed tag gets the new `html-lang-invalid` finding and skips `assessLang` entirely
+  (content-matching a tag that isn't a real language is moot). A shape-valid-but-wrong code
+  ("jp" for "ja") is a *different*, already-handled failure mode — `assessLang`'s existing
+  `COUNTRY_AS_LANG` path still catches those via `html-lang-mismatch`, unchanged; the two
+  checks are complementary, not duplicated.
+
+**Golden vectors**: fingerprint-only diff (neither fixture exercises these edge cases —
+`clean.html` has a real title and a valid `lang="en"`; `dirty.html` has no title and no
+lang at all, both already caught pre-fix). **GT retention**: re-ran old-vs-new engine on
+all 20 `benchmark/2026-07-06-ground-truth/` site snapshots — zero finding-set diff for
+`html-lang-*`/`document-title-missing` on any site, and zero diff on the broader
+`benchmark/2026-07-05/` 86-site population (ADDED 0 / REMOVED 0). A head/body-scoped first
+attempt at the title fix DID add one finding on that 86-site population
+(`document-title-missing` on the linear.app snapshot, idx 77) — that page's only `<title>`
+sits inside a `<div hidden="">` in the body, no title anywhere in `<head>`. It was
+initially logged here as "a genuine catch" on the reasoning that `hidden` content is
+already excluded from every other finding/pass in this engine; a hakuso auditor verified
+in real Chromium that this reasoning does not apply to `document.title` (the property
+reads DOM structure, not the accessibility tree — `hidden` never blocks it) and axe's own
+`doc-has-title` agrees, making it a **false positive**, not a catch. Dropping the head/body
+scope (keeping the svg-strip and the trim) fixed it: 0/0 diff on both populations, plus a
+new regression fixture asserting a hidden-body-div title does NOT flag
+(`test/static-audit-detectors.test.mjs`).
+
 ## L3 — external validity protocol
 
 **Paired benchmark** (`benchmark/2026-07-05/`): re-run on the stored snapshots after
@@ -423,13 +476,14 @@ node tools/measure-semantic.mjs --min-precision 1.0 --min-recall 0.4
 
 Record in CHANGELOG: engine version, Spearman, and (when GT re-ran) P/R.
 
-## Measured state (2026-07-25, engines `beacon-static-audit@11` + `beacon-tier2-audit@2`)
+## Measured state (2026-07-27, engines `beacon-static-audit@12` + `beacon-tier2-audit@2`)
 
 | Metric | Value |
 |---|---|
-| Spearman vs Lighthouse a11y (n=71) | 0.354 (@3) → 0.474 (@4) → 0.488 (@5/@6) → 0.480 (@7) → 0.477 (@8) → 0.468 (@9); no @10/@11 rerun — both add only `check:'review'` findings, expected score-neutral (not yet empirically confirmed on the full cohort) |
-| Ground-truth P/R, pattern-level | @4: 0.600 / 0.591 → @6: 0.979 / 0.712 → @8/@9/@10/@11: **1.000 / 0.727** (48/48 TPs incl. the recovered aria-heading case; FP 0; @9-@11 are category-level-neutral, findings unchanged for GT purposes — contrast is not a GT criterion and `@10`/`@11` findings are all `check:'review'`, which GT's FP adjudication never touches) · Lighthouse 0.811 / 0.462 |
-| Ground-truth recall, instance-level | @4: 0.743 → @6: 0.826 → @8/@9/@10/@11: **0.829** · Lighthouse 0.225 |
+| Spearman vs Lighthouse a11y (n=71) | 0.354 (@3) → 0.474 (@4) → 0.488 (@5/@6) → 0.480 (@7) → 0.477 (@8) → 0.468 (@9); no @10-@12 rerun — @10/@11 add only `check:'review'` findings and @12 was confirmed byte-identical on all 20 GT + 86 benchmark-population sites (below), so all three are expected score-neutral on this cohort (not yet empirically re-run) |
+| Ground-truth P/R, pattern-level | @4: 0.600 / 0.591 → @6: 0.979 / 0.712 → @8/@9/@10/@11/@12: **1.000 / 0.727** (48/48 TPs incl. the recovered aria-heading case; FP 0; @9-@12 are category-level-neutral, findings unchanged for GT purposes — contrast is not a GT criterion, `@10`/`@11` findings are all `check:'review'` (never touched by GT's FP adjudication), and @12's `html-lang-*`/`document-title-missing` fixes produced zero finding-set diff on all 20 GT site snapshots, re-verified directly) · Lighthouse 0.811 / 0.462 |
+| Ground-truth recall, instance-level | @4: 0.743 → @6: 0.826 → @8/@9/@10/@11/@12: **0.829** · Lighthouse 0.225 |
+| @12 title/lang bug fix retention | Old-vs-new engine diff on `html-lang-*`/`document-title-missing` findings, final (post-correction) version: 20/20 GT sites zero diff; 86-site `benchmark/2026-07-05/` population zero diff (ADDED 0 / REMOVED 0) — see the `@12` engine-section detail above for the head/body-scoped first attempt's one false positive (linear.app idx 77) and the fix that removed it |
 | @5 re-verification | 14/15 FP classes eliminated, 39/39 TPs retained, 18 new catches |
 | @7 wild input-label FP elimination | 46/57 findings were wrapped-input FPs → 0; only jnto (+20) and spotify (+8) moved |
 | @9 thin-evidence state (`insufficient-evidence`, N=3) | Spearman 0.477 → 0.468 (n=71); score-delta median \|Δ\| 7, p95 19, max 23 across 85 comparable sites, 18 band flips; `total_findings` byte-identical @8→@9 on all 85 sites incl. all 7 `gt-remap-6` sites (finding emission unaffected) |

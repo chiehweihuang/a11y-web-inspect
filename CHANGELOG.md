@@ -88,6 +88,29 @@ contrast gate (`beacon-static-audit@11`).
   findings. No benchmark Spearman rerun was performed for `@10`/`@11` — expected
   score-neutral for the static engine's own findings per the argument above, not yet
   empirically confirmed on the full cohort.
+- **Engine bump to `beacon-static-audit@12`** (hakuso audit of a WCAG coverage-measurement
+  document found these with fixtures, `plans/2026-07-27-wcag-coverage-measurement.md`):
+  two `document-title-missing`/`html-lang-missing` false-negative bugs, fixed at the root.
+  `document-title-missing`'s check matched a `<title>` anywhere in the raw text (including
+  inside an `<svg><title>` icon label) and accepted whitespace-only content; it now strips
+  inline `<svg>` (a different, SVG-namespaced element) and requires non-empty trimmed text
+  on the first remaining `<title>`, matching `document.title` semantics — a first attempt
+  additionally scoped the search to before `</head>`/`<body>`, which a hakuso auditor caught
+  in real Chromium as over-flagging real titled pages (a `<title>` in the body or a hidden
+  ancestor still sets `document.title`); dropped, keeping only the svg-strip and the trim.
+  `html-lang-missing`'s
+  presence test matched the `xml:lang=` substring (no real `lang` attribute needed); it now
+  requires the whitespace that separates a real HTML attribute. A new `html-lang-invalid`
+  finding (bilingual `FINDING_I18N` entry) catches a malformed tag shape (e.g.
+  `lang="english"`) via a new `isWellFormedLangTag()` BCP-47-shape check in
+  `lang-detect.mjs`, which previously fell through `assessLang` to `UNMODELLED` (silently
+  unflagged) — a shape-valid-but-wrong code like `lang="jp"` is unaffected, still caught by
+  `assessLang`'s existing country-code path. Golden vectors: fingerprint-only diff (neither
+  fixture exercises these cases). GT retention re-verified directly: zero finding-set diff
+  on all 20 `benchmark/2026-07-06-ground-truth/` sites and on the broader 86-site
+  `benchmark/2026-07-05/` population (ADDED 0 / REMOVED 0, final version). Full detail,
+  including the head/body-scoping false positive found and fixed mid-pass: VALIDATION.md's
+  `@12` engine section.
 
 ## [3.2.0] — 2026-07-24
 

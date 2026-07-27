@@ -23,7 +23,7 @@ Run a Beacon review on this component and tell me the remaining accessibility ri
 Codex may run the advisor on changed UI files:
 
 ```bash
-node ~/.codex/skills/beacon/scripts/advisor.mjs path/to/file.tsx
+node scripts/advisor.mjs path/to/file.tsx
 ```
 
 Exit code:
@@ -36,7 +36,7 @@ Exit code:
 Codex may generate an audit JSON:
 
 ```bash
-node ~/.codex/skills/beacon/scripts/static-audit.mjs \
+node scripts/static-audit.mjs \
   --scope "Project homepage" \
   --output reports/a11y/audit-results.json \
   src app public
@@ -45,7 +45,7 @@ node ~/.codex/skills/beacon/scripts/static-audit.mjs \
 Codex may generate the HTML report:
 
 ```bash
-node ~/.codex/skills/beacon/scripts/generate-report.mjs \
+node scripts/generate-report.mjs \
   reports/a11y/audit-results.json \
   --output reports/a11y/a11y-report.html
 ```
@@ -53,7 +53,7 @@ node ~/.codex/skills/beacon/scripts/generate-report.mjs \
 Compare against a previous run:
 
 ```bash
-node ~/.codex/skills/beacon/scripts/generate-report.mjs \
+node scripts/generate-report.mjs \
   reports/a11y/audit-results.json \
   --previous reports/a11y/previous-audit-results.json \
   --output reports/a11y/a11y-report.html
