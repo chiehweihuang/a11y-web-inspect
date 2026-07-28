@@ -528,6 +528,162 @@ corrections, three machine-testable axis flips, two detector-bug fixes at engine
 `beacon-static-audit@12`):
 [`plans/2026-07-27-wcag-coverage-measurement.md`](plans/2026-07-27-wcag-coverage-measurement.md).
 
+### Exclusion mapping — who this scan's silence leaves out
+
+The arithmetic above answers "how much of WCAG has a detector." It does not answer the
+question that matters to a person using the site this scan approved: when this scan is
+silent on a criterion, who does that silence leave out, and why?
+
+Per Kat Holmes, *Mismatch: How Inclusion Shapes Design* (MIT Press, 2018): exclusion is
+the predictable result of a design decision, not a deficiency in the excluded person. Not
+building a detector for a criterion is a decision, and a decision has a subject. The table
+below names that subject instead of leaving it implicit inside a percentage. Every "who"
+is the population each criterion's own WCAG Understanding document ("Intent") names as its
+intended beneficiary — not this project's inference about who might be affected.
+
+Each row's population claim was checked against that specific criterion's own W3C
+Understanding page — not inferred from a neighboring or similarly-named criterion, and not
+defaulted to screen-reader users as a generic AT stand-in. A citation check found 3 wrong
+and 9 imprecise rows out of the original 53 on exactly those two failure modes (borrowing a
+neighbor's population, or substituting a plausible-sounding but unsourced group); all 12
+are corrected below. Full row-by-row source citations, verdicts, and the corrected wording:
+[`plans/2026-07-28-exclusion-mapping-citation-check.md`](plans/2026-07-28-exclusion-mapping-citation-check.md).
+
+#### A. Where a detector could exist, but doesn't (yet), or exists only in part — 46 criteria
+
+These 46 are all marked "machine-testable in principle: YES" in the table above: nothing
+about WCAG's own definition rules out a structural check here. Beacon's silence on them is
+a build decision (not built, or built for one failure mode and not others), not a limit of
+automation itself.
+
+| SC | Level | Coverage | What this scan does not check | Who that leaves out |
+|---|---|---|---|---|
+| 1.1.1 | A | PARTIAL | CSS background-only meaningful images, SVG/canvas/object/embed alternatives get no check at all; alt-text *meaningfulness* is review-only, never scored | Blind and low-vision screen-reader/braille-display users — left out entirely when an image's meaning lives in a CSS background, SVG, canvas, or embedded object with no text alternative, and stuck with a technically-present but useless `alt="image"` the review layer flags but never fails |
+| 1.3.1 | A | PARTIAL | Table header/scope association, fieldset/legend grouping, `aria-owns`/`describedby` validity, reading-order mismatches, definition lists | AT users who can't tell which header a table cell belongs to, whose related form fields lose their grouping, or whose reading order doesn't match the visual layout — this criterion exists to expose structure AT needs, and these are exactly the structures still unchecked |
+| 1.3.2 | A | NONE | No DOM-order-vs-visual-order comparison exists | Screen-reader and other AT users who hear content read in an order that doesn't match the sighted reading order (CSS grid/flex/absolute-position reordering) |
+| 1.3.4 | AA | NONE | No detector | People with mobility impairments using a device mounted in a fixed orientation (wheelchair or bed mount) who cannot physically rotate it to match a portrait- or landscape-only design |
+| 1.3.5 | AA | NONE | No `autocomplete` token check exists | People with cognitive disabilities who rely on autofill or personalized symbols for common fields, and people with motor impairments avoiding re-typing |
+| 1.4.1 | A | NONE | Link-vs-body-text color-only distinction is a checkable structural proxy; no detector implemented | Colorblind users, people with low vision or partial sight, older users experiencing age-related color-vision decline, and users on monochrome or limited-color displays - anyone who cannot distinguish a cue conveyed by color alone (a red required-field mark, a link the same color as body text with no underline) |
+| 1.4.2 | A | NONE | No autoplay-audio detector | Screen-reader users, whose access to their own AT's speech is drowned out by audio that starts playing with no warning and no easy way to stop it |
+| 1.4.3 | AA | PARTIAL | `browserCollectContrastSamples` reads only direct text child nodes: `::before`/`::after`, `::placeholder`, `<input value>`, shadow DOM, and iframe content are never sampled; static-only runs skip contrast entirely | Low-vision readers of exactly the content classes never sampled — placeholder text doubling as a label, generated content, typed-in form values, embedded widgets — none of which get a contrast check at all |
+| 1.4.4 | AA | PARTIAL | Does not verify actual 200%-zoom reflow/clipping | Low-vision users who zoom to 200% and hit horizontally-scrolling or clipped/overlapping text that only appears once the page is actually rendered, which this scan never does |
+| 1.4.5 | AA | NONE | OCR-based detection is checkable (same class as 2.3.1's frame analysis); no detector implemented | Low-vision users who need to resize or recolor text, people with visual tracking problems who need to change its line spacing or alignment, and people with cognitive disabilities affecting reading who need to restyle it to suit their needs - none of whom can do any of that when the text is a picture |
+| 1.4.10 | AA | PARTIAL | No rendered-320px horizontal-scroll/clipping check | Low-vision users at high zoom or on narrow viewports who hit two-dimensional scrolling this scan cannot see without rendering the page |
+| 1.4.11 | AA | NONE | No UI-component/icon border-contrast check | Low-vision users who cannot locate or distinguish the boundary or state of an interactive control (an input outline, a checkbox, an icon) with no enforced contrast |
+| 1.4.12 | AA | NONE | No detector | People with low vision or dyslexia who override line-height, letter-, or word-spacing via a user stylesheet and then hit clipped or overlapping content |
+| 1.4.13 | AA | NONE | No detector | Screen-magnifier users (who see only part of the screen at a time) and people with tremor who trigger a hover tooltip by accident and can't reach, read, or dismiss it before it disappears |
+| 2.1.1 | A | PARTIAL | Custom widgets, drag targets, and canvas controls with no click-listener pattern; non-inline event-binding idioms | Keyboard-only and switch-device users who hit a custom control (a slider, a drag target, a canvas widget) this scan reports as fine because its detector recognizes only one authoring pattern for keyboard handlers |
+| 2.1.2 | A | NONE | `focus-flow.mjs` targets this but is not imported by either audit script | Keyboard-only users trapped inside a component (a modal, a rich-text editor, an embedded widget) with no keyboard path back out |
+| 2.1.4 | A | NONE | No detector | Speech-input users, whose dictation is interpreted as strings of letters and can accidentally fire single-key shortcuts, and keyboard-only users with dexterity challenges who are prone to hitting keys by accident, on a page whose single-key shortcut cannot be turned off or remapped |
+| 2.2.1 | A | NONE | No detector | People with cognitive, learning, or motor disabilities; blind and low-vision users navigating item-by-item; and Deaf users communicating in sign language, who may need more time to interpret audio content - all needing more time than a fixed session or activity timer allows and having no way to extend it |
+| 2.2.2 | A | NONE | `motion-reduced-motion-missing` exists but checks CSS support, not a pause/stop control | People with attention-related cognitive disabilities, and screen-reader/low-vision users, for whom moving or auto-updating content that cannot be paused interferes with reading or concentration |
+| 2.3.1 | A | NONE | No flash-rate/frame analysis exists | People with photosensitive seizure disorders, for whom flashing content above the threshold is a physical trigger, not an inconvenience |
+| 2.4.1 | A | NONE | No skip-link detector | Keyboard and screen-reader users forced to tab or listen through the same repeated navigation block on every single page |
+| 2.4.3 | A | NONE | `focus-flow.mjs` targets this but is not wired into either script | Keyboard users whose Tab order jumps in a sequence that doesn't match the visual or reading order, losing track of where focus is |
+| 2.4.4 | A | PARTIAL | Review-only, catches only the generic-phrase pattern ("click here") | Screen-reader users navigating a page's pulled-out links list who land on link text that's distinct-looking but still uninformative out of context, a pattern this scan's one heuristic doesn't catch |
+| 2.4.5 | AA | NONE | No detector | People with cognitive disabilities and screen-reader users who need more than one way (search, sitemap, nav) to find a page when their first method fails |
+| 2.4.6 | AA | NONE | No detector decides descriptiveness (heading hierarchy/existence are 1.3.1 failure modes, not 2.4.6's) | People whose disabilities make reading slow, and people with limited short-term memory, who rely on a descriptive heading to know what a section contains without reading it in full - and screen-reader users scanning a page by its list of headings, who get one like "Section 3" that tells them nothing about what follows |
+| 2.4.7 | AA | PARTIAL | Doesn't verify indicator contrast/thickness, JS-based removal, or externally-linked CSS | Keyboard-only users (sighted, low-vision, or with certain motor/cognitive conditions) whose focus indicator is technically present but too faint or thin to see, or removed by JavaScript or a stylesheet this scan never loads |
+| 2.4.11 | AA | NONE | `focus-flow.mjs` targets this but is not wired into either script | Keyboard and screen-magnifier users who tab to a control hidden behind a sticky header, cookie banner, or overlay |
+| 2.5.2 | A | NONE | No down-event-vs-up-event detector | People with visual disabilities, cognitive limitations, or motor impairments (including tremor and limited fine motor control) who press the wrong target and need to slide off or release without triggering it |
+| 2.5.3 | A | NONE | No visible-label-vs-accessible-name comparison | Speech-input users, who activate a control by speaking its visible label and get nothing when the accessible name silently differs from it |
+| 2.5.7 | AA | NONE | No drag-listener/alternative detector | People with motor impairments, tremor, or single-switch access who cannot complete an accurate drag gesture (reordering a list, a slider) with no tap/click alternative offered |
+| 2.5.8 | AA | PARTIAL | Inline/equivalent-target-elsewhere/essential-presentation exceptions are not implemented | People with limited fine motor control (tremor, reduced dexterity) hitting a target this scan mis-scores in either direction because it can't yet apply WCAG's own listed exceptions |
+| 3.1.2 | AA | NONE | `detectLangParts` exists but is deliberately gated off (calibration false positives), never emitted | Screen-reader users who hear a foreign-language word, quote, or passage mispronounced because it isn't marked with its own `lang` and gets read in the page's default voice |
+| 3.2.1 | A | NONE | No detector | People with visual disabilities, cognitive limitations, or motor impairments, disoriented by an unannounced context change (new window, auto-submit) triggered merely by an element receiving focus, before they have done anything else |
+| 3.2.2 | A | NONE | No detector | People with visual disabilities or cognitive limitations, disoriented by an unannounced context change triggered by selecting an option or typing, before an explicit submit action (a narrower population than 3.2.1's — this SC's own W3C source does not name motor impairments) |
+| 3.2.3 | AA | NONE | No cross-page structural comparison (both scripts operate per-file/per-page) | Low-vision users who use screen magnification and rely on visual cues and page boundaries to locate repeated content quickly, and blind screen-reader users who navigate sequentially and rely on a consistent source order - both lose that shortcut when navigation's relative order changes from page to page, invisible to a single-page audit by construction |
+| 3.2.4 | AA | NONE | No cross-page structural comparison | People who use screen readers, who rely on familiarity with a consistently-labeled function across pages, and people with cognitive limitations, for whom a control or icon whose identity (label, icon) changes across pages for the same function increases cognitive load |
+| 3.2.6 | A | NONE | No cross-page structural comparison | People with cognitive disabilities who rely on finding help (contact, chat, FAQ) in the same relative place on every page |
+| 3.3.1 | A | NONE | No form-submission/error-association check | Screen-reader users who submit a form and get no text-based indication of which field failed or why, and people with cognitive disabilities who can't tell what needs fixing |
+| 3.3.2 | A | PARTIAL | Only checks `<input>`, not `<select>`/`<textarea>`; exempts any input carrying an `id` without verifying a `<label for>` actually references it | Screen-reader and other AT users on an unlabeled `<select>` or `<textarea>`, or on any input this scan assumed was labeled purely because it has an `id`, with no `<label>` actually pointing at it |
+| 3.3.7 | A | NONE | No multi-step-form field comparison | People with cognitive or motor disabilities forced to re-enter information (name, address) they already gave earlier in the same multi-step process |
+| 3.3.8 | AA | PARTIAL | Custom or non-branded CAPTCHA and hand-rolled cognitive-function-test implementations | People with cognitive disabilities blocked by an in-house puzzle or CAPTCHA that isn't one of the handful of branded services this scan recognizes by fingerprint |
+| 4.1.2 | A | PARTIAL | ARIA state/property correctness, invalid role values, custom-widget value exposure, form controls beyond buttons/links | AT users (screen readers, switch access, voice control) operating a custom widget whose ARIA is present but wrong, incomplete, or absent, so their AT announces a state that doesn't match reality or announces nothing useful |
+| 4.1.3 | AA | NONE | No `aria-live`/`role="status"` detector | Screen-reader users who miss a status update (an item added to a cart, a background error, a loading state) because the page never announces the DOM change a sighted user would simply see |
+| 1.2.2 | A | NONE | No caption-track check exists for prerecorded video (`<track kind="captions">`) | Deaf and hard-of-hearing viewers of prerecorded audio/video content |
+| 1.2.3 | A | NONE | `<track kind="descriptions">` is a checkable structural artifact; no detector implemented | Blind and low-vision viewers who miss visual-only information a video conveys silently (actions, on-screen text, scene changes) |
+| 1.2.5 | AA | NONE | Identical artifact to 1.2.3's caption-track check; no detector implemented | Same population as 1.2.3, at the stronger AA level WCAG sets because it treats audio description as the more reliable solution |
+
+#### B. Where no tool can ever fully decide — the boundary of automation, not a Beacon gap — 7 criteria
+
+These 7 are marked "machine-testable in principle: NO" in the table above. No static or
+dynamic scanner, from any vendor, can structurally decide them: WCAG defines their failure
+condition in terms of meaning a machine cannot judge (does this description convey what the
+video shows, is this a binding legal or financial commitment, would a person find this
+warning sufficient). This is the boundary of what automation can ever be, not a thing
+Beacon chose not to build. It is exactly why human testing, named throughout this
+document's Methodology section, is not an optional supplement to automated scanning —
+these 7 criteria have no automated path at all, by any tool, ever.
+
+| SC | Level | Why no tool can decide this structurally | Who that leaves out |
+|---|---|---|---|
+| 1.2.1 | A | Whether an audio-only or video-only transcript/alternative exists *and is accurate and complete* has no structural proxy | Deaf and hard-of-hearing users, who get no transcript of audio-only content, and blind and low-vision users, who get no description of what a video-only presentation shows |
+| 1.2.4 | AA | Whether captions are present, synchronized, and accurate during a *live* broadcast cannot be checked outside the live event itself | Deaf and hard-of-hearing viewers of live streams, webinars, and broadcasts |
+| 1.3.3 | A | Judging whether an instruction relies solely on shape, size, visual location, orientation, or sound requires reading and understanding the instruction's meaning, not its markup | Blind and low-vision users who cannot perceive a shape- or location-only reference (click the round button on the right). WCAG's own Understanding document names no specific population for the sound-only-cue half of this criterion - that clause rests on the SC's own text, not a sourced population claim |
+| 2.5.1 | A | Whether a multipoint or path-based gesture has a single-pointer alternative is an interaction-design judgment, not a checkable DOM/CSS structure | People with motor impairments, including many single-finger-only touch and switch-device users, who cannot perform a pinch, multi-finger, or path-based gesture |
+| 2.5.4 | A | Whether shaking/tilting a device to trigger an action has a UI alternative, and whether accidental motion can be disabled, is a runtime interaction property, not a static or structural pattern | People with mobility impairments who cannot tilt or shake a device, or who trigger a motion-based control by accident with no way to turn it off, and people whose device is mounted in a fixed position |
+| 3.3.3 | AA | Suggesting a specific, correct fix for invalid input requires understanding both the error and a valid alternative — meaning, not structure | People with cognitive and learning disabilities who know something is wrong but have no idea what value would be accepted, and screen-reader users who need that same information stated in text |
+| 3.3.4 | AA | Whether a reversible-confirm-or-review step exists for a legal, financial, or data-deleting action is a workflow judgment, not a DOM pattern | People with reading disabilities, who may transpose numbers and letters, and people with motor disabilities, who may hit the wrong key or button by mistake - both most exposed to a binding commitment or deletion submitted by mistake with no chance to review or undo it |
+
+**53 criteria mapped** (46 in Group A + 7 in Group B) — every one of the 55 A+AA criteria
+except the two FULL rows (2.4.2, 3.1.1), which are already qualified above as decided only
+within automation's reach, not full conformance.
+
+#### Persona Spectrum: the same limit, three durations
+
+Frame: Microsoft's Inclusive Design Toolkit, "Persona Spectrum" — the same capability limit
+appears as permanent, temporary, and situational, and the design requirement is identical
+across all three. Three examples, drawn only from criteria this scan does not check:
+
+1. **Limited precision in a sustained drag gesture (2.5.7, Dragging Movements - Group A,
+   NONE) — an illustrative extension of the SC's Intent, not itself sourced to WCAG's
+   Understanding page (which frames this criterion around precision/dexterity and adapted
+   single-pointer devices, not hand count).** Permanent: someone with a tremor or a
+   condition affecting fine motor control. Temporary: a wrist injury or a cast limiting
+   precise, sustained pointer movement. Situational: someone operating a device one-handed
+   and unsupported (holding a baby, a bag, a handrail), whose free hand loses the steadiness
+   a supported grip would give it, trying to reorder a list or operate a slider. All three
+   need a tap/click alternative to a drag gesture; none of the three get one from a detector
+   this scan doesn't have.
+2. **Needing more time than a fixed limit allows (2.2.1, Timing Adjustable — Group A,
+   NONE).** Permanent: a cognitive or learning disability that slows reading and decision
+   time. Temporary: recovering from a concussion or general anesthesia, with processing
+   speed measurably reduced for days or weeks. Situational: filling out a form on a slow
+   or unstable connection while also watching a toddler, so each step takes long enough
+   that a session timer expires before the task is done.
+3. **Cannot access audio right now (1.2.2, Captions (Prerecorded) — Group A, NONE).**
+   Permanent: someone who is Deaf. Temporary: an ear infection or recent ear surgery.
+   Situational — the case most sighted, hearing readers recognize immediately: watching a
+   video with the sound off on a commuter train, in an open-plan office, or in a waiting
+   room, because playing audio out loud isn't acceptable there. A person with full hearing
+   is, in that moment, exactly as dependent on captions as someone who is Deaf.
+
+The frame is descriptive, not statistical: it names why the same fix serves overlapping
+groups, not how many people are in each group.
+
+#### How many people does this leave out?
+
+Not a number this document can produce, and stating one here would be fabrication, not
+measurement. What can honestly be counted: the 53 rows above name roughly a dozen
+recurring populations — blind and low-vision screen-reader/braille-display users, D/deaf
+and hard-of-hearing users, deafblind users, colorblind users, people with photosensitive
+seizure disorders, people with cognitive and learning disabilities, people with motor
+impairments (including tremor and limited dexterity), speech-input users, keyboard-only
+and switch-device users, and people using a fixed-mount device. That is a count of
+**categories of need**, named by WCAG's own stated rationale and appearing repeatedly
+across criteria — not a count of people, and not a share of any site's users.
+
+No dataset ties a WCAG criterion to a number or a percentage of real users it protects.
+Disability prevalence statistics, assistive-technology usage surveys, and
+situational-limitation incidence are each measured separately, by different methods, for
+different populations, at different times — and none of them decomposes per WCAG
+criterion. Treating "14/55 criteria covered" as "X% of users protected" would blend two
+quantities that were never the same kind of measurement (see the criteria-vs-instances
+warning above); inventing a headcount or a "this protects N% of users" figure for this
+table specifically would go one step further and publish a number with no source at all.
+This document does not do either.
+
 ## L4 — fairness invariants
 
 - **Same defect, same penalty in every dialect**: the cross-stack test renders
