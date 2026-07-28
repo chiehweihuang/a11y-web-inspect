@@ -63,6 +63,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ये आंकड़े कैसे honest रखे जाते हैं (reliability, detector validity, score-semantics properties, external benchmarks, और fairness invariants), यह [VALIDATION.md](VALIDATION.md) में specify और executable रूप में दिया गया है; measured data [benchmark/](benchmark/) के तहत है।
 
+Industry में आमतौर पर अनुमान लगाया जाता है कि automated tools WCAG criteria का लगभग 30-40% कवर करते हैं। Beacon ने अपनी coverage खुद measure की: WCAG 2.2 के 55 A+AA criteria में से 14 में कोई-न-कोई coverage है (25.5%), और 2, automation की पहुंच के भीतर पूरी तरह decide होते हैं (3.6%) — row-by-row table और re-derive करने का तरीका [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage) में है।
+
 ## Categories
 
 | Category | What it checks |

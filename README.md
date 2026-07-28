@@ -112,6 +112,11 @@ How these numbers are kept honest — reliability, detector validity, score-sema
 properties, external benchmarks, and fairness invariants — is specified and executable
 in [VALIDATION.md](VALIDATION.md); the measured data lives under [benchmark/](benchmark/).
 
+Automated tools are often estimated to cover ~30-40% of WCAG criteria industry-wide.
+Beacon measured its own coverage: of WCAG 2.2's 55 A+AA criteria, 14 have any coverage
+(25.5%) and 2 are fully decided within automation's reach (3.6%) — row-by-row table and
+re-derivation method in [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage).
+
 ## Inspection Categories
 
 | Category | What it checks |

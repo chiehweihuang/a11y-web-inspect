@@ -63,6 +63,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ตัวเลขเหล่านี้ถูกรักษาความน่าเชื่อถืออย่างไร (reliability, ความถูกต้องของ detector, คุณสมบัติ score-semantics, benchmark ภายนอก, และ fairness invariant) ถูกระบุไว้และรันได้จริงใน [VALIDATION.md](VALIDATION.md) ข้อมูลที่วัดได้อยู่ใน [benchmark/](benchmark/)
 
+อุตสาหกรรมมักประเมินว่าเครื่องมืออัตโนมัติครอบคลุมเกณฑ์ WCAG ประมาณ 30-40% Beacon วัดความครอบคลุมของตัวเองแล้ว: จาก 55 เกณฑ์ A+AA ของ WCAG 2.2 มี 14 เกณฑ์ที่มีความครอบคลุมบ้าง (25.5%) และ 2 เกณฑ์ที่ตัดสินได้ครบถ้วนภายในขอบเขตที่ระบบอัตโนมัติทำได้ (3.6%) — ตารางไล่ทีละเกณฑ์และวิธีคำนวณซ้ำอยู่ที่ [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage)
+
 ## Categories
 
 | Category | What it checks |

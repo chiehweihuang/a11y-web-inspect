@@ -63,6 +63,8 @@ Mỗi điểm số đi kèm `coverage_percent`, tức là phần scoring weight 
 
 Cách các con số này được giữ trung thực (reliability, tính hợp lệ của detector, tính chất score-semantics, benchmark bên ngoài, và fairness invariant) được quy định và có thể thực thi trong [VALIDATION.md](VALIDATION.md); dữ liệu đo lường nằm trong [benchmark/](benchmark/).
 
+Ngành công nghiệp thường ước tính công cụ tự động bao phủ ~30-40% tiêu chí WCAG. Beacon đã tự đo lường độ bao phủ của mình: trong 55 tiêu chí A+AA của WCAG 2.2, 14 tiêu chí có độ bao phủ (25.5%) và 2 tiêu chí được quyết định đầy đủ trong phạm vi tự động hóa (3.6%) — bảng đối chiếu từng tiêu chí và cách tính lại có tại [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage).
+
 ## Categories
 
 | Category | What it checks |

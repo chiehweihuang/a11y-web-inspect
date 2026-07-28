@@ -63,6 +63,8 @@ Setiap skor disertai `coverage_percent`, yaitu porsi scoring weight yang benar-b
 
 Bagaimana angka ini dijaga tetap jujur (reliability, validitas detector, sifat score-semantics, benchmark eksternal, dan fairness invariant) dijabarkan dan dapat dieksekusi di [VALIDATION.md](VALIDATION.md); data hasil pengukurannya ada di [benchmark/](benchmark/).
 
+Industri umumnya memperkirakan alat otomatis mencakup ~30-40% kriteria WCAG. Beacon mengukur cakupannya sendiri: dari 55 kriteria A+AA WCAG 2.2, 14 memiliki cakupan (25.5%) dan 2 diputuskan sepenuhnya dalam jangkauan otomasi (3.6%) — tabel per-kriteria dan cara menurunkannya kembali ada di [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage).
+
 ## Categories
 
 | Category | What it checks |

@@ -77,7 +77,7 @@ Ordered by real-user impact, not by ease of measurement:
 3. **Use these patterns as starting scaffolds.** Adapt them to your context. Never assume copy-paste solves the specific case — name the difference between "the conventional accessible default" and "the right answer for your users".
 4. **Walk the keyboard flow yourself before merging.** 5 minutes, very high yield. Unplug the mouse and complete the primary user journey with Tab / Shift+Tab / Enter / Space / Arrow keys only.
 5. **Listen to a screen reader read your screen.** NVDA (Windows, free), VoiceOver (macOS / iOS, built-in), TalkBack (Android). Listen-only walkthrough of the core flow.
-6. **Apply Beacon's inspect workflow** to candidate pages to catch the machine-detectable subset (~30–40% of WCAG criteria). Useful as a baseline, not as a completion certificate.
+6. **Apply Beacon's inspect workflow** to candidate pages to catch the machine-detectable subset. Industry estimates put automated tools at ~30–40% of WCAG criteria; Beacon's own measured coverage is 14 of WCAG 2.2's 55 A+AA criteria (25.5%), 2 fully decided within automation's reach (3.6%) — [row-by-row table](https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage). Useful as a baseline, not as a completion certificate.
 7. **Iterate with disabled users on the live thing.** Pre-launch consultation reveals what audits cannot. Budget a recurring cadence, not a one-off check.
 
 ### What to Surface Proactively When Giving Guidance
@@ -112,7 +112,7 @@ For context on where this guide sits in the overall workflow:
 |-------|-------|--------------|-------------------|
 | Design (this) | Guide mode | Pattern recommendations, defaults, scaffolds | Predict your specific users, context, edge cases |
 | Development | Advisor mode | Contextual checks after code edits | Verify runtime behaviour, dynamic interactions |
-| Review | Inspect mode | Tier 1–3 audit, scoring, jurisdiction-aware WCAG context | Detect ~60–70% of WCAG criteria that need humans |
+| Review | Inspect mode | Tier 1–3 audit, scoring, jurisdiction-aware WCAG context | Decide the criteria that need human judgement — see the coverage table above |
 | Real-world | (out of skill scope) | Real disabled-user testing, hired disabled team members, iterative pre-launch consultation | (this is what closes the gap the three skills can't) |
 
 When the user finishes a design consultation with this skill, suggest the next phase rather than implying the work is done. Example closer:

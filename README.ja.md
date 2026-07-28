@@ -61,6 +61,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 これらの数値がどのように誠実さを保っているか(信頼性、detector の妥当性、score-semantics の性質、外部 benchmark、fairness invariant)は [VALIDATION.md](VALIDATION.md) に仕様化され、実行可能な形で記載されています。計測データは [benchmark/](benchmark/) 以下にあります。
 
+自動化ツールの WCAG カバー率は業界全体でおよそ 30-40% と推定されることが多いです。Beacon は自分自身のカバー率を実測しました: WCAG 2.2 の 55 件の A+AA 基準のうち、14 件に何らかのカバレッジがあり(25.5%)、2 件は自動化が届く範囲内で完全に判定できます(3.6%)。逐条対照表と再計算方法は [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage) を参照してください。
+
 ## Categories
 
 | Category | What it checks |

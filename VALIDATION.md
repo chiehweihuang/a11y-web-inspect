@@ -431,6 +431,103 @@ are RECORDED, never silently edited.
 - Heading order is judged on the AT-visible sequence (hidden headings excluded);
   `role="heading" aria-level` participates; native headings with `role="presentation|none"` do not (implemented in engine @8).
 
+<a id="wcag-criterion-coverage"></a>
+## WCAG 2.2 A+AA criterion coverage — measured, not inherited
+
+This is the canonical, stable home for the claim every published report and README links
+to; do not move or rename this section without repointing every surface that cites
+`VALIDATION.md#wcag-criterion-coverage`. The working record — denominator derivation,
+escape-hatch rule, and the hakuso audit trail that corrected five row verdicts and three
+axis calls — stays at `plans/2026-07-27-wcag-coverage-measurement.md`; this section is the
+result, kept in sync with it.
+
+**Denominator**: WCAG 2.2's A+AA set is **55** criteria (31 A + 24 AA), not 2.1's 50 — 2.2
+added six (2.4.11, 2.5.7, 2.5.8, 3.2.6, 3.3.7, 3.3.8) and removed one (4.1.1 Parsing,
+deprecated). Source: the WCAG 2.2 Recommendation and quickref, filtered to A/AA.
+
+**Axes**: *Machine-testable in principle* — could any tool decide at least one real failure
+mode without judging meaning? (escape-hatch rule: YES if any one satisfying path has a
+structural proxy, even if another path is judgement-only). *Beacon coverage* — FULL if a
+detector decides the criterion for every realistic automatable failure mode; PARTIAL if it
+catches some but not all; NONE if no detector exists. "Fully decided" below always means
+**within automation's reach** — a criterion whose only remaining failure modes are
+inherently semantic (e.g. 2.4.2's title *presence* is decided; title *descriptiveness* is
+not, and no automated tool decides it either).
+
+| # | Criterion | Level | Machine-testable in principle | Beacon coverage | Detector key(s) | What's missed |
+|---|---|---|---|---|---|---|
+| 1.1.1 | Non-text Content | A | YES | **PARTIAL** | `image-alt-missing`; `quality-alt-generic`/`quality-alt-filename`/`quality-alt-redundant` (review) | CSS background-only meaningful images, SVG/canvas/object/embed alternatives; alt-text *meaningfulness* is review-only, never a scored fail |
+| 1.2.1 | Audio-only and Video-only (Prerecorded) | A | NO | NONE | — | no detector |
+| 1.2.2 | Captions (Prerecorded) | A | YES | NONE | — | no `<track kind="captions">`/caption-file check exists in either script |
+| 1.2.3 | Audio Description or Media Alternative (Prerecorded) | A | YES | NONE | — | `<track kind="descriptions">` is a checkable structural artifact (escape-hatch rule); no detector implemented |
+| 1.2.4 | Captions (Live) | AA | NO | NONE | — | no detector |
+| 1.2.5 | Audio Description (Prerecorded) | AA | YES | NONE | — | `<track kind="descriptions">` is the identical artifact to 1.2.2's caption-track check; no detector implemented |
+| 1.3.1 | Info and Relationships | A | YES | **PARTIAL** | `main-landmark-missing`; `heading-level-skipped`; `list-non-li-child`; `pdf-untagged`; `pdf-marked-false`; `pdf-encrypt-blocks-at`; `pdf-encrypt-a11y-bit-cleared` | table header/scope association, fieldset/legend grouping, aria-owns/describedby validity, reading-order mismatches, definition lists |
+| 1.3.2 | Meaningful Sequence | A | YES | NONE | — | no DOM-order-vs-visual-order comparison exists in either script |
+| 1.3.3 | Sensory Characteristics | A | NO | NONE | — | no detector |
+| 1.3.4 | Orientation | AA | YES | NONE | — | no detector |
+| 1.3.5 | Identify Input Purpose | AA | YES | NONE | — | no `autocomplete` token check exists |
+| 1.4.1 | Use of Color | A | YES | NONE | — | link-vs-body-text color-only distinction is a checkable structural proxy; no detector implemented |
+| 1.4.2 | Audio Control | A | YES | NONE | — | no autoplay-audio detector |
+| 1.4.3 | Contrast (Minimum) | AA | YES | **PARTIAL**† | `tier2-contrast-fail`; `tier2-contrast-unresolvable` (review); `static-contrast-sub-threshold` (review, static-audit only); `contrast-not-verified` (review); `static-contrast-evidence` (review) | †only when `tier2-audit.mjs` is run and merged. `browserCollectContrastSamples` reads only direct text child nodes, so `::before`/`::after`, `::placeholder`, `<input value>`, shadow DOM, and iframe content are never sampled |
+| 1.4.4 | Resize Text | AA | YES | **PARTIAL** | `viewport-zoom-disabled` | does not verify actual 200%-zoom reflow/clipping |
+| 1.4.5 | Images of Text | AA | YES | NONE | — | OCR-based detection is checkable (same class as 2.3.1's frame analysis); no detector implemented |
+| 1.4.10 | Reflow | AA | YES | **PARTIAL** | `viewport-meta-missing`; `fixed-minmax-overflow`; `large-fixed-width` (review) | no rendered-320px horizontal-scroll/clipping check |
+| 1.4.11 | Non-text Contrast | AA | YES | NONE | — | no UI-component/icon border-contrast check |
+| 1.4.12 | Text Spacing | AA | YES | NONE | — | no detector |
+| 1.4.13 | Content on Hover or Focus | AA | YES | NONE | — | no detector |
+| 2.1.1 | Keyboard | A | YES | **PARTIAL** | `clickable-non-button`; `click-handler-keyboard-missing` | custom widgets/drag targets/canvas controls with no click-listener pattern; non-inline event-binding idioms |
+| 2.1.2 | No Keyboard Trap | A | YES | NONE | — | `focus-flow.mjs` targets this but is not imported by either audit script |
+| 2.1.4 | Character Key Shortcuts | A | YES | NONE | — | no detector |
+| 2.2.1 | Timing Adjustable | A | YES | NONE | — | no detector |
+| 2.2.2 | Pause, Stop, Hide | A | YES | NONE | — | `motion-reduced-motion-missing` exists but checks CSS support, not a pause/stop control |
+| 2.3.1 | Three Flashes or Below Threshold | A | YES (specialized frame analysis, e.g. PEAT) | NONE | — | no flash-rate/frame analysis exists |
+| 2.4.1 | Bypass Blocks | A | YES | NONE | — | no skip-link detector |
+| 2.4.2 | Page Titled | A | YES | **FULL**‡ | `document-title-missing`; `pdf-title-not-shown` | ‡decides presence/non-emptiness only; title *descriptiveness* is semantic and outside any automated check's reach |
+| 2.4.3 | Focus Order | A | YES | NONE | — | `focus-flow.mjs` targets this but is not wired into either script |
+| 2.4.4 | Link Purpose (In Context) | A | YES | **PARTIAL** | `quality-link-generic` (review) | review-only, catches only the generic-phrase pattern |
+| 2.4.5 | Multiple Ways | AA | YES | NONE | — | no detector |
+| 2.4.6 | Headings and Labels | AA | YES | NONE | — | no detector decides descriptiveness (heading hierarchy and existence are 1.3.1 failure modes, not 2.4.6's) |
+| 2.4.7 | Focus Visible | AA | YES | **PARTIAL** | `focus-outline-removed` | doesn't verify indicator contrast/thickness, JS-based removal, or externally-linked CSS |
+| 2.4.11 | Focus Not Obscured (Minimum) | AA | YES | NONE | — | `focus-flow.mjs` targets this but is not wired into either script |
+| 2.5.1 | Pointer Gestures | A | NO | NONE | — | no detector |
+| 2.5.2 | Pointer Cancellation | A | YES | NONE | — | no down-event-vs-up-event detector |
+| 2.5.3 | Label in Name | A | YES | NONE | — | no visible-label-vs-accessible-name comparison |
+| 2.5.4 | Motion Actuation | A | NO | NONE | — | no detector |
+| 2.5.7 | Dragging Movements | AA | YES | NONE | — | no drag-listener/alternative detector |
+| 2.5.8 | Target Size (Minimum) | AA | YES | **PARTIAL**† | `tier2-touch-target-fail`; `tier2-touch-target-advisory` (review) | †only with `tier2-audit.mjs`. `VALIDATION.md` L2 states the inline/equivalent-target-elsewhere/essential-presentation exceptions are NOT implemented |
+| 3.1.1 | Language of Page | A | YES | **FULL**‡ | `html-lang-missing`; `html-lang-mismatch`; `html-lang-mismatch-review`; `html-lang-invalid`; `pdf-lang-missing` | ‡content-mismatch layer falls back to no-finding on JS-heavy pages with too little static text |
+| 3.1.2 | Language of Parts | AA | YES | NONE | — | `detectLangParts` exists but is deliberately gated off (calibration false-positives), never emitted |
+| 3.2.1 | On Focus | A | YES | NONE | — | no detector |
+| 3.2.2 | On Input | A | YES | NONE | — | no detector |
+| 3.2.3 | Consistent Navigation | AA | YES | NONE | — | no cross-page structural comparison — both scripts operate per-file/per-page |
+| 3.2.4 | Consistent Identification | AA | YES | NONE | — | no cross-page structural comparison |
+| 3.2.6 | Consistent Help | A | YES | NONE | — | no cross-page structural comparison |
+| 3.3.1 | Error Identification | A | YES | NONE | — | no form-submission/error-association check |
+| 3.3.2 | Labels or Instructions | A | YES | **PARTIAL** | `input-label-missing` | only checks `<input>`, not `<select>`/`<textarea>`; exempts any input carrying an `id` without verifying a `<label for>` references it |
+| 3.3.3 | Error Suggestion | AA | NO | NONE | — | no detector |
+| 3.3.4 | Error Prevention (Legal, Financial, Data) | AA | NO | NONE | — | no detector |
+| 3.3.7 | Redundant Entry | A | YES | NONE | — | no multi-step-form field comparison |
+| 3.3.8 | Accessible Authentication (Minimum) | AA | YES | **PARTIAL** | `auth-recaptcha-invisible`; `auth-recaptcha-v2`; `auth-turnstile`; `auth-text-captcha`; `auth-password-paste-blocked`; `auth-password-autocomplete-off`; `auth-recaptcha-js-render`; `auth-hcaptcha-js-render`; `auth-captcha-injected-script`; `auth-password-clipboard-blocked-js` | custom/non-branded CAPTCHA and hand-rolled cognitive-function-test implementations |
+| 4.1.2 | Name, Role, Value | A | YES | **PARTIAL** | `frame-title-missing`; `button-name-missing`; `link-name-missing`; `quality-label-role-echo` (review); `pdf-encrypt-blocks-at`; `pdf-encrypt-a11y-bit-cleared` | ARIA state/property correctness, invalid role values, custom-widget value exposure, form controls beyond buttons/links |
+| 4.1.3 | Status Messages | AA | YES | NONE | — | no `aria-live`/`role="status"` detector |
+
+**Arithmetic**: 2 FULL + 12 PARTIAL = 14 criteria with any coverage → **14/55 = 25.5%**.
+FULL only (2.4.2, 3.1.1 — the only two rows that reach FULL, both within automation's
+reach, not full conformance): **2/55 = 3.6%**. Against the 48 machine-testable-in-principle
+criteria (7 are NO — 1.2.1, 1.2.4, 1.3.3, 2.5.1, 2.5.4, 3.3.3, 3.3.4): any coverage
+**14/48 = 29.2%**, FULL only **2/48 = 4.2%**.
+
+This measures *criteria* (how many of WCAG's 55 A+AA categories have any Beacon detector),
+not *instances* (how many real violations Beacon catches on a benchmark corpus — that is
+the 0.727 ground-truth recall figure above, a different denominator). Do not average,
+blend, or substitute one for the other in any report.
+
+Full derivation, the escape-hatch rule, and the hakuso audit trail (five row-verdict
+corrections, three machine-testable axis flips, two detector-bug fixes at engine
+`beacon-static-audit@12`):
+[`plans/2026-07-27-wcag-coverage-measurement.md`](plans/2026-07-27-wcag-coverage-measurement.md).
+
 ## L4 — fairness invariants
 
 - **Same defect, same penalty in every dialect**: the cross-stack test renders

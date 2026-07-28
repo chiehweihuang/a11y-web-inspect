@@ -1,5 +1,9 @@
 # WCAG 2.2 A+AA criterion coverage — measured, not inherited
 
+**Canonical published home**: `VALIDATION.md#wcag-criterion-coverage`. Every client-facing
+report and README links there, not here — that file is never pruned. This document is the
+working record: full derivation, the escape-hatch rule, and the hakuso audit trail below.
+
 Replaces the inherited "automated tools cover ~30-40% of WCAG criteria" line
 (source of that hearsay figure: `core/scripts/generate-report.mjs:1272-1273`,
 `1336-1337`, `1623`; `tools/validate-patterns.mjs:27`; duplicated in

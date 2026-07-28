@@ -61,6 +61,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 이 수치가 정직하게 유지되는 방식(신뢰성, detector 유효성, score-semantics 속성, 외부 benchmark, fairness invariant)은 [VALIDATION.md](VALIDATION.md)에 명세되어 실행 가능한 형태로 기록되어 있습니다. 측정 데이터는 [benchmark/](benchmark/) 아래에 있습니다.
 
+업계에서는 자동화 도구가 WCAG 기준의 약 30-40%를 커버한다고 추정합니다. Beacon은 자체 커버리지를 측정했습니다: WCAG 2.2의 A+AA 55개 기준 중 14개에 어떤 형태로든 커버리지가 있고(25.5%), 2개는 automation이 닿는 범위 내에서 완전히 판정됩니다(3.6%) — 항목별 대조표와 재계산 방법은 [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage)에 있습니다.
+
 ## Categories
 
 | Category | What it checks |

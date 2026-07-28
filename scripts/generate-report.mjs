@@ -1273,10 +1273,11 @@ function buildHeroHTML(audit, previous, groups) {
 
           <div>
             <div class="honesty">${bi(
-              '自動化工具約涵蓋 <b>30&ndash;40%</b> 的 WCAG 項目；其餘 60&ndash;70%（認知負荷、真實螢幕閱讀器達成率、標籤是否真的易懂）需與障礙使用者一同測試。<strong>高分不代表網站完全可達。</strong>',
-              'Automated tools cover ~<b>30&ndash;40%</b> of WCAG criteria. The remaining 60&ndash;70% needs testing alongside disabled users. A high score does not mean fully accessible.'
+              '業界普遍認為自動化工具約涵蓋 WCAG 的 <b>30&ndash;40%</b>。Beacon 實測自己：WCAG 2.2 A+AA 的 55 條準則中，<b>14 條有覆蓋（25.5%）</b>，其中 <b>2 條在自動化可及範圍內完整決定（3.6%）</b>。<strong>高分不代表網站完全可達。</strong>',
+              'Industry estimates put automated WCAG coverage at ~<b>30&ndash;40%</b>. Beacon measured itself: of WCAG 2.2\'s 55 A+AA criteria, <b>14 have any coverage (25.5%)</b>, and <b>2 are fully decided within automation\'s reach (3.6%)</b>. A high score does not mean fully accessible.'
             )}
               <p style="margin-top:.4rem"><a href="#layer-methodology">${bi('查看完整方法論與限制 &rarr;', 'See full methodology &amp; limits &rarr;')}</a></p>
+              <p style="margin-top:.2rem"><a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage">${bi('逐條對照表與重算方式 &rarr;', 'Row-by-row table &amp; how to re-derive it &rarr;')}</a></p>
             </div>
           </div>
         </div>
@@ -1337,8 +1338,8 @@ function buildExecSummaryHTML(audit, groups) {
             <div class="expose">${jurisdictionChips}</div>
 
             <div class="exec-note">
-              <span class="lang-zh" lang="zh-Hant"><strong>如何解讀這份報告：</strong> 這是 AI 輔助的自動化基線，約涵蓋 30&ndash;40% 的 WCAG 項目。分數是起點不是終點；上線前建議與障礙使用者實測核心流程。${nmcCats.length ? `${escapeHtml(nmcZh)} 等 ${nmcCats.length} 個分類本次僅標記為待人工複審。` : ''}</span>
-              <span class="lang-en" lang="en" style="display:block;margin-top:.35rem">How to read this: an AI-assisted baseline covering ~30&ndash;40% of WCAG. The score is a starting point &mdash; test core flows with disabled users before launch.${nmcCats.length ? ` ${escapeHtml(nmcEn)} ${nmcCats.length === 1 ? 'was' : 'were'} flagged for human review this pass.` : ''}</span>
+              <span class="lang-zh" lang="zh-Hant"><strong>如何解讀這份報告：</strong> 這是 AI 輔助的自動化基線。業界估計自動化工具約涵蓋 WCAG 的 30&ndash;40%；Beacon 實測自己涵蓋 55 條 A+AA 準則中的 14 條（25.5%），在自動化可及範圍內完整決定 2 條（3.6%，逐條對照表公開可查）。分數是起點不是終點；上線前建議與障礙使用者實測核心流程。${nmcCats.length ? `${escapeHtml(nmcZh)} 等 ${nmcCats.length} 個分類本次僅標記為待人工複審。` : ''}</span>
+              <span class="lang-en" lang="en" style="display:block;margin-top:.35rem">How to read this: an AI-assisted baseline. Industry estimates put automated WCAG coverage at ~30&ndash;40%; Beacon measured its own coverage at 14 of 55 A+AA criteria (25.5%), fully deciding 2 within automation's reach (3.6%, row-by-row table public). The score is a starting point &mdash; test core flows with disabled users before launch.${nmcCats.length ? ` ${escapeHtml(nmcEn)} ${nmcCats.length === 1 ? 'was' : 'were'} flagged for human review this pass.` : ''}</span>
             </div>
           </div>
         </div>
@@ -1589,7 +1590,7 @@ function buildLimitationsHTML(audit) {
             </tr>
             <tr>
               <td>「axe 沒抓到任何違規，就完工了。」</td>
-              <td>大約 60&ndash;70% 的 WCAG 條款不是機器可判定的。axe 作者明確這麼說。</td>
+              <td>axe 作者明確表示，實務上大多數 WCAG 失敗不是機器可判定的。Beacon 自己的準則層級實測：55 條 A+AA 準則中，14 條有偵測器涵蓋。</td>
             </tr>
             <tr>
               <td>「skip link 加了，鍵盤可達就完成。」</td>
@@ -1674,7 +1675,7 @@ function buildLimitationsHTML(audit) {
             </tr>
             <tr>
               <td>"axe found 0 violations, we're done."</td>
-              <td>Roughly 60&ndash;70% of WCAG criteria are not machine-decidable. axe's authors say so explicitly.</td>
+              <td>axe's authors say explicitly that most WCAG failures are not machine-decidable in practice. Beacon's own criterion-level measurement: 14 of 55 A+AA criteria have any detector at all.</td>
             </tr>
             <tr>
               <td>"Skip link added, keyboard accessibility complete."</td>

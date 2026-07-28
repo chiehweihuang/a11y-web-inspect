@@ -61,6 +61,8 @@ Plugin facts：`beacon`、version `3.3.0`、MIT、repository `chiehweihuang/beac
 
 這些數字如何保持可信（可靠性、detector 有效性、score-semantics 性質、外部 benchmark、fairness invariant）已在 [VALIDATION.md](VALIDATION.md) 中規範並可執行；實測資料存放在 [benchmark/](benchmark/) 下。
 
+業界普遍估計自動化工具約涵蓋 WCAG 準則的 30-40%。Beacon 實測自己：WCAG 2.2 A+AA 的 55 條準則中，14 條有覆蓋（25.5%）、2 條在自動化可及範圍內完整決定（3.6%）——逐條對照表與重算方式見 [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage)。
+
 ## 檢查類別
 
 | 類別 | 檢查內容 |
