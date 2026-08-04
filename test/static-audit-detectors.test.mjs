@@ -114,6 +114,22 @@ test('link-name: attribute matching is whitespace-anchored (data-* safe, spaced 
   assert.equal(hits.length, 2, `expected 2 hits (spaced href + data-title link), got ${hits.length}`);
 });
 
+// wild-precision round 1 (2026-08-03), P=0.600: `title` is a valid last-resort accessible-
+// name source per the accname spec (the link detector already accepted it); button-name-missing
+// did not, and flagged named buttons like <button title="Close">.
+const buttonNameFindings = (audit) => audit.findings.filter((f) => f.key === 'button-name-missing');
+
+test('button-name-missing: title attribute names the button; a button with neither text nor title still flags', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<button title="Close"><svg viewBox="0 0 1 1"><path d="M0 0"/></svg></button>
+<button><svg viewBox="0 0 1 1"><path d="M0 0"/></svg></button>
+<button>Save</button>
+</main></body></html>`);
+  const hits = buttonNameFindings(audit);
+  assert.equal(hits.length, 1, 'only the icon button with no text, aria-label, or title should flag');
+});
+
 const findingsMatching = (audit, titleRe, wcagRe) =>
   audit.findings.filter((f) => titleRe.test(f.title) && wcagRe.test(f.wcag));
 
@@ -195,6 +211,11 @@ test('AEO: directory scan checks site-level agent-readiness files', () => {
   assert.ok(missingKeys.has('robots-txt-missing'), 'directory scans should flag missing robots.txt');
   assert.ok(missingKeys.has('sitemap-missing'), 'directory scans should flag missing sitemap.xml');
   assert.ok(missingKeys.has('llms-txt-missing'), 'directory scans should flag missing llms.txt as optional agent-readiness guidance');
+  assert.equal(
+    missing.findings.find((f) => f.key === 'llms-txt-missing')?.check,
+    'review',
+    'optional llms.txt guidance must not count as a scored failure',
+  );
 
   const present = runScannerDir({
     'page.html': page,
@@ -238,6 +259,28 @@ test('input-label-missing: bare input with no id/aria/wrapping label is flagged'
 <input type="text" name="u">
 </main></body></html>`);
   assert.equal(inputLabelFindings(audit).length, 1, 'bare input must still flag');
+});
+
+// wild-precision round 1 (2026-08-03), P=0.417: type=submit/hidden flagged despite the
+// ruleset excluding them. The old exclusion `type=["']hidden["']` was quote-sensitive
+// (missed unquoted/single-quoted) and covered only "hidden", not the other out-of-scope
+// types (submit/button/image/reset). Must hold across quoting and attribute order.
+test('input-label-missing: out-of-scope input types (submit/hidden/button/image/reset) are excluded regardless of quoting or attribute order; type=text still flags', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<input type="text" name="u">
+<input type="submit" value="Go">
+<input type='submit' value="Go">
+<input type=submit value="Go">
+<input value="Go" type="submit" name="s2">
+<input type="hidden" name="h1">
+<input type='hidden' name="h2">
+<input type=hidden name="h3">
+<input type="button" value="Go">
+<input type="image" src="go.png">
+<input type="reset" value="Go">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 1, 'only the bare type=text input should flag; every out-of-scope type variant must be excluded');
 });
 
 test('input-label-missing: input wrapped in <label>...</label> is not flagged', () => {
@@ -343,6 +386,132 @@ test('input-label-missing + image-alt-missing: an unbalanced <!-- inside a scrip
 </main></body></html>`);
   assert.equal(imageAltFindings(audit).length, 1, 'the alt-less image between the fake <!-- and the real comment must still flag');
   assert.equal(inputLabelFindings(audit).length, 1, 'the bare input between the fake <!-- and the real comment must still flag');
+});
+
+// === noscript-image-twin (100-site hunt, 2026-08): rendered-DOM snapshots come from
+// JS-enabled Chromium, so <noscript> bodies never render and sit outside the a11y tree.
+// Next.js legacy Image / lazyload libraries emit a <noscript><img></noscript> twin per real
+// image; scanning it double-counted every image/link finding (girlschannel.net: 274/549
+// image-alt findings were noscript twins). <noscript> ranges are masked the same way as
+// <script>/<style> bodies. ===
+test('image-alt-missing: an alt-less img inside <noscript> is masked and the real twin outside it still flags exactly once', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<img src="real.png">
+<noscript><img src="real.png"></noscript>
+</main></body></html>`);
+  assert.equal(imageAltFindings(audit).length, 1, 'the noscript twin must not double-count the real image');
+});
+
+test('input-label-missing: an unlabelled input inside <noscript> is masked, not flagged', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<noscript><input type="text" name="u"></noscript>
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 0, 'an input inside <noscript> is never in the rendered a11y tree');
+});
+
+test('image-alt-missing + input-label-missing: an unbalanced <!-- inside <noscript> does not leak masking past </noscript>', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<noscript><!-- a <img src="twin.png"></noscript>
+<img src="real.png">
+<input type="text" name="u">
+<!-- real -->
+</main></body></html>`);
+  assert.equal(imageAltFindings(audit).length, 1, 'the real image after </noscript> must still flag, not be swallowed by the phantom comment');
+  assert.equal(inputLabelFindings(audit).length, 1, 'the real input after </noscript> must still flag, not be swallowed by the phantom comment');
+});
+
+// hakuso CRITICAL, 2026-08: the @7 bug class reintroduced by the noscript-image-twin fix
+// itself — a `<noscript>`-shaped SUBSTRING inside a <script> string or an HTML comment must
+// not open a phantom mask that pairs with the NEXT real </noscript> and swallows everything
+// between. Reproduced live on hunt fixtures p9 (script-string case) and p11 (comment case).
+test('image-alt + input-label + clickable-non-button: a <noscript>-shaped string inside a <script> does not open a phantom mask to the next real </noscript>', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<script>var s="<noscript>";</script>
+<img src="real.png">
+<input type="text" name="u">
+<div onclick="go()">bare</div>
+<noscript><img src="twin.png"></noscript>
+</main></body></html>`);
+  assert.equal(imageAltFindings(audit).length, 1, 'the real image must still flag, not be swallowed by the fake <noscript> string');
+  assert.equal(inputLabelFindings(audit).length, 1, 'the real input must still flag, not be swallowed by the fake <noscript> string');
+  assert.equal(clickableFindings(audit).length, 1, 'the real onclick div must still flag, not be swallowed by the fake <noscript> string');
+});
+
+test('image-alt + input-label: a <noscript>-shaped token inside an HTML comment does not open a phantom mask to the next real </noscript>', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<!-- legacy <noscript> note -->
+<img src="real.png">
+<input type="text" name="u">
+<noscript><img src="twin.png"></noscript>
+</main></body></html>`);
+  assert.equal(imageAltFindings(audit).length, 1, 'the real image must still flag, not be swallowed by the fake <noscript> token in the comment');
+  assert.equal(inputLabelFindings(audit).length, 1, 'the real input must still flag, not be swallowed by the fake <noscript> token in the comment');
+});
+
+// === clickable wrapper with native control inside (100-site hunt, 2026-08): analytics
+// wrappers put onclick on a <div>/<span> whose direct body already wraps a real <button> or
+// <a href> — the native control is the interactive element (15min.lt: 404/408 findings were
+// spans wrapping a real share/bookmark button). A wrapper with only text/img children stays
+// a real violation (thscore99: 2,683 bare onclick divs, all real). ===
+const clickableFindings = (audit) => audit.findings.filter((f) => f.key === 'clickable-non-button');
+
+test('clickable-non-button: a span onclick wrapping a native <button> is not flagged', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<span onclick="track()"><button type="button">Share</button></span>
+</main></body></html>`);
+  assert.equal(clickableFindings(audit).length, 0, 'the real <button> inside the span is the interactive element');
+});
+
+test('clickable-non-button: a div onclick with only an <img> child is still flagged', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<div onclick="track()"><img src="icon.png" alt=""></div>
+</main></body></html>`);
+  assert.equal(clickableFindings(audit).length, 1, 'a bare onclick div with no native control is still a real keyboard-trap violation');
+});
+
+// hakuso CRITICAL, 2026-08, reproduced live: the body-capturing `([\s\S]*?)<\/\1>` regex
+// advanced matchAll's cursor past the WHOLE outer wrapper, so a NESTED onclick div/span never
+// got its own match at all (thscore99 2683 -> 1733, 950 real violations hidden). Open-tag-only
+// matching + a non-consuming lookahead must find every onclick element independently.
+test('clickable-non-button: a nested onclick div is not swallowed by the outer wrapper\'s match', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<div onclick="a"><div onclick="b">x</div></div>
+</main></body></html>`);
+  assert.equal(clickableFindings(audit).length, 2, 'both the outer and the nested onclick div are real violations; neither may be swallowed');
+});
+
+// wild-precision round 1 (2026-08-03), P=0.800: `paginationclickable="true"` contains the
+// substring "onclick" and fired with no real handler. Same class as the 2026-07 data-reactid
+// contains id= bug -- the attribute match must be whitespace-anchored, not a bare substring.
+test('clickable-non-button: an attribute name that merely contains "onclick" as a substring is not flagged; real onclick/onClick attributes still are', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<div paginationclickable="true">no handler</div>
+<div onclick="go()">real</div>
+<span onClick="go()">real2</span>
+</main></body></html>`);
+  assert.equal(clickableFindings(audit).length, 2, 'paginationclickable is a substring match, not a real attribute; onclick and onClick must both still flag');
+});
+
+// hakuso round 3, 2026-08, reproduced live on thscore99:300 (pMsg): the bounded lookahead
+// stopped only at the first same-tag CLOSE, so a real <a href> several levels deep inside a
+// nested non-onclick <div> (not the wrapper's own direct content) still credited the outer
+// bare onclick div as "wrapping a control" and wrongly suppressed it. Stopping at a nested
+// same-tag OPEN too enforces "the control must appear in the wrapper's own direct content".
+test('clickable-non-button: an <a href> nested inside a non-onclick sibling div (not the wrapper\'s direct content) does not suppress the outer bare onclick div', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<div onclick="close()"><i></i><div class="x"><a href="/y">t</a></div></div>
+</main></body></html>`);
+  assert.equal(clickableFindings(audit).length, 1, 'the <a href> lives inside a nested div, not directly in the onclick wrapper, so the wrapper is still a real violation');
 });
 
 // === regression: audit 2026-07-27 (plans/2026-07-27-wcag-coverage-measurement.md) ===

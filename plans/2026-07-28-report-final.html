@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beacon 無障礙檢測報告 &middot; Accessibility Audit Report &mdash; rakuten.co.jp</title>
+<style>
+/* ============================================================
+   Beacon report — v3.2.0 information architecture.
+   Signature: evidence-density meter — a score's weight is shown
+   next to the score, so "0 on 1 check" never reads like "100 on 6".
+   ============================================================ */
+
+/* ---- font stacks: explicit CJK-safe everywhere; no legacy serif fallback ---- */
+:root{
+  /* Arial-first Latin sans; explicit TC + JP sans cover every CJK glyph so
+     no Ming/Mincho serif is ever reachable (esp. Japanese on Windows). */
+  --sans:Arial,"Segoe UI",system-ui,-apple-system,"Noto Sans TC","Noto Sans JP",
+         "Yu Gothic UI","Yu Gothic",Meiryo,"Hiragino Sans","Microsoft JhengHei",sans-serif;
+  /* mono Latin for code; CJK inside code falls to CJK SANS (never PMingLiU)
+     before the final monospace keyword. */
+  --mono:ui-monospace,"Cascadia Code",Consolas,"SFMono-Regular","Noto Sans Mono",
+         "Noto Sans TC","Yu Gothic UI",Meiryo,"Microsoft JhengHei",monospace;
+
+  /* light (default) */
+  --bg:#ffffff;
+  --surface:#f5f7fb;
+  --surface-2:#ecf0f7;
+  --ink:#17203a;
+  --ink-soft:#454f6b;
+  --ink-muted:#56607e;
+  --border:#d6dce8;
+  --border-strong:#b8c0d3;
+
+  --beacon:#b4530a;        /* accent — the beacon light; 5.4:1 on white */
+  --beacon-soft:#f7efe4;
+  --beacon-line:#e7d3b8;
+
+  --crit:#b3261e;   --crit-bg:#fbeceb;  --crit-line:#f0c9c6;
+  --warn:#8a5a00;   --warn-bg:#fbf3e1;  --warn-line:#ecdcb2;
+  --pass:#1f7a43;   --pass-bg:#e7f4ec;  --pass-line:#bfe3cd;
+  --review:#465166; --review-bg:#eef1f6;--review-line:#d3dae6;
+  --thin:#544bc0;   --thin-bg:#efedfb;  --thin-line:#d3cdf3;
+
+  --shadow:0 1px 2px rgba(23,32,58,.06),0 6px 18px rgba(23,32,58,.06);
+  --radius:14px;
+  --maxw:1080px;
+  color-scheme:light;
+
+  /* ---- compatibility aliases: let the pre-v3.2 CSS blocks below (methodology,
+     legal risk, axe evidence, manual checks, AEO/life-safety banners, delta,
+     lighthouse) keep working unchanged against the new token names. Declared
+     ONCE here (never re-declared in the dark/theme blocks) so they keep
+     following --ink/--beacon/--crit/etc. through every override. ---- */
+  --text:var(--ink); --text-muted:var(--ink-soft); --text-soft:var(--ink-muted);
+  --border-soft:var(--border);
+  --accent:var(--beacon); --accent-hover:var(--beacon); --accent-bg:var(--beacon-soft); --accent-text:var(--bg);
+  --fail:var(--crit); --fail-bg:var(--crit-bg);
+  --tip:var(--beacon); --tip-bg:var(--beacon-soft);
+  --info:var(--review); --info-bg:var(--review-bg); --info-border:var(--review-line);
+  --font:var(--sans); --font-mono:var(--mono);
+  --mid:var(--warn);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0f141d;
+    --surface:#171f2c;
+    --surface-2:#1e2839;
+    --ink:#e8edf6;
+    --ink-soft:#b4bdd0;
+    --ink-muted:#8c96ac;
+    --border:#2b3547;
+    --border-strong:#3d4860;
+
+    --beacon:#f0a24c;
+    --beacon-soft:#241a10;
+    --beacon-line:#4a3719;
+
+    --crit:#f4877f; --crit-bg:#2b1513; --crit-line:#4a221f;
+    --warn:#e8b55c; --warn-bg:#271f0f; --warn-line:#463713;
+    --pass:#5fc98a; --pass-bg:#122619; --pass-line:#1f4630;
+    --review:#9aa6bc;--review-bg:#1a2230;--review-line:#303c50;
+    --thin:#a29cf0; --thin-bg:#191634; --thin-line:#312a5e;
+
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+
+/* ---- user-explicit theme override via toolbar; wins over the media query ---- */
+:root[data-theme="light"]{
+  --bg:#ffffff;--surface:#f5f7fb;--surface-2:#ecf0f7;
+  --ink:#17203a;--ink-soft:#454f6b;--ink-muted:#56607e;
+  --border:#d6dce8;--border-strong:#b8c0d3;
+  --beacon:#b4530a;--beacon-soft:#f7efe4;--beacon-line:#e7d3b8;
+  --crit:#b3261e;--crit-bg:#fbeceb;--crit-line:#f0c9c6;
+  --warn:#8a5a00;--warn-bg:#fbf3e1;--warn-line:#ecdcb2;
+  --pass:#1f7a43;--pass-bg:#e7f4ec;--pass-line:#bfe3cd;
+  --review:#465166;--review-bg:#eef1f6;--review-line:#d3dae6;
+  --thin:#544bc0;--thin-bg:#efedfb;--thin-line:#d3cdf3;
+  --shadow:0 1px 2px rgba(23,32,58,.06),0 6px 18px rgba(23,32,58,.06);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#0f141d;--surface:#171f2c;--surface-2:#1e2839;
+  --ink:#e8edf6;--ink-soft:#b4bdd0;--ink-muted:#8c96ac;
+  --border:#2b3547;--border-strong:#3d4860;
+  --beacon:#f0a24c;--beacon-soft:#241a10;--beacon-line:#4a3719;
+  --crit:#f4877f;--crit-bg:#2b1513;--crit-line:#4a221f;
+  --warn:#e8b55c;--warn-bg:#271f0f;--warn-line:#463713;
+  --pass:#5fc98a;--pass-bg:#122619;--pass-line:#1f4630;
+  --review:#9aa6bc;--review-bg:#1a2230;--review-line:#303c50;
+  --thin:#a29cf0;--thin-bg:#191634;--thin-line:#312a5e;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+
+/* ---- language switch: default zh. .lang-en/.lang-zh toggle by body[data-active-lang];
+   compact inline "中文 · English" labels (chips, filter buttons) stay bilingual always. ---- */
+body[data-active-lang="zh"] .lang-en,
+body:not([data-active-lang]) .lang-en{display:none!important}
+body[data-active-lang="en"] .lang-zh{display:none!important}
+body[data-active-lang="en"] .lang-en{display:block;color:inherit;font-size:1em;
+  font-weight:inherit;line-height:1.5;margin:0}
+
+/* ---- report toolbar (language + theme); static so the sticky jump-nav keeps top:0 ---- */
+.report-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end;
+  max-width:var(--maxw);margin:0 auto;padding:.6rem 20px .4rem}
+.tb-group{display:inline-flex;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:2px;box-shadow:var(--shadow)}
+.tb-group button{background:transparent;border:0;color:var(--ink-soft);font:inherit;
+  font-size:.85rem;font-weight:600;cursor:pointer;padding:.4rem .8rem;min-height:44px;
+  min-width:44px;border-radius:8px;display:inline-flex;align-items:center;
+  justify-content:center;line-height:1.2;transition:background .15s,color .15s}
+.tb-group button:hover{color:var(--ink)}
+.tb-group button[aria-pressed="true"]{background:var(--beacon);color:var(--bg)}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.6;
+  color:var(--ink);
+  background:var(--bg);
+  overflow-x:hidden;
+}
+img{max-width:100%;height:auto}
+/* UA sets pre/code to bare monospace, defeating .diff's var(--mono); force the
+   explicit stack so CJK in code never reaches a legacy font. */
+pre,code,kbd,samp{font-family:var(--mono)}
+a{color:var(--beacon);text-underline-offset:2px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--beacon);outline-offset:2px;border-radius:4px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+h1,h2,h3{line-height:1.25;letter-spacing:-.01em}
+code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-size:.9em}
+.skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:0 0 8px 0;z-index:100}
+.skip:focus{left:0}
+
+/* ---- eyebrow / layer labels: the numbered layers are a real reading sequence ---- */
+.eyebrow{display:flex;align-items:baseline;gap:.6rem;margin:0 0 .35rem;
+  font-size:.82rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--beacon)}
+.eyebrow .num{font-variant-numeric:tabular-nums;font-size:1rem;
+  color:var(--ink-muted);letter-spacing:0}
+.layer-h{font-size:1.5rem;margin:.1rem 0 .2rem}
+.layer-sub{color:var(--ink-soft);margin:.1rem 0 1.4rem;max-width:62ch}
+
+/* =========================== HEADER =========================== */
+.masthead{background:var(--surface);border-bottom:1px solid var(--border)}
+.masthead .wrap{padding-top:1.4rem;padding-bottom:1.4rem}
+.brand{display:flex;align-items:center;gap:.7rem;font-weight:700;font-size:1.05rem}
+.beacon-mark{width:26px;height:26px;flex:0 0 auto;border-radius:50%;
+  background:radial-gradient(circle at 50% 42%,#fff 0 14%,var(--beacon) 20% 46%,transparent 52%),
+             conic-gradient(from 200deg,var(--beacon) 0 22deg,transparent 22deg 90deg,
+             var(--beacon) 90deg 112deg,transparent 112deg);
+  box-shadow:0 0 0 1px var(--beacon-line) inset}
+.metagrid{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin-top:.9rem;
+  font-size:.9rem;color:var(--ink-soft)}
+.metagrid b{color:var(--ink);font-weight:600}
+.engine-tag{font-family:var(--mono);font-size:.78rem;color:var(--ink-muted)}
+
+/* jump nav */
+.jump{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.jump ul{display:flex;flex-wrap:wrap;gap:.2rem;margin:0 auto;padding:.4rem 20px;
+  list-style:none;max-width:var(--maxw)}
+.jump a{white-space:nowrap;text-decoration:none;color:var(--ink-soft);font-size:.86rem;
+  font-weight:600;padding:.5rem .7rem;border-radius:8px;min-height:44px;display:flex;
+  align-items:center}
+.jump a:hover{background:var(--surface-2);color:var(--ink)}
+
+/* =========================== 01 DECISION / HERO =========================== */
+.hero{padding:2.4rem 0 2rem;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-40% -10% auto auto;width:70vw;height:70vw;
+  max-width:640px;max-height:640px;pointer-events:none;
+  background:radial-gradient(closest-side,var(--beacon-soft),transparent 70%);
+  opacity:.9;z-index:0}
+.hero .wrap{position:relative;z-index:1}
+.verdict{display:grid;grid-template-columns:1fr;gap:1.6rem;align-items:start}
+/* two-col only when both fit at a readable measure: left capped so a long
+   coverage line can't balloon it; right floored so CJK never collapses. */
+@media(min-width:820px){.verdict{grid-template-columns:minmax(auto,26rem) minmax(20rem,1fr)}}
+.overall{display:flex;align-items:center;gap:1.1rem}
+.ring-wrap{display:flex;flex-direction:column;align-items:center;gap:.35rem;flex:0 0 auto;width:132px}
+.overall .ring{position:relative;width:132px;height:132px;flex:0 0 auto}
+.overall svg{transform:rotate(-90deg)}
+.overall .val{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center}
+.overall .val b{font-size:2.6rem;font-weight:800;font-variant-numeric:tabular-nums;
+  line-height:1;letter-spacing:-.03em}
+.overall .val span{font-size:.78rem;color:var(--ink-muted);letter-spacing:.08em}
+/* caption lives BELOW the ring, never inside it — the en string
+   "machine-checked portion" is longer than the circle can hold. */
+.ring-caption{width:132px;margin:0;font-size:.78rem;line-height:1.3;text-align:center;
+  color:var(--ink-soft)}
+.band{display:inline-flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:999px;
+  font-size:.84rem;font-weight:700;border:1px solid transparent}
+.coverage{margin-top:.55rem;font-size:.92rem;color:var(--ink-soft)}
+.coverage b{color:var(--ink);font-variant-numeric:tabular-nums}
+.honesty{margin-top:.9rem;padding:.85rem 1rem;border-left:4px solid var(--beacon);
+  background:var(--beacon-soft);border-radius:0 10px 10px 0;font-size:.92rem;color:var(--ink)}
+
+/* fix these next */
+.fixnext{margin-top:2rem;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:1.3rem 1.3rem 1.4rem;box-shadow:var(--shadow)}
+.fixnext > h2{margin:0;font-size:1.12rem;display:flex;align-items:center;gap:.5rem}
+.fixnext .clear-line{margin:.5rem 0 1.1rem;font-size:.95rem;color:var(--ink-soft)}
+.fixnext .clear-line b{color:var(--crit);font-variant-numeric:tabular-nums}
+.fixlist{display:grid;gap:.8rem;grid-template-columns:1fr}
+/* 3-across only once each card clears a readable CJK measure (~264px here);
+   below that the ranked cards stack rather than squeeze. */
+@media(min-width:900px){.fixlist{grid-template-columns:repeat(3,1fr)}}
+.fixcard{position:relative;background:var(--bg);border:1px solid var(--border);
+  border-radius:12px;padding:1rem 1rem 1.05rem;display:flex;flex-direction:column;gap:.5rem}
+.fixcard .rank{position:absolute;top:-12px;left:14px;width:26px;height:26px;border-radius:50%;
+  background:var(--beacon);color:#fff;font-weight:800;font-size:.85rem;display:flex;
+  align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+@media (prefers-color-scheme:dark){.fixcard .rank{color:#1a1206}}
+.fixcard h3{margin:.35rem 0 0;font-size:1rem;line-height:1.35;font-weight:700}
+.fixcard .who{font-size:.86rem;color:var(--ink-soft)}
+.fixcard .foot{margin-top:auto;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;
+  font-size:.76rem}
+
+/* chips / badges */
+.chip{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .55rem;border-radius:999px;
+  font-size:.75rem;font-weight:600;line-height:1.4;border:1px solid transparent}
+.chip.crit{background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)}
+.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.chip.pass{background:var(--pass-bg);color:var(--pass);border-color:var(--pass-line)}
+.chip.review{background:var(--review-bg);color:var(--review);border-color:var(--review-line)}
+.chip.thin{background:var(--thin-bg);color:var(--thin);border-color:var(--thin-line)}
+.chip.wcag{background:var(--surface-2);color:var(--ink-soft);border-color:var(--border);
+  font-family:var(--mono);font-size:.72rem}
+
+/* =========================== 02 EVIDENCE / CATEGORIES =========================== */
+section{padding:2.2rem 0}
+.section-alt{background:var(--surface);border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border)}
+.catgrid{display:grid;gap:1rem;grid-template-columns:1fr}
+@media(min-width:600px){.catgrid{grid-template-columns:1fr 1fr}}
+@media(min-width:960px){.catgrid{grid-template-columns:1fr 1fr 1fr}}
+.catcard{display:flex;flex-direction:column;gap:.6rem;background:var(--bg);
+  border:1px solid var(--border);border-radius:12px;padding:1rem 1.05rem;
+  text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+.catcard:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.catcard.thin{background:var(--surface);border-style:dashed;opacity:.94}
+.catcard.nmc{background:var(--surface);opacity:.9}
+.cat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem}
+.cat-name{font-weight:700;font-size:1.02rem;line-height:1.3}
+.score-badge{flex:0 0 auto;text-align:center;min-width:52px}
+.score-badge b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;
+  line-height:1;letter-spacing:-.02em}
+.score-badge b.s-crit{color:var(--crit)}
+.score-badge b.s-warn{color:var(--warn)}
+.score-badge b.s-pass{color:var(--pass)}
+.score-badge small{display:block;font-size:.68rem;color:var(--ink-muted)}
+.state-badge{flex:0 0 auto;font-size:.74rem;font-weight:700;text-align:right;max-width:120px}
+
+/* evidence-density meter — THE signature */
+.evi{margin-top:.1rem}
+.evi-track{height:8px;border-radius:5px;background:var(--surface-2);overflow:hidden;
+  border:1px solid var(--border)}
+.evi-fill{height:100%;background:linear-gradient(90deg,var(--beacon),var(--beacon-line))}
+.catcard.thin .evi-track{border-style:dashed}
+.catcard.thin .evi-fill{background:repeating-linear-gradient(90deg,var(--thin) 0 4px,transparent 4px 8px)}
+.evi-label{margin-top:.4rem;font-size:.8rem;color:var(--ink-soft);
+  display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.evi-label .tier{font-weight:700}
+.evi-label .tier.high{color:var(--pass)}
+.evi-label .tier.mod{color:var(--ink)}
+.evi-label .tier.low{color:var(--thin)}
+.evi-label .tier.nmc{color:var(--review)}
+.cat-cause{font-size:.87rem;color:var(--ink-soft);margin:0}
+.cat-cause b{color:var(--ink)}
+.tension{font-size:.83rem;background:var(--crit-bg);border:1px solid var(--crit-line);
+  color:var(--ink);border-radius:8px;padding:.5rem .6rem;margin:0}
+.tension b{color:var(--crit)}
+
+/* =========================== 03 FINDINGS =========================== */
+.filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1.5rem}
+.filters .flabel{font-size:.85rem;color:var(--ink-soft);align-self:center;margin-right:.2rem}
+.fbtn{font:inherit;font-size:.83rem;font-weight:600;cursor:pointer;padding:.4rem .75rem;
+  border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--ink-soft);
+  min-height:44px}
+.fbtn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.fbtn:hover{border-color:var(--border-strong)}
+.fgroup{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1.1rem;
+  background:var(--bg);box-shadow:var(--shadow);overflow:hidden}
+.fgroup.is-hidden{display:none}
+.fg-head{padding:1.05rem 1.15rem;display:flex;flex-wrap:wrap;gap:.6rem 1rem;
+  align-items:baseline;border-bottom:1px solid var(--border)}
+.fg-head .fg-title{font-size:1.08rem;font-weight:700;flex:1 1 260px;line-height:1.3}
+.fg-count{font-variant-numeric:tabular-nums;font-weight:800;font-size:1.05rem}
+.fg-body{padding:1.05rem 1.15rem 1.2rem}
+.who-line{margin:0 0 .85rem;font-size:.93rem;color:var(--ink)}
+.who-line .who-badge{font-weight:700;color:var(--beacon)}
+.meta-row{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
+.diff{font-family:var(--mono);font-size:.82rem;line-height:1.55;border-radius:10px;
+  border:1px solid var(--border);overflow:hidden;margin:.2rem 0 1rem}
+/* pre-wrap + a hanging indent so a wrapped line's continuation aligns under
+   the code, not under the +/- tag glyph; overflow-wrap covers unbroken tokens
+   (long URLs/class chains) so nothing forces the box wider than its container. */
+.diff pre{margin:0;padding:.7rem .9rem .7rem 2.3rem;text-indent:-1.4rem;
+  white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+.diff .before{background:var(--crit-bg);color:var(--ink)}
+.diff .tag{display:inline-block;font-weight:700;margin-right:.5rem;user-select:none;color:var(--crit)}
+.loclist{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;
+  margin:0 0 .6rem;max-height:8.5rem;overflow-y:auto}
+.loclist span{display:inline-block;margin:.1rem .5rem .1rem 0;overflow-wrap:anywhere}
+.standard-line{font-size:.92rem;margin:.6rem 0 0;color:var(--ink-soft)}
+.standard-line strong{color:var(--beacon)}
+.fix-line{font-size:.92rem;margin:.6rem 0 0}
+.fix-line strong{color:var(--pass)}
+
+/* =========================== 04 CLIENT / EXEC SUMMARY =========================== */
+.exec{border:1px solid var(--border-strong);border-radius:var(--radius);
+  background:var(--bg);box-shadow:var(--shadow);overflow:hidden}
+.exec-head{padding:1.1rem 1.3rem;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.exec-head h3{margin:0;font-size:1.35rem}
+.exec-head p{margin:.3rem 0 0;color:var(--ink-soft);font-size:.9rem}
+.exec-body{padding:1.3rem}
+.exec-body h3{font-size:1.02rem;margin:1.3rem 0 .5rem}
+.exec-body h3:first-child{margin-top:0}
+.exec-lead{font-size:1.05rem;line-height:1.6}
+.exec-lead b{color:var(--crit)}
+.prio{counter-reset:p;list-style:none;padding:0;margin:.4rem 0}
+.prio li{position:relative;padding:.55rem 0 .55rem 2.2rem;border-bottom:1px dashed var(--border)}
+.prio li::before{counter-increment:p;content:counter(p);position:absolute;left:0;top:.5rem;
+  width:1.6rem;height:1.6rem;border-radius:50%;background:var(--beacon-soft);color:var(--beacon);
+  font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+.expose{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .2rem}
+.exec-note{margin-top:1.2rem;padding:.85rem 1rem;background:var(--beacon-soft);
+  border-left:4px solid var(--beacon);border-radius:0 10px 10px 0;font-size:.9rem}
+
+/* =========================== FOOTER =========================== */
+footer{border-top:1px solid var(--border);background:var(--surface);margin-top:1rem}
+footer .wrap{padding:1.5rem 20px 2.6rem;font-size:.88rem;color:var(--ink-soft)}
+footer p{margin:.2rem 0}
+footer a{font-weight:600}
+.foot-engine{font-family:var(--mono);font-size:.76rem;color:var(--ink-muted);margin-top:.7rem}
+
+/* =========================== ported from v3.1: methodology / legal / axe / AEO / life-safety / delta =========================== */
+.methodology-panel{font-size:.92rem;line-height:1.7}
+.methodology-panel h3{margin-top:1.8rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:.3rem}
+.methodology-panel .meta-note{color:var(--text-muted);font-size:.85rem;background:var(--surface);padding:.5rem .8rem;border-radius:6px;margin:.5rem 0 1rem}
+.methodology-panel .section-intro{color:var(--text-muted);font-size:.88rem;margin:.3rem 0 .6rem}
+.methodology-panel ul,.methodology-panel ol{margin:.4rem 0 .8rem 1.4rem}
+.methodology-panel li{margin:.35rem 0}
+.capability-list li::marker{color:var(--pass)}
+.limitation-list li::marker{color:var(--warn)}
+.workflow-list li::marker{color:var(--accent);font-weight:700}
+.usage-list li::marker{color:var(--text-muted)}
+.methods-details{background:var(--surface);border-radius:6px;padding:.6rem .9rem;margin:.5rem 0 1rem;border-left:3px solid var(--accent)}
+.methods-details summary{cursor:pointer;color:var(--text-muted);font-size:.9rem}
+.methods-list{margin-top:.5rem;font-size:.85rem;color:var(--text-muted)}
+.live-audit-note{background:var(--warn-bg);border:1px solid var(--warn);border-left:6px solid var(--warn);border-radius:8px;padding:.8rem 1rem;margin:.8rem 0 1rem;color:var(--text)}
+.manual-checks{margin:1.2rem 0}
+.manual-check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:.8rem;margin-top:.8rem}
+.manual-check-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9rem}
+.manual-check-card h4{margin:.2rem 0 .45rem;font-size:.98rem}
+.manual-check-card p{margin:.35rem 0;font-size:.86rem}
+.manual-check-meta{color:var(--text-soft);font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+.axe-evidence{margin:1.2rem 0}
+.axe-outcome-list{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem .85rem;margin:.6rem 0}
+.axe-outcome-list summary{cursor:pointer;font-weight:700;color:var(--text)}
+.axe-outcome-list ul{margin-top:.6rem}
+.axe-outcome-list li{display:flex;flex-wrap:wrap;gap:.3rem .8rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--border-soft)}
+.rule-id,.rule-criteria{color:var(--text-muted);font-size:.78rem;overflow-wrap:anywhere}
+.learn-more a,.axe-outcome-list a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.traps-table,.summary-table{width:100%;border-collapse:collapse;margin:.8rem 0;font-size:.9rem}
+.traps-table th,.summary-table th{text-align:left;padding:.6rem .8rem;background:var(--surface-2);color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)}
+.traps-table td,.summary-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
+.traps-table td:first-child{color:var(--text-muted);font-style:italic;width:38%}
+.summary-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.legal-risk-panel{font-size:.92rem}
+.legal-context-note{background:var(--info-bg);border:1px solid var(--info-border);border-left:6px solid var(--info-border);border-radius:8px;padding:.9rem 1rem;margin:.8rem 0 1rem}
+.risk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:1rem;margin:1rem 0}
+.risk-card{background:var(--surface);padding:1rem;border-radius:8px;border-left:4px solid var(--accent)}
+.risk-header{display:flex;justify-content:space-between;align-items:center}
+.context-badge{color:var(--accent);background:var(--accent-bg);padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700}
+.deadline{color:var(--warn);font-weight:600}
+.criteria-map{color:var(--text-muted);font-size:.86rem}
+.aeo-disclaimer{background:var(--accent-bg);border:1px solid var(--accent);border-left:6px solid var(--accent);border-radius:8px;padding:.9rem 1.1rem;margin:1rem 0 0;font-size:.88rem;line-height:1.65}
+.aeo-disclaimer-title{font-size:.98rem;font-weight:700;color:var(--accent);margin-bottom:.4rem}
+.aeo-disclaimer p{margin-bottom:.45rem}
+.aeo-disclaimer p:last-child{margin-bottom:0}
+.aeo-disclaimer-cta{color:var(--text-muted);font-size:.84rem;border-top:1px dashed var(--border);padding-top:.45rem;margin-top:.45rem}
+.aeo-disclaimer strong{color:var(--text)}
+.life-safety-banner{background:var(--surface-2);border:2px solid var(--fail);border-left:8px solid var(--fail);border-radius:8px;padding:1.1rem 1.3rem;margin:.9rem 0;font-size:.95rem;line-height:1.7}
+.life-safety-banner .banner-title{font-size:1.1rem;font-weight:700;color:var(--fail)}
+.delta{font-size:.75rem;margin-left:4px}
+.delta.positive{color:var(--pass)}
+.delta.negative{color:var(--fail)}
+.delta.neutral{color:var(--text-muted)}
+.empty{color:var(--text-muted);font-style:italic}
+
+/* =========================== MOTION / PRINT =========================== */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;
+    scroll-behavior:auto!important}
+}
+@media print{
+  :root{--bg:#fff!important;--ink:#000!important;--surface:#fff!important;--surface-2:#fff!important}
+  body{font-size:12pt;color:#000}
+  .jump,.masthead .engine-tag,.filters,.beacon-mark,.report-toolbar{display:none!important}
+  .hero::before,.honesty,.fixnext{box-shadow:none}
+  .lang-zh,.lang-en{color:#333}
+  a{color:#000;text-decoration:underline}
+  section{padding:.6rem 0;break-inside:avoid}
+  .exec{break-before:page;border:1px solid #000;box-shadow:none}
+  .fgroup,.catcard,.fixcard{break-inside:avoid;box-shadow:none}
+  .loclist{overflow:visible;max-height:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main-content">跳到主要內容 · Skip to main content</a>
+
+
+    <div class="report-toolbar" role="toolbar" aria-label="Report preferences / 報告偏好設定">
+      <div class="tb-group" role="group" aria-label="Language / 語言">
+        <button type="button" data-lang-btn="zh" aria-pressed="true">中文</button>
+        <button type="button" data-lang-btn="en" aria-pressed="false">EN</button>
+      </div>
+      <div class="tb-group" role="group" aria-label="Theme / 主題">
+        <button type="button" data-theme-btn="light" aria-pressed="false" aria-label="Light mode / 淺色" title="Light mode / 淺色">&#9728;</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="false" aria-label="Dark mode / 深色" title="Dark mode / 深色">&#9790;</button>
+        <button type="button" data-theme-btn="auto" aria-pressed="true" aria-label="Follow system / 跟隨系統" title="Follow system / 跟隨系統">A</button>
+      </div>
+    </div>
+
+    <header class="masthead">
+      <div class="wrap">
+        <div class="brand">
+          <span class="beacon-mark" aria-hidden="true"></span>
+          <span>Beacon <span style="color:var(--ink-muted);font-weight:600"><span class="lang-zh" lang="zh-Hant">無障礙檢測報告</span><span class="lang-en" lang="en">Accessibility Audit</span></span></span>
+        </div>
+        <div class="metagrid">
+          <span><b><span class="lang-zh" lang="zh-Hant">受測網頁</span><span class="lang-en" lang="en">Audited page</span></b> <a href="https://www.rakuten.co.jp" target="_blank" rel="noopener noreferrer">https://www.rakuten.co.jp</a></span>
+          <span><b><span class="lang-zh" lang="zh-Hant">日期</span><span class="lang-en" lang="en">Date</span></b> 2026-07-28</span>
+          <span><b><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span></b> WCAG 2.2 AA static baseline</span>
+          <span><b><span class="lang-zh" lang="zh-Hant">層級</span><span class="lang-en" lang="en">Tier</span></b> Tier 1 (static file scan only)</span>
+        </div>
+        <div class="engine-tag">engine beacon-static-audit@12+ruleset.25eeae0aa809</div>
+      </div>
+    </header>
+
+    <nav class="jump" aria-label="Report sections / 報告章節">
+      <ul><li><a href="#layer-decision">01 決策 &middot; Decision</a></li><li><a href="#layer-evidence">02 證據 &middot; Evidence</a></li><li><a href="#layer-findings">03 問題 &middot; Findings</a></li><li><a href="#layer-client">04 摘要 &middot; Summary</a></li><li><a href="#layer-methodology">05 方法論 &middot; Methodology</a></li><li><a href="#layer-legal">06 法規 &middot; Legal</a></li></ul>
+    </nav>
+
+<main id="main-content" tabindex="-1">
+
+    <section class="hero" id="layer-decision" aria-labelledby="h-decision">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">01</span> <span class="lang-zh" lang="zh-Hant">決策層</span><span class="lang-en" lang="en">Decision</span></p>
+        <h1 class="layer-h" id="h-decision"><span class="lang-zh" lang="zh-Hant">一眼看懂結論，一步知道下一步做什麼</span><span class="lang-en" lang="en">The whole verdict, and what to do next, on one screen</span></h1>
+        
+
+        <div class="verdict">
+          <div class="overall">
+            <div class="ring-wrap">
+              <div class="ring" role="img" aria-label="overall score 54 of 100">
+                <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
+                  <circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
+                  <circle cx="66" cy="66" r="56" fill="none" stroke="var(--warn)" stroke-width="12" stroke-linecap="round" stroke-dasharray="351.9" stroke-dashoffset="161.9"/>
+                </svg>
+                <div class="val"><b>54</b><span>/ 100</span></div>
+              </div>
+              <p class="ring-caption"><span class="lang-zh" lang="zh-Hant">機測部分</span><span class="lang-en" lang="en">machine-checked portion</span></p>
+            </div>
+            <div>
+              <span class="band" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)"><span class="lang-zh" lang="zh-Hant">建議考慮改進</span><span class="lang-en" lang="en">Consider improving</span></span>
+              <p class="coverage"><span class="lang-zh" lang="zh-Hant">此分數僅代表可機測的 <b>49%</b> 權重</span><span class="lang-en" lang="en">This score covers only the <b>49%</b> of weight that is machine-checkable.</span><br>
+                <span style="font-size:.85rem;color:var(--ink-soft)"><span class="lang-zh" lang="zh-Hant">4 個分類僅供人工複審、2 個分類證據不足未計分</span><span class="lang-en" lang="en">4 review-only, 2 with insufficient evidence</span></span><br>
+                <span style="font-size:.85rem;color:var(--pass);font-weight:600"><span class="lang-zh" lang="zh-Hant">生命安全檢查（閃爍/癲癇風險）：未觸發</span><span class="lang-en" lang="en">Life-safety check (flashing/seizure risk): not triggered</span></span></p>
+              
+            </div>
+          </div>
+
+          <div>
+            <div class="honesty"><span class="lang-zh" lang="zh-Hant">業界普遍認為自動化工具約涵蓋 WCAG 的 <b>30&ndash;40%</b>。Beacon 實測自己：WCAG 2.2 A+AA 的 55 條準則中，<b>14 條有覆蓋（25.5%）</b>，其中 <b>2 條在自動化可及範圍內完整決定（3.6%）</b>。<strong>高分不代表網站完全可達。</strong></span><span class="lang-en" lang="en">Industry estimates put automated WCAG coverage at ~<b>30&ndash;40%</b>. Beacon measured itself: of WCAG 2.2's 55 A+AA criteria, <b>14 have any coverage (25.5%)</b>, and <b>2 are fully decided within automation's reach (3.6%)</b>. A high score does not mean fully accessible.</span>
+              <p style="margin-top:.4rem"><a href="#layer-methodology"><span class="lang-zh" lang="zh-Hant">查看完整方法論與限制 &rarr;</span><span class="lang-en" lang="en">See full methodology &amp; limits &rarr;</span></a></p>
+              <p style="margin-top:.2rem"><a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage"><span class="lang-zh" lang="zh-Hant">逐條對照表與重算方式 &rarr;</span><span class="lang-en" lang="en">Row-by-row table &amp; how to re-derive it &rarr;</span></a></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="fixnext" aria-labelledby="h-fix">
+          <h2 id="h-fix"><span class="lang-zh" lang="zh-Hant">接下來先修這三項</span><span class="lang-en" lang="en">Fix these next</span></h2>
+          <p class="clear-line"><span class="lang-zh" lang="zh-Hant">完成前 3 項修正，可涵蓋 <b>133</b> 個發現項（占全站發現的 96%）。</span><span class="lang-en" lang="en">These 3 actions cover <b>133</b> findings — 96% of everything found.</span></p>
+      <div class="fixlist">
+    <div class="fixcard">
+      <span class="rank">1</span>
+      <h3><span class="lang-zh" lang="zh-Hant">圖片缺少 alt text</span><span class="lang-en" lang="en">Image is missing alt text</span><span style="font-variant-numeric:tabular-nums;font-weight:700"><span class="lang-zh" lang="zh-Hant">（&times;88）</span><span class="lang-en" lang="en"> (&times;88)</span></span></h3>
+      <p class="who">Blind and low-vision users using screen readers</p>
+      <div class="foot"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 1.1.1 Non-text Content</span></div>
+    </div>
+    <div class="fixcard">
+      <span class="rank">2</span>
+      <h3><span class="lang-zh" lang="zh-Hant">Link 可能沒有 accessible name</span><span class="lang-en" lang="en">Link may not have an accessible name</span><span style="font-variant-numeric:tabular-nums;font-weight:700"><span class="lang-zh" lang="zh-Hant">（&times;44）</span><span class="lang-en" lang="en"> (&times;44)</span></span></h3>
+      <p class="who">Screen-reader, voice-control, and keyboard users</p>
+      <div class="foot"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 4.1.2 Name, Role, Value</span></div>
+    </div>
+    <div class="fixcard">
+      <span class="rank">3</span>
+      <h3><span class="lang-zh" lang="zh-Hant">靜態 markup 中看不到 main landmark</span><span class="lang-en" lang="en">Main landmark is not statically visible</span><span style="font-variant-numeric:tabular-nums;font-weight:700"><span class="lang-zh" lang="zh-Hant">（&times;1）</span><span class="lang-en" lang="en"> (&times;1)</span></span></h3>
+      <p class="who">Screen-reader and keyboard users navigating by landmarks</p>
+      <div class="foot"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 1.3.1 Info and Relationships</span></div>
+    </div></div>
+        </div>
+      </div>
+    </section>
+
+<section class="section-alt" id="layer-evidence" aria-labelledby="h-evidence">
+  <div class="wrap">
+    <p class="eyebrow"><span class="num">02</span> <span class="lang-zh" lang="zh-Hant">證據層</span><span class="lang-en" lang="en">Evidence</span></p>
+    <h2 class="layer-h" id="h-evidence"><span class="lang-zh" lang="zh-Hant">每個分數旁邊都標出它背後有多少證據</span><span class="lang-en" lang="en">Every score shows how much evidence stands behind it</span></h2>
+    <p class="layer-sub"><span class="lang-zh" lang="zh-Hant">一個低分從大量檢查算出來，是確鑿的問題；一個低分只從一次檢查算出來，只是證據不足的旗標。密度條讓兩者一眼可辨。</span><span class="lang-en" lang="en">A low score from many checks is a proven problem; a low score from one check is a thin-evidence flag, not a verdict. The density meter makes the difference visible at a glance.</span></p>
+    <div class="catgrid"><a class="catcard nmc" data-category="contrast" href="#fg-contrast-not-verified"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">色彩與對比</span><span class="lang-en" lang="en">Color & Contrast</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">主因：</span><span class="lang-en" lang="en">Dominant cause: </span><b><span class="lang-zh" lang="zh-Hant">對比未經驗證，請執行 Tier 2</span><span class="lang-en" lang="en">Contrast not verified, run Tier 2</span></b></p></a><a class="catcard" data-category="keyboard" href="#fg-focus-outline-removed"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">鍵盤導覽</span><span class="lang-en" lang="en">Keyboard Navigation</span></div><div class="score-badge"><b class="s-warn">62</b><small>/ 100</small></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:20%"></span></div>
+        <div class="evi-label"><span class="tier mod"><span class="lang-zh" lang="zh-Hant">中等證據</span><span class="lang-en" lang="en">moderate</span></span><span><span class="lang-zh" lang="zh-Hant">3 次檢查（2 通過 · 1 失敗）</span><span class="lang-en" lang="en">3 checks (2 pass · 1 fail)</span></span></div>
+      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">主因：</span><span class="lang-en" lang="en">Dominant cause: </span><b><span class="lang-zh" lang="zh-Hant">Focus outline 被移除且沒有替代</span><span class="lang-en" lang="en">Focus outline removed without replacement</span></b></p></a><a class="catcard" data-category="screenreader" href="#fg-image-alt-missing"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">螢幕閱讀器</span><span class="lang-en" lang="en">Screen Reader</span></div><div class="score-badge"><b class="s-crit">3</b><small>/ 100</small></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:100%"></span></div>
+        <div class="evi-label"><span class="tier high"><span class="lang-zh" lang="zh-Hant">高證據量</span><span class="lang-en" lang="en">high</span></span><span><span class="lang-zh" lang="zh-Hant">992 次檢查（859 通過 · 133 失敗）</span><span class="lang-en" lang="en">992 checks (859 pass · 133 fail)</span></span></div>
+      </div><p class="tension"><span class="lang-zh" lang="zh-Hant"><b>87% 通過率，分數卻是 3</b> — 由 133 個確認的嚴重問題觸發嚴重度扣分。</span><span class="lang-en" lang="en"><b>87% pass rate; score of 3</b> is driven by severity penalties on 133 confirmed findings.</span></p></a><a class="catcard" data-category="forms" href="#layer-findings"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">表單</span><span class="lang-en" lang="en">Forms</span></div><div class="score-badge"><b class="s-pass">100</b><small>/ 100</small></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:28%"></span></div>
+        <div class="evi-label"><span class="tier mod"><span class="lang-zh" lang="zh-Hant">中等證據</span><span class="lang-en" lang="en">moderate</span></span><span><span class="lang-zh" lang="zh-Hant">6 次檢查（6 通過 · 0 失敗）</span><span class="lang-en" lang="en">6 checks (6 pass · 0 fail)</span></span></div>
+      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">本次靜態掃描未發現表單問題。</span><span class="lang-en" lang="en">No Forms issues found in this static scan.</span></p></a><a class="catcard thin" data-category="responsive" href="#fg-viewport-meta-missing"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">響應式與回流</span><span class="lang-en" lang="en">Responsive & Reflow</span></div><div class="state-badge"><span class="chip thin"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 證據不足以計分</span><span class="lang-en" lang="en">Static scan complete · not enough evidence to score</span></span></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:10%"></span></div>
+        <div class="evi-label"><span class="tier low"><span class="lang-zh" lang="zh-Hant">證據不足</span><span class="lang-en" lang="en">insufficient</span></span><span><span class="lang-zh" lang="zh-Hant">1 次檢查（0 通過 · 1 失敗）</span><span class="lang-en" lang="en">1 check (0 pass · 1 fail)</span><span class="lang-zh" lang="zh-Hant">，另 1 待複審</span><span class="lang-en" lang="en">, 1 pending review</span></span></div>
+      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">主因：</span><span class="lang-en" lang="en">Dominant cause: </span><b><span class="lang-zh" lang="zh-Hant">Viewport meta tag 缺失</span><span class="lang-en" lang="en">Viewport meta tag is missing</span></b></p></a><div class="catcard nmc" data-category="touch"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">觸控與目標尺寸</span><span class="lang-en" lang="en">Touch & Targets</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).</span></p></div><div class="catcard nmc" data-category="cognitive"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">認知</span><span class="lang-en" lang="en">Cognitive</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).</span></p></div><a class="catcard thin" data-category="motion" href="#fg-motion-reduced-motion-missing"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">動態與動畫</span><span class="lang-en" lang="en">Motion & Animation</span></div><div class="state-badge"><span class="chip thin"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 證據不足以計分</span><span class="lang-en" lang="en">Static scan complete · not enough evidence to score</span></span></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:10%"></span></div>
+        <div class="evi-label"><span class="tier low"><span class="lang-zh" lang="zh-Hant">證據不足</span><span class="lang-en" lang="en">insufficient</span></span><span><span class="lang-zh" lang="zh-Hant">1 次檢查（0 通過 · 1 失敗）</span><span class="lang-en" lang="en">1 check (0 pass · 1 fail)</span></span></div>
+      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">主因：</span><span class="lang-en" lang="en">Dominant cause: </span><b><span class="lang-zh" lang="zh-Hant">有 motion 但缺少 reduced-motion handling</span><span class="lang-en" lang="en">Motion exists without reduced-motion handling</span></b></p></a><div class="catcard nmc" data-category="media"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">媒體</span><span class="lang-en" lang="en">Media</span></div><div class="state-badge"><span class="chip review"><span class="lang-zh" lang="zh-Hant">已完成靜態掃描 · 需人工驗證</span><span class="lang-en" lang="en">Static scan complete · human verification needed</span></span></div></div><div class="evi"><div class="evi-label"><span class="tier nmc"><span class="lang-zh" lang="zh-Hant">未自動檢測</span><span class="lang-en" lang="en">not machine-checkable</span></span></div></div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。</span><span class="lang-en" lang="en">The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).</span></p></div><a class="catcard" data-category="agent" href="#layer-findings"><div class="cat-top"><div class="cat-name"><span class="lang-zh" lang="zh-Hant">代理可操作性與 AEO</span><span class="lang-en" lang="en">Agent Operability & AEO</span></div><div class="score-badge"><b class="s-pass">100</b><small>/ 100</small></div></div><div class="evi">
+        <div class="evi-track"><span class="evi-fill" style="width:20%"></span></div>
+        <div class="evi-label"><span class="tier mod"><span class="lang-zh" lang="zh-Hant">中等證據</span><span class="lang-en" lang="en">moderate</span></span><span><span class="lang-zh" lang="zh-Hant">3 次檢查（3 通過 · 0 失敗）</span><span class="lang-en" lang="en">3 checks (3 pass · 0 fail)</span></span></div>
+      </div><p class="cat-cause"><span class="lang-zh" lang="zh-Hant">本次靜態掃描未發現代理可操作性與 AEO問題。</span><span class="lang-en" lang="en">No Agent Operability & AEO issues found in this static scan.</span></p></a></div>
+    <div class="aeo-disclaimer" role="note" aria-label="AEO sub-score interpretation note">
+      <div class="lang-zh" lang="zh-Hant">
+        <div class="aeo-disclaimer-title">&#9888; 關於 AEO 子分數的解讀</div>
+        <p>
+          AEO 子分數衡量的是<strong>agent 可以協助改善的可引用性前置條件</strong>，例如 JSON-LD、
+          meta tags、canonical、Open Graph、heading outline 與內容可爬取性。這些是實際可處理的建議，
+          但<strong>不是實際引用結果</strong>；結構齊全只代表「比較具備被引用的條件」，不代表 AI 引擎已經引用你的內容。
+        </p>
+        <p class="aeo-disclaimer-cta">
+          因此本段的 finding 可以當成結構修復清單。實務流程是：先修 Beacon 找到的結構問題；若是公開站，
+          再用外部 agent-readiness scanner（例如 Cloudflare 的 isitagentready.com 或 URL Scanner Agent Readiness）
+          交叉檢查 robots.txt、sitemap、Markdown negotiation、Content Signals、MCP/API/OAuth discovery 等 agent-facing
+          標準；最後才用 <strong>server log 的 AI 爬蟲記錄</strong>、<strong>手動在 answer engine 查詢</strong>、
+          以及 <strong>analytics 的 referral 來源</strong>確認引用效果是否真的發生。外部 scanner 可以補強或取代部分結構檢查，
+          但不能取代實際效果量測。
+        </p>
+      </div>
+      <div class="lang-en" lang="en">
+        <div class="aeo-disclaimer-title">&#9888; Reading the AEO Sub-score</div>
+        <p>
+          The AEO sub-score measures <strong>actionable citation-readiness prerequisites</strong>
+          an agent can help improve, such as JSON-LD, meta tags, canonical links, Open Graph,
+          heading outline, and crawlable content. These are real structural recommendations, but
+          <strong>not actual citation outcomes</strong>. Complete structure means "more eligible to
+          be cited", not that any AI engine has cited your content.
+        </p>
+        <p class="aeo-disclaimer-cta">
+          Treat the findings in this section as a structural fix list. A practical workflow is:
+          fix the structural issues Beacon found; for public sites, cross-check with an external
+          agent-readiness scanner such as Cloudflare's isitagentready.com or URL Scanner Agent
+          Readiness for robots.txt, sitemap, Markdown negotiation, Content Signals, MCP/API/OAuth
+          discovery, and similar agent-facing standards; then confirm whether impact happened by
+          checking <strong>AI-crawler hits in server logs</strong>, <strong>manual queries on answer
+          engines</strong>, and <strong>referral sources in analytics</strong>. External scanners can
+          supplement or replace parts of the structural check, but they cannot replace outcome
+          measurement.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+    <section id="layer-findings" aria-labelledby="h-findings">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">03</span> <span class="lang-zh" lang="zh-Hant">問題層</span><span class="lang-en" lang="en">Findings</span></p>
+        <h2 class="layer-h" id="h-findings"><span class="lang-zh" lang="zh-Hant">依「修正動作」分組，一組就是一個可執行單位</span><span class="lang-en" lang="en">Grouped by fix action — one group is one thing to do</span></h2>
+        <p class="layer-sub"><span class="lang-zh" lang="zh-Hant">同一種修法的所有發現項合併為一組，不是一列一列重複同一件事。每組附上受影響對象、程式碼線索、檔案位置與 WCAG 對照。</span><span class="lang-en" lang="en">All findings sharing one fix are merged into a single group, not repeated row by row. Each group carries the affected users, a code clue, file locations, and its WCAG mapping.</span></p>
+        <div class="filters" role="group" aria-label="Filter by category / 依分類篩選"><span class="flabel"><span class="lang-zh" lang="zh-Hant">篩選</span><span class="lang-en" lang="en">Filter</span></span><button class="fbtn" type="button" data-filter="all" aria-pressed="true">全部 · All（8）</button><button class="fbtn" type="button" data-filter="contrast" aria-pressed="false">色彩與對比 · Color &amp; Contrast（1）</button><button class="fbtn" type="button" data-filter="keyboard" aria-pressed="false">鍵盤導覽 · Keyboard Navigation（1）</button><button class="fbtn" type="button" data-filter="screenreader" aria-pressed="false">螢幕閱讀器 · Screen Reader（3）</button><button class="fbtn" type="button" data-filter="responsive" aria-pressed="false">響應式與回流 · Responsive &amp; Reflow（2）</button><button class="fbtn" type="button" data-filter="motion" aria-pressed="false">動態與動畫 · Motion &amp; Animation（1）</button></div>
+        
+    <article class="fgroup" id="fg-image-alt-missing" data-category="screenreader">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">圖片缺少 alt text</span><span class="lang-en" lang="en">Image is missing alt text</span></div>
+        <span class="fg-count">&times;88</span>
+        <div class="meta-row"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 1.1.1 Non-text Content</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Blind and low-vision users using screen readers</p>
+        <div class="diff" aria-label="code snippet / 程式碼片段"><pre class="before"><span class="tag">&minus;</span>&lt;/li&gt;
+&lt;li id=&quot;rnkDailyGenreLink_0_unlink&quot; class=&quot;rnkGenreUnLink&quot; style=&quot;&quot;&gt;&lt;div style=&quot;color: #BF0000; font-weight: bold;&quot;&gt;&lt;img src=&quot;https://r.r10s.jp/com/inc/home/20080930/beta/tz/img/ranking_tab/ranking_btn_realtime_on.gif&quot;&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;/ul&gt;</pre></div>
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:2983</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:2989</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:2997</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3005</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3013</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3021</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3029</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3284</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3321</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3326</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3326</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:3326</span><span><span class="lang-zh" lang="zh-Hant">及另外 76 處</span><span class="lang-en" lang="en">and 76 more</span></span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 1.1.1 要求所有非文字內容都要有文字替代：功能性圖片（如圖示按鈕）替代文字描述其功能，資訊性圖片描述其內容，純裝飾圖片則必須明確標記（alt=&quot;&quot;、aria-hidden 或 role=&quot;presentation&quot;）讓輔助科技略過。本檢查不判斷圖片是否為裝飾，未標記本身即是違規，修正時依上述準則二選一。</span><span class="lang-en" lang="en">WCAG 1.1.1 requires every non-text content item to have a text alternative: functional images (e.g. icon buttons) take their function as the alt text, informative images describe their content, and purely decorative images must be explicitly marked (alt=&quot;&quot;, aria-hidden, or role=&quot;presentation&quot;) so assistive tech skips them. This check does not judge whether an image is decorative — being unmarked is itself the violation; fix by choosing one of the above.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">為有意義的圖片加入 alt text；純裝飾圖片使用 alt=&quot;&quot;。</span><span class="lang-en" lang="en">Add meaningful alt text, or alt=&quot;&quot; for purely decorative images.</span></p>
+        
+    <p class="learn-more"><strong><span class="lang-zh" lang="zh-Hant">Learn more</span><span class="lang-en" lang="en">Learn more</span>:</strong>
+      <a href="https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html" target="_blank" rel="noopener noreferrer">WCAG 1.1.1</a>
+    </p>
+      </div>
+    </article>
+    <article class="fgroup" id="fg-link-name-missing" data-category="screenreader">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">Link 可能沒有 accessible name</span><span class="lang-en" lang="en">Link may not have an accessible name</span></div>
+        <span class="fg-count">&times;44</span>
+        <div class="meta-row"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 4.1.2 Name, Role, Value</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Screen-reader, voice-control, and keyboard users</p>
+        <div class="diff" aria-label="code snippet / 程式碼片段"><pre class="before"><span class="tag">&minus;</span>…ottom-medium--afMsT padding-right-xlarge--zVnLm padding-left-xlarge--23dSW&quot;&gt;&lt;a class=&quot;logo--2UFRP&quot; href=&quot;https://www.rakuten.co.jp/?l-id=pc_header_logo&quot;&gt;&lt;div class=&quot;logo--39sSh r-logo-big--4xwF5  &quot; alt-text=&quot;Logo&quot;&gt;&lt;/div&gt;&lt;/a&gt;&lt;div class=&quot;flex-search-bar-wrapper--2AYEE&quot;&gt;&lt;div class=&quot;spacer--1O71j block-…</pre></div>
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:711</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:732</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:905</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1003</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1007</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1011</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1015</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1019</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1258</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1315</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1480</span><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:1481</span><span><span class="lang-zh" lang="zh-Hant">及另外 32 處</span><span class="lang-en" lang="en">and 32 more</span></span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 4.1.2 要求每個可互動元件都要有可程式化辨識的名稱、角色與狀態；連結必須有可辨識的名稱才能被輔助科技正確朗讀與操作，名稱可以是可見文字、aria-label/aria-labelledby、title，或包裹圖片的 alt 文字。</span><span class="lang-en" lang="en">WCAG 4.1.2 requires every interactive component to expose a programmatically determinable name, role, and state; a link needs a discoverable name so assistive tech can announce and operate it — the name can come from visible text, aria-label/aria-labelledby, title, or a wrapped image's alt text.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">加入可見 link text、aria-label/aria-labelledby/title、包裹圖片的 alt text，或 &lt;svg&gt;&lt;title&gt;。</span><span class="lang-en" lang="en">Add visible link text, an aria-label/aria-labelledby/title, give a wrapped &lt;img&gt; meaningful alt text, or add an &lt;svg&gt;&lt;title&gt;.</span></p>
+        
+    <p class="learn-more"><strong><span class="lang-zh" lang="zh-Hant">Learn more</span><span class="lang-en" lang="en">Learn more</span>:</strong>
+      <a href="https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html" target="_blank" rel="noopener noreferrer">WCAG 4.1.2</a>
+    </p>
+      </div>
+    </article>
+    <article class="fgroup" id="fg-main-landmark-missing" data-category="screenreader">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">靜態 markup 中看不到 main landmark</span><span class="lang-en" lang="en">Main landmark is not statically visible</span></div>
+        <span class="fg-count">&times;1</span>
+        <div class="meta-row"><span class="chip crit">critical</span><span class="chip wcag">WCAG 2.2: 1.3.1 Info and Relationships</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Screen-reader and keyboard users navigating by landmarks</p>
+        
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html</span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 1.3.1 要求版面的結構與關係要能以程式化方式辨識；&lt;main&gt; landmark 讓螢幕閱讀器與鍵盤使用者能一步跳到主要內容，而不必逐一略過重複的頁首與導覽。</span><span class="lang-en" lang="en">WCAG 1.3.1 requires that structure and relationships be programmatically determinable; a &lt;main&gt; landmark lets screen-reader and keyboard users jump straight to primary content instead of tabbing past repeated headers and navigation each time.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">用 &lt;main id=&quot;main-content&quot;&gt; 包住主要內容。</span><span class="lang-en" lang="en">Wrap primary page content in &lt;main id=&quot;main-content&quot;&gt;.</span></p>
+        
+    <p class="learn-more"><strong><span class="lang-zh" lang="zh-Hant">Learn more</span><span class="lang-en" lang="en">Learn more</span>:</strong>
+      <a href="https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html" target="_blank" rel="noopener noreferrer">WCAG 1.3.1</a>
+    </p>
+      </div>
+    </article>
+    <article class="fgroup" id="fg-viewport-meta-missing" data-category="responsive">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">Viewport meta tag 缺失</span><span class="lang-en" lang="en">Viewport meta tag is missing</span></div>
+        <span class="fg-count">&times;1</span>
+        <div class="meta-row"><span class="chip warn">warning</span><span class="chip wcag">WCAG 2.2: 1.4.10 Reflow</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Mobile users and low-vision users who zoom</p>
+        
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html</span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 1.4.10 要求內容在 320px 寬度下能正確回流、不需雙向捲動；缺少 viewport meta 標籤時，行動裝置通常會強制縮放整頁而非重排版面。</span><span class="lang-en" lang="en">WCAG 1.4.10 requires content to reflow correctly at 320px width without two-axis scrolling; without a viewport meta tag, mobile browsers typically zoom the whole page out instead of reflowing it.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">加入 &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;。</span><span class="lang-en" lang="en">Add &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;.</span></p>
+        
+    <p class="learn-more"><strong><span class="lang-zh" lang="zh-Hant">Learn more</span><span class="lang-en" lang="en">Learn more</span>:</strong>
+      <a href="https://www.w3.org/WAI/WCAG22/Understanding/reflow.html" target="_blank" rel="noopener noreferrer">WCAG 1.4.10</a>
+    </p>
+      </div>
+    </article>
+    <article class="fgroup" id="fg-focus-outline-removed" data-category="keyboard">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">Focus outline 被移除且沒有替代</span><span class="lang-en" lang="en">Focus outline removed without replacement</span></div>
+        <span class="fg-count">&times;1</span>
+        <div class="meta-row"><span class="chip warn">warning</span><span class="chip wcag">WCAG 2.2: 2.4.7 Focus Visible</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Sighted keyboard users and low-vision keyboard users</p>
+        <div class="diff" aria-label="code snippet / 程式碼片段"><pre class="before"><span class="tag">&minus;</span>…oji&quot;,&quot;Segoe UI Emoji&quot;,&quot;Segoe UI Symbol&quot;;font-size: 1rem;font-weight: inherit;line-height: 1.5;margin: 0;min-width: var(--rex-button-min-width);outline: none;overflow: visible;padding: var(--rex-button-padding-top-bottom) var(--rex-button-padding-left-right) var(--rex-button-padding-top-bottom) var(…</pre></div>
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html:227</span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 2.4.7 要求鍵盤焦點所在位置必須隨時可見；移除 outline 卻沒有替代樣式，鍵盤使用者會完全看不到目前焦點在哪裡。</span><span class="lang-en" lang="en">WCAG 2.4.7 requires the keyboard focus indicator to always be visible; removing outline without a replacement leaves keyboard users with no way to see where focus currently is.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">恢復 outline，或加入強烈且清楚的 :focus-visible style。</span><span class="lang-en" lang="en">Restore outline or add a strong :focus-visible style.</span></p>
+        
+    <p class="learn-more"><strong><span class="lang-zh" lang="zh-Hant">Learn more</span><span class="lang-en" lang="en">Learn more</span>:</strong>
+      <a href="https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html" target="_blank" rel="noopener noreferrer">WCAG 2.4.7</a>
+    </p>
+      </div>
+    </article>
+    <article class="fgroup" id="fg-motion-reduced-motion-missing" data-category="motion">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">有 motion 但缺少 reduced-motion handling</span><span class="lang-en" lang="en">Motion exists without reduced-motion handling</span></div>
+        <span class="fg-count">&times;1</span>
+        <div class="meta-row"><span class="chip warn">warning</span><span class="chip wcag">WCAG 2.2: 2.3.3 Animation from Interactions</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Vestibular disorder, migraine, and attention-sensitive users</p>
+        
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html</span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 2.3.3（AAA，本檢查作為最佳實務建議，非 A/AA 基準要求）要求非必要的互動動畫要能被使用者關閉；沒有 prefers-reduced-motion 處理，前庭功能障礙或偏頭痛使用者無法停用可能引發不適的動態效果。</span><span class="lang-en" lang="en">WCAG 2.3.3 (AAA — flagged here as best practice, not an A/AA baseline requirement) requires that non-essential interaction-triggered animation can be turned off; without prefers-reduced-motion handling, users with vestibular disorders or migraines have no way to disable motion that can cause real discomfort.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">加入 @media (prefers-reduced-motion: reduce)，停用或縮短非必要 motion。</span><span class="lang-en" lang="en">Add @media (prefers-reduced-motion: reduce) to disable or shorten non-essential motion.</span></p>
+        
+      </div>
+    </article>
+    <article class="fgroup" id="fg-large-fixed-width" data-category="responsive">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">偵測到大型固定寬度</span><span class="lang-en" lang="en">Large fixed width detected</span></div>
+        <span class="fg-count">&times;1</span>
+        <div class="meta-row"><span class="chip review">待複審 · review</span><span class="chip wcag">WCAG 2.2: 1.4.10 Reflow</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Mobile and zoom users</p>
+        
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>../beacon-benchmark-100/run-2026-07-05/snapshots/97.html</span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 1.4.10 要求內容在 320px 寬度下能正確回流；任何未受限的大型固定寬度元素，都可能在窄視窗造成水平捲動。</span><span class="lang-en" lang="en">WCAG 1.4.10 requires content to reflow correctly at 320px width; any unconstrained large fixed-width element can force horizontal scroll on a narrow viewport.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">使用 max-width、min()、clamp() 或 container-relative sizing。</span><span class="lang-en" lang="en">Use max-width, min(), clamp(), or container-relative sizing.</span></p>
+        
+    <p class="learn-more"><strong><span class="lang-zh" lang="zh-Hant">Learn more</span><span class="lang-en" lang="en">Learn more</span>:</strong>
+      <a href="https://www.w3.org/WAI/WCAG22/Understanding/reflow.html" target="_blank" rel="noopener noreferrer">WCAG 1.4.10</a>
+    </p>
+      </div>
+    </article>
+    <article class="fgroup" id="fg-contrast-not-verified" data-category="contrast">
+      <div class="fg-head">
+        <div class="fg-title"><span class="lang-zh" lang="zh-Hant">對比未經驗證，請執行 Tier 2</span><span class="lang-en" lang="en">Contrast not verified, run Tier 2</span></div>
+        <span class="fg-count">&times;1</span>
+        <div class="meta-row"><span class="chip review">待複審 · review</span><span class="chip wcag">WCAG 2.2: 1.4.3 Contrast (Minimum)</span></div>
+      </div>
+      <div class="fg-body">
+        <p class="who-line"><span class="who-badge"><span class="lang-zh" lang="zh-Hant">可能受影響的使用者</span><span class="lang-en" lang="en">Users potentially affected</span>:</span> Low-vision users and users in high ambient light</p>
+        
+        <div class="loclist" role="region" aria-label="file locations / 檔案位置清單" tabindex="0"><span>site-wide (static scan only)</span></div>
+        <p class="standard-line"><strong><span class="lang-zh" lang="zh-Hant">標準</span><span class="lang-en" lang="en">Standard</span>:</strong> <span class="lang-zh" lang="zh-Hant">WCAG 1.4.3 的對比比例需要瀏覽器計算後的樣式才能完整驗證；純靜態掃描無法看到真實渲染後的顏色，因此明確標記為未驗證，而非默默略過或誤報通過。</span><span class="lang-en" lang="en">WCAG 1.4.3 contrast ratios require browser-computed styles to verify fully; a static-only scan cannot see real rendered color, so this is flagged explicitly as unverified rather than silently skipped or reported as a false pass.</span></p>
+        
+        <p class="fix-line"><strong><span class="lang-zh" lang="zh-Hant">建議調整</span><span class="lang-en" lang="en">Suggested adjustment</span>:</strong> <span class="lang-zh" lang="zh-Hant">執行 node scripts/tier2-audit.mjs（預設）或 axe-core，再用 --merge-findings 併入結果以取得驗證過的對比覆蓋率。</span><span class="lang-en" lang="en">Run node scripts/tier2-audit.mjs (default) or an axe-core pass, then fold its findings in with --merge-findings for verified contrast coverage.</span></p>
+        
+    <p class="learn-more"><strong><span class="lang-zh" lang="zh-Hant">Learn more</span><span class="lang-en" lang="en">Learn more</span>:</strong>
+      <a href="https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html" target="_blank" rel="noopener noreferrer">WCAG 1.4.3</a>
+    </p>
+      </div>
+    </article>
+        
+      <section class="axe-evidence">
+        <h3><span class="lang-zh" lang="zh-Hant">Live audit evidence</span><span class="lang-en" lang="en">Live Audit Evidence</span></h3>
+        <p class="empty">
+          <span class="lang-zh" lang="zh-Hant">本次 JSON 沒有完整 axe 結果。這是 Tier-1 fallback，contrast、visibility 與 runtime DOM 狀態需要 live browser audit。</span><span class="lang-en" lang="en">This JSON does not include full axe results. This is a Tier-1 fallback; contrast, visibility, and runtime DOM state require a live browser audit.</span>
+        </p>
+      </section>
+      </div>
+    </section>
+
+    <section class="section-alt" id="layer-client" aria-labelledby="h-client">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">04</span> <span class="lang-zh" lang="zh-Hant">客戶層</span><span class="lang-en" lang="en">Client Summary</span></p>
+        <h2 class="layer-h" id="h-client"><span class="lang-zh" lang="zh-Hant">給非技術讀者的執行摘要（可直接列印）</span><span class="lang-en" lang="en">Plain-language executive summary — print-ready</span></h2>
+        <p class="layer-sub"><span class="lang-zh" lang="zh-Hant">這一節永遠可見，並附有列印樣式。不需切換模式，直接送印或轉 PDF 就是給客戶的一頁摘要。</span><span class="lang-en" lang="en">Always visible, with print styles. Print or export to PDF for a client-ready one-pager — no mode toggle.</span></p>
+
+        <div class="exec">
+          <div class="exec-head">
+            <h3>https://www.rakuten.co.jp <span class="lang-zh" lang="zh-Hant">無障礙檢測 · 執行摘要</span><span class="lang-en" lang="en">&middot; Executive Summary</span></h3>
+            <p>https://www.rakuten.co.jp &middot; 2026-07-28 &middot; WCAG 2.2 AA static baseline &middot; Tier 1 (static file scan only)</p>
+          </div>
+          <div class="exec-body">
+            <p class="exec-lead"><span class="lang-zh" lang="zh-Hant">本次檢測在https://www.rakuten.co.jp上發現 <b>138 個問題，其中 133 個為嚴重等級</b>。多數問題集中在可批次修正的模式 — 圖片缺少 alt text（88）、Link 可能沒有 accessible name（44）、靜態 markup 中看不到 main landmark（1）。</span><span class="lang-en" lang="en">This audit found <b>138 issues, 133 of them critical</b>, on https://www.rakuten.co.jp. Most are batch-fixable patterns: Image is missing alt text (88), Link may not have an accessible name (44), Main landmark is not statically visible (1).</span></p>
+
+            <h3><span class="lang-zh" lang="zh-Hant">優先處理順序</span><span class="lang-en" lang="en">Remediation priorities</span></h3><ol class="prio"><li><span class="lang-zh" lang="zh-Hant">圖片缺少 alt text</span><span class="lang-en" lang="en">Image is missing alt text</span> (WCAG 2.2: 1.1.1 Non-text Content)</li><li><span class="lang-zh" lang="zh-Hant">Link 可能沒有 accessible name</span><span class="lang-en" lang="en">Link may not have an accessible name</span> (WCAG 2.2: 4.1.2 Name, Role, Value)</li><li><span class="lang-zh" lang="zh-Hant">靜態 markup 中看不到 main landmark</span><span class="lang-en" lang="en">Main landmark is not statically visible</span> (WCAG 2.2: 1.3.1 Info and Relationships)</li></ol>
+
+            <h3><span class="lang-zh" lang="zh-Hant">法規範圍</span><span class="lang-en" lang="en">Jurisdiction exposure</span></h3>
+            <p style="font-size:.92rem;color:var(--ink-soft);margin:.2rem 0 .5rem"><span class="lang-zh" lang="zh-Hant">此靜態基線所示問題可能影響下列司法管轄區的無障礙要求（視實際部署情境而定）：</span><span class="lang-en" lang="en">This static baseline may affect accessibility expectations in:</span></p>
+            <div class="expose"><span class="chip review">US ADA</span><span class="chip review">EU EAA</span><span class="chip review">Japan JIS</span><span class="chip review">Taiwan</span><span class="chip review">Canada ACA</span><span class="chip review">Australia DDA</span></div>
+
+            <div class="exec-note">
+              <span class="lang-zh" lang="zh-Hant"><strong>如何解讀這份報告：</strong> 這是 AI 輔助的自動化基線。業界估計自動化工具約涵蓋 WCAG 的 30&ndash;40%；Beacon 實測自己涵蓋 55 條 A+AA 準則中的 14 條（25.5%），在自動化可及範圍內完整決定 2 條（3.6%，逐條對照表公開可查）。分數是起點不是終點；上線前建議與障礙使用者實測核心流程。色彩與對比、觸控與目標尺寸、認知、媒體 等 4 個分類本次僅標記為待人工複審。</span>
+              <span class="lang-en" lang="en" style="display:block;margin-top:.35rem">How to read this: an AI-assisted baseline. Industry estimates put automated WCAG coverage at ~30&ndash;40%; Beacon measured its own coverage at 14 of 55 A+AA criteria (25.5%), fully deciding 2 within automation's reach (3.6%, row-by-row table public). The score is a starting point &mdash; test core flows with disabled users before launch. Color &amp; Contrast, Touch &amp; Targets, Cognitive, Media were flagged for human review this pass.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="layer-methodology" aria-labelledby="h-methodology">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">05</span> <span class="lang-zh" lang="zh-Hant">方法論層</span><span class="lang-en" lang="en">Methodology</span></p>
+        <h2 class="layer-h" id="h-methodology"><span class="lang-zh" lang="zh-Hant">這份審查擅長什麼、不擅長什麼</span><span class="lang-en" lang="en">What this audit is good at, and where it stops</span></h2>
+        
+    <div class="methodology-panel">
+
+      <div class="lang-zh" lang="zh-Hant">
+        <p class="meta-note">審查層級：<strong>Tier 1 (static file scan only)</strong> &middot;
+          信心水準：<strong>low</strong></p>
+      </div>
+      <div class="lang-en" lang="en">
+        <p class="meta-note">Audit tier: <strong>Tier 1 (static file scan only)</strong> &middot;
+          Confidence level: <strong>low</strong></p>
+      </div>
+
+      
+    <details open class="methods-details">
+      <summary><strong><span class="lang-zh" lang="zh-Hant">本次審查實際採用的方法</span><span class="lang-en" lang="en">Methods applied in this audit</span></strong></summary>
+      <ul class="methods-list"><li>Static scan of 1 UI-like file(s)</li><li>Pattern checks for semantic HTML, keyboard traps, labels, reflow, motion, AEO structure, and site-level agent-readiness files when a directory is scanned</li><li>Runtime behavior, contrast ratios, and screen-reader task completion were not fully verified</li></ul>
+    </details>
+      
+    <div class="live-audit-note" role="note">
+      <span class="lang-zh" lang="zh-Hant">此結果標記為 requires_live_audit: true。靜態層不能計算 contrast，也不能可靠判定 CSS visibility、focus flow 或執行時互動；請用 Tier-2 browser + axe 補齊。</span><span class="lang-en" lang="en">This result is marked requires_live_audit: true. The static tier cannot compute contrast or reliably determine CSS visibility, focus flow, or runtime interaction; complete it with Tier-2 browser + axe evidence.</span>
+    </div>
+      
+    <section class="manual-checks" aria-labelledby="manual-checks-title">
+      <h3 id="manual-checks-title"><span class="lang-zh" lang="zh-Hant">人工檢查項</span><span class="lang-en" lang="en">Manual Checks</span></h3>
+      <p class="section-intro">
+        <span class="lang-zh" lang="zh-Hant">這些項目需要人類判斷、實機操作或與障礙使用者一起測試；不應由自動化分數取代。</span><span class="lang-en" lang="en">These items require human judgement, real-device operation, or testing alongside disabled users; they should not be replaced by an automated score.</span>
+      </p>
+      <div class="manual-check-grid">
+        
+          <article class="manual-check-card">
+            <div class="manual-check-meta">User research</div>
+            <h4><span class="lang-zh" lang="zh-Hant">與障礙使用者一同測試</span><span class="lang-en" lang="en">Test with disabled users</span></h4>
+            <p><strong><span class="lang-zh" lang="zh-Hant">為什麼要檢查：</span><span class="lang-en" lang="en">Why check:</span></strong> <span class="lang-zh" lang="zh-Hant">自動化工具無法證明真實任務能否完成。</span><span class="lang-en" lang="en">Automation cannot prove real task completion.</span></p>
+            <p><strong><span class="lang-zh" lang="zh-Hant">怎麼檢查：</span><span class="lang-en" lang="en">How to check:</span></strong> <span class="lang-zh" lang="zh-Hant">至少安排螢幕閱讀器、鍵盤-only、低視力或認知障礙使用者完成核心流程。</span><span class="lang-en" lang="en">Have screen-reader, keyboard-only, low-vision, or cognitive-disability users complete the core flow.</span></p>
+          </article>
+        
+          <article class="manual-check-card">
+            <div class="manual-check-meta">Assistive technology</div>
+            <h4><span class="lang-zh" lang="zh-Hant">螢幕閱讀器核心任務 walkthrough</span><span class="lang-en" lang="en">Screen-reader core-task walkthrough</span></h4>
+            <p><strong><span class="lang-zh" lang="zh-Hant">為什麼要檢查：</span><span class="lang-en" lang="en">Why check:</span></strong> <span class="lang-zh" lang="zh-Hant">有 name/role 不代表朗讀順序、狀態更新與任務路徑真的清楚。</span><span class="lang-en" lang="en">Name/role checks do not prove reading order, state updates, or task flow clarity.</span></p>
+            <p><strong><span class="lang-zh" lang="zh-Hant">怎麼檢查：</span><span class="lang-en" lang="en">How to check:</span></strong> <span class="lang-zh" lang="zh-Hant">用 VoiceOver、NVDA 或 TalkBack 只靠聽覺完成主要任務並記錄卡點。</span><span class="lang-en" lang="en">Use VoiceOver, NVDA, or TalkBack to complete the primary task by listening only; record blockers.</span></p>
+          </article>
+        
+          <article class="manual-check-card">
+            <div class="manual-check-meta">Keyboard</div>
+            <h4><span class="lang-zh" lang="zh-Hant">鍵盤-only 路徑與 focus 管理</span><span class="lang-en" lang="en">Keyboard-only path and focus management</span></h4>
+            <p><strong><span class="lang-zh" lang="zh-Hant">為什麼要檢查：</span><span class="lang-en" lang="en">Why check:</span></strong> <span class="lang-zh" lang="zh-Hant">Tab 順序、modal 關閉後 focus 返回、SPA route focus 都需要執行時確認。</span><span class="lang-en" lang="en">Tab order, modal return focus, and SPA route focus require runtime confirmation.</span></p>
+            <p><strong><span class="lang-zh" lang="zh-Hant">怎麼檢查：</span><span class="lang-en" lang="en">How to check:</span></strong> <span class="lang-zh" lang="zh-Hant">用 Tab、Shift+Tab、Enter、Space、方向鍵走完核心流程。</span><span class="lang-en" lang="en">Complete the core flow with Tab, Shift+Tab, Enter, Space, and arrow keys.</span></p>
+          </article>
+        
+          <article class="manual-check-card">
+            <div class="manual-check-meta">Responsive</div>
+            <h4><span class="lang-zh" lang="zh-Hant">320px + 200% zoom reflow</span><span class="lang-en" lang="en">320px + 200% zoom reflow</span></h4>
+            <p><strong><span class="lang-zh" lang="zh-Hant">為什麼要檢查：</span><span class="lang-en" lang="en">Why check:</span></strong> <span class="lang-zh" lang="zh-Hant">靜態審查無法可靠證明窄螢幕與放大同時成立。</span><span class="lang-en" lang="en">Static review cannot reliably prove narrow viewport plus zoom behavior.</span></p>
+            <p><strong><span class="lang-zh" lang="zh-Hant">怎麼檢查：</span><span class="lang-en" lang="en">How to check:</span></strong> <span class="lang-zh" lang="zh-Hant">在 320px viewport 與 200% zoom 檢查是否無雙向捲動、遮擋或內容遺失。</span><span class="lang-en" lang="en">At 320px viewport and 200% zoom, check for no two-axis scrolling, clipping, or lost content.</span></p>
+          </article>
+        
+          <article class="manual-check-card">
+            <div class="manual-check-meta">Cognitive</div>
+            <h4><span class="lang-zh" lang="zh-Hant">認知負荷與文案清楚度</span><span class="lang-en" lang="en">Cognitive load and copy clarity</span></h4>
+            <p><strong><span class="lang-zh" lang="zh-Hant">為什麼要檢查：</span><span class="lang-en" lang="en">Why check:</span></strong> <span class="lang-zh" lang="zh-Hant">規則可以通過，但選項過多、錯誤訊息抽象或流程不可預期仍會阻擋使用者。</span><span class="lang-en" lang="en">Rules can pass while dense choices, abstract errors, or unpredictable flow still block users.</span></p>
+            <p><strong><span class="lang-zh" lang="zh-Hant">怎麼檢查：</span><span class="lang-en" lang="en">How to check:</span></strong> <span class="lang-zh" lang="zh-Hant">請目標使用者解釋下一步要做什麼，並檢查 error/help text 是否能引導行動。</span><span class="lang-en" lang="en">Ask target users to explain the next step and verify that error/help text guides action.</span></p>
+          </article>
+        
+      </div>
+    </section>
+
+      <div class="lang-zh" lang="zh-Hant">
+        <h3>本審查擅長偵測的範疇</h3>
+        <p class="section-intro">機器可判定、有靜態或執行時可識別特徵的項目：</p>
+        <ul class="capability-list">
+          <li>圖片缺 alt 文字、表單欄位未配對 label、按鈕無可讀名稱</li>
+          <li>色彩對比比例（4.5:1 / 3:1 / 7:1 數值門檻）</li>
+          <li>缺 landmarks（header / nav / main / footer）、缺 <code>lang</code> 屬性、缺頁面 title</li>
+          <li>正值 tabindex、<code>outline: none</code> 無 <code>:focus-visible</code> 替代</li>
+          <li>Heading 層級斷層（h1 跳 h3）</li>
+          <li>Schema.org / AEO 訊號（JSON-LD、meta tags、canonical、Open Graph）</li>
+          <li>320px 窄視窗下的回流（reflow）行為</li>
+          <li>互動式 <code>&lt;div&gt;</code> / <code>&lt;span&gt;</code> 缺鍵盤處理器</li>
+          <li>可由靜態 HTML 判定的 WCAG 2.2 A &amp; AA 條款</li>
+        </ul>
+
+        <h3>本審查涵蓋之外的範疇</h3>
+        <p class="section-intro">較適合透過人類判斷、真實使用者測試、或執行時任務觀察來確認的項目：</p>
+        <ul class="limitation-list">
+          <li><strong>認知負荷</strong>&mdash;單頁選項過多、文案抽象、版面密集</li>
+          <li><strong>alt 文字或 label 是否真的有用</strong>&mdash;存在不等於清楚。<code>alt="image"</code> 通過 axe，但對螢幕閱讀器使用者毫無幫助</li>
+          <li><strong>真實螢幕閱讀器任務達成路徑</strong>&mdash;例如 VoiceOver 使用者能在 2 分鐘內找到下週活動嗎？</li>
+          <li><strong>動態互動品質</strong>&mdash;<code>aria-live</code> 在篩選器變更時真的有觸發嗎？modal 關閉時 focus 是否正確返回？</li>
+          <li><strong>瀏覽器深色模式覆寫下的效能痛點</strong>&mdash;Edge / Chrome 在手機上的 <em>force-dark</em>，對未原生支援 <code>prefers-color-scheme</code> 的站點會造成卡頓。靜態審查看不到這層</li>
+          <li><strong>SPA 導覽下的 focus 管理</strong>&mdash;route 變更時 focus 有移到合理位置嗎？</li>
+          <li><strong>錯誤訊息是否建設性</strong>&mdash;「無效輸入」通過 3.3.1；「電話號碼應以 0 開頭」才是使用者需要的</li>
+          <li><strong>200% 縮放 + 320px 寬同時成立</strong>&mdash;手機 + 放大鏡使用者組合</li>
+          <li><strong>認知障礙使用者所需的閱讀年齡 / 語言簡明度</strong></li>
+          <li><strong>較舊輔助科技使用者的實際體驗</strong>&mdash;JAWS 2018、Windows 7 上的 NVDA、Android Lollipop 上的 TalkBack</li>
+          <li><strong>設計是否真正包容障礙者</strong>&mdash;而非僅是「未偵測到障礙」</li>
+        </ul>
+        <p class="section-intro"><a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage">本審查不檢查的每一條準則，實際排除了誰、依據 WCAG 自己的說明 &rarr;</a></p>
+
+        <h3>推薦的無障礙工作流程</h3>
+        <p class="section-intro">依真實使用者衝擊排序，而非依測量便利性：</p>
+        <ol class="workflow-list">
+          <li><strong>找障礙使用者實際操作測試。</strong>最高衝擊。一場螢幕閱讀器使用者的測試，比十次自動審查揭露的問題還多。</li>
+          <li><strong>團隊裡僱用障礙者。</strong>預防勝於補救。設計階段內建的可達性，比事後審查補上的更便宜也更好。</li>
+          <li><strong>開發者自己做鍵盤-only 完整流程測試。</strong>5 分鐘，高產出。拔掉滑鼠，用 Tab / Shift+Tab / Enter / Space / 方向鍵走完主要使用者旅程。</li>
+          <li><strong>用螢幕閱讀器跑核心流程。</strong>NVDA（Windows，免費）、VoiceOver（macOS / iOS，內建）、TalkBack（Android）。只用聽的走完主流程。</li>
+          <li><strong>自動化基線審查（本份報告）。</strong>抓出機器可偵測的子集。較適合作為 CI 的回歸防線；建議避免單獨作為完工證書。</li>
+          <li><strong>公開可達性聲明。</strong>EU EAA 強制，其他司法管轄推薦。聲明標準、已知限制、回饋管道。</li>
+        </ol>
+
+        <h3>容易被忽略的脈絡</h3>
+        <table class="traps-table">
+          <thead>
+            <tr><th>常見的想法&hellip;</th><th>值得補充的觀察&hellip;</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>「我們拿到 90 分以上，網站可達。」</td>
+              <td>分數只反映機器可偵測的項目。真實使用者仍可能被本審查看不到的問題擋住。</td>
+            </tr>
+            <tr>
+              <td>「對比通過 4.5:1，文字清楚易讀。」</td>
+              <td>字體選擇、行高、字重、閱讀距離，都會獨立影響可讀性。</td>
+            </tr>
+            <tr>
+              <td>「表單有 <code>&lt;label&gt;</code>，可以用了。」</td>
+              <td>標籤文字本身也建議保持清楚不歧義。<code>&lt;label&gt;欄位&lt;/label&gt;</code> 雖通過 3.3.2，但實際上對使用者幫助有限。</td>
+            </tr>
+            <tr>
+              <td>「axe 沒抓到任何違規，就完工了。」</td>
+              <td>axe 作者明確表示，實務上大多數 WCAG 失敗不是機器可判定的。Beacon 自己的準則層級實測：55 條 A+AA 準則中，14 條有偵測器涵蓋。</td>
+            </tr>
+            <tr>
+              <td>「skip link 加了，鍵盤可達就完成。」</td>
+              <td>Skip link 只是一個條款。modal、SPA 路由變化、動態內容更新時的 focus 管理，常常獨立壞掉，且靜態審查看不到。</td>
+            </tr>
+            <tr>
+              <td>「dark mode 寫一半沒關係。」</td>
+              <td>它在使用者啟用手機瀏覽器強制深色時會造成真實效能痛&mdash;瀏覽器退回慢速像素級反轉，而非快速 CSS 切換。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>建議的使用方式</h3>
+        <ul class="usage-list">
+          <li><strong>作為 CI 回歸防線：</strong>把 <code>axe-core</code> 或本審查接進 CI；對引入新的高影響項目的 PR 建議先複核再合併。</li>
+          <li><strong>作為教育工具：</strong>帶新成員走過 findings 建立 a11y 直覺。before/after 程式碼區塊就是為此設計。</li>
+          <li><strong>作為時序追蹤指標：</strong>用 <code>--previous</code> 旗標比對審查。變化方向比絕對分數更具參考價值。</li>
+          <li><strong>建議避免：當作完工證書</strong>&mdash;「Beacon 95 分」不直接等同於「這個產品完全可達」。公開可達性聲明中建議一併說明方法論與其涵蓋範圍。</li>
+          <li><strong>建議搭配：與障礙使用者一同測試</strong>&mdash;真實 a11y 工作中最昂貴也最容易被低估的環節。本報告作為基線，這項工作補上其他面向。</li>
+        </ul>
+      </div>
+
+      <div class="lang-en" lang="en">
+        <h3>What This Audit Is Well-Suited For</h3>
+        <p class="section-intro">Machine-decidable items with static or runtime signatures:</p>
+        <ul class="capability-list">
+          <li>Missing alt text on images, unlabeled form inputs, missing button names</li>
+          <li>Color contrast ratios (numerical thresholds at 3:1 / 4.5:1 / 7:1)</li>
+          <li>Missing landmarks (header / nav / main / footer), <code>lang</code> attribute, page title</li>
+          <li>Positive tabindex values, <code>outline: none</code> without <code>:focus-visible</code> replacement</li>
+          <li>Heading hierarchy gaps (skipping h1 &rarr; h3)</li>
+          <li>Schema.org / AEO signals (JSON-LD, meta tags, canonical, Open Graph)</li>
+          <li>Reflow behavior at narrow viewports (320px)</li>
+          <li>Interactive <code>&lt;div&gt;</code> / <code>&lt;span&gt;</code> without keyboard handlers</li>
+          <li>Static-detectable WCAG 2.2 A &amp; AA criteria</li>
+        </ul>
+
+        <h3>Areas Beyond This Audit's Scope</h3>
+        <p class="section-intro">Items better confirmed through human judgement, real users, or runtime task observation:</p>
+        <ul class="limitation-list">
+          <li><strong>Cognitive load</strong> &mdash; too many choices on one screen, abstract copy, dense layouts</li>
+          <li><strong>Whether alt text or labels are actually useful</strong> &mdash; presence &ne; clarity. <code>alt="image"</code> passes axe but tells a screen-reader user nothing.</li>
+          <li><strong>Real screen-reader task completion</strong> &mdash; e.g. can a VoiceOver user find next week's event in under 2 minutes?</li>
+          <li><strong>Dynamic interaction quality</strong> &mdash; does <code>aria-live</code> actually fire on filter changes? Does focus return correctly when a modal closes?</li>
+          <li><strong>Performance pain under browser dark-mode overrides</strong> &mdash; Edge / Chrome <em>force-dark</em> on mobile can stall pages that don't natively respond to <code>prefers-color-scheme</code>. Static audits miss this.</li>
+          <li><strong>Focus management in SPA navigation</strong> &mdash; when a route changes, does focus move to a sensible place?</li>
+          <li><strong>Whether error messages are constructively phrased</strong> &mdash; "Invalid input" passes 3.3.1; "Phone number should start with 0" is what a user needs.</li>
+          <li><strong>200% zoom + 320px width simultaneously</strong> &mdash; mobile + magnifier user combination</li>
+          <li><strong>Reading age / language clarity</strong> for cognitive accessibility</li>
+          <li><strong>Real-world performance for users on older assistive tech</strong> &mdash; JAWS 2018, NVDA on Windows 7, Android TalkBack on Lollipop</li>
+          <li><strong>Whether the design genuinely includes disabled people</strong> &mdash; vs. merely the absence of detectable barriers</li>
+        </ul>
+        <p class="section-intro"><a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage">Every criterion this audit doesn't check, and who that leaves out, per WCAG's own rationale &rarr;</a></p>
+
+        <h3>Recommended Accessibility Workflow</h3>
+        <p class="section-intro">Ordered by real-user impact, not by ease of measurement:</p>
+        <ol class="workflow-list">
+          <li><strong>Real-user testing with disabled people.</strong> Single highest-impact intervention. One session with a screen-reader user reveals more than ten automated audit runs.</li>
+          <li><strong>Hire disabled people on your team.</strong> Preventive, not reactive. Designed-in accessibility is cheaper and better than audited-in.</li>
+          <li><strong>Self keyboard-only walkthrough of core flows.</strong> 5 minutes, very high yield. Unplug the mouse and complete your primary user journey using only Tab / Shift+Tab / Enter / Space / Arrow keys.</li>
+          <li><strong>Screen-reader walkthrough of core flows.</strong> NVDA (Windows, free), VoiceOver (macOS / iOS, built-in), TalkBack (Android). Run through your primary user journey listening only.</li>
+          <li><strong>Automated baseline audit (this report).</strong> Catches the obvious, machine-detectable subset. Well-suited as CI regression-prevention; best not relied on as a standalone completion certificate.</li>
+          <li><strong>Public accessibility statement.</strong> Required in EU under EAA, recommended elsewhere. States your standard, known limitations, and feedback contact.</li>
+        </ol>
+
+        <h3>Context That's Easy to Overlook</h3>
+        <table class="traps-table">
+          <thead>
+            <tr><th>Common assumption&hellip;</th><th>Worth keeping in mind&hellip;</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"We scored 90+, we're accessible."</td>
+              <td>Score reflects only machine-detectable items. Real users may still be blocked by issues this audit cannot see.</td>
+            </tr>
+            <tr>
+              <td>"Contrast passes 4.5:1, text is readable."</td>
+              <td>Font choice, line-height, glyph weight, and reading-distance affect readability independent of contrast ratio.</td>
+            </tr>
+            <tr>
+              <td>"Form has a <code>&lt;label&gt;</code>, it's usable."</td>
+              <td>Label TEXT must also be unambiguous and contextually clear. <code>&lt;label&gt;Field&lt;/label&gt;</code> passes 3.3.2 and helps no one.</td>
+            </tr>
+            <tr>
+              <td>"axe found 0 violations, we're done."</td>
+              <td>axe's authors say explicitly that most WCAG failures are not machine-decidable in practice. Beacon's own criterion-level measurement: 14 of 55 A+AA criteria have any detector at all.</td>
+            </tr>
+            <tr>
+              <td>"Skip link added, keyboard accessibility complete."</td>
+              <td>Skip link is one criterion. Focus management in modals, SPA route changes, and dynamic content updates is often a separate concern, and may go unnoticed by static audits.</td>
+            </tr>
+            <tr>
+              <td>"Half-implemented dark mode is harmless."</td>
+              <td>It can cause real performance pain on mobile when users enable browser force-dark, because the browser falls back to slow pixel-level inversion instead of fast CSS swap.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Suggested Uses</h3>
+        <ul class="usage-list">
+          <li><strong>As baseline regression-prevention:</strong> wire <code>axe-core</code> or this audit into CI. PRs introducing new higher-priority items can be flagged for closer review before merge.</li>
+          <li><strong>As an education tool:</strong> walk new team members through findings to build a11y intuition. The before/after code blocks are designed for this.</li>
+          <li><strong>As a tracking metric over time:</strong> use the <code>--previous</code> flag to compare audits. Direction-of-change matters more than absolute score.</li>
+          <li><strong>Best avoided as a completion certificate:</strong> "Beacon score 95" does not directly equate to "this product is fully accessible". Public accessibility statements work better when they also describe the methodology and its scope.</li>
+          <li><strong>Best paired with testing alongside disabled users:</strong> the most expensive line item in real a11y work, and the most under-invested. This report serves as a baseline; that work covers the rest.</li>
+        </ul>
+      </div>
+    </div>
+        <h3><span class="lang-zh" lang="zh-Hant">測試建議</span><span class="lang-en" lang="en">Testing Recommendations</span></h3>
+        <ul><li><span class="lang-zh" lang="zh-Hant">修復鍵盤發現項後，僅使用 Tab、Shift+Tab、Enter、Space 與方向鍵重跑主要流程。</span><span class="lang-en" lang="en">After fixing the keyboard findings, rerun the primary flow using only Tab, Shift+Tab, Enter, Space, and arrow keys.</span></li><li><span class="lang-zh" lang="zh-Hant">修復語意結構發現項後，用 NVDA 或 VoiceOver 完成主要任務。</span><span class="lang-en" lang="en">After fixing the semantic findings, complete the primary task with NVDA or VoiceOver.</span></li><li><span class="lang-zh" lang="zh-Hant">用 Beacon 原生的 tier2-audit.mjs（預設）或 axe-core 驗證計算後的文字與 UI 對比。</span><span class="lang-en" lang="en">Verify computed text and UI contrast with Beacon-native tier2-audit.mjs (default) or axe-core.</span></li><li><span class="lang-zh" lang="zh-Hant">在 200% 縮放下重跑主要流程；320px 回流結果已由本次掃描另行記錄。</span><span class="lang-en" lang="en">Rerun the primary flow at 200% zoom; the 320px reflow result is recorded separately by this audit.</span></li><li><span class="lang-zh" lang="zh-Hant">請一位不熟悉產品的使用者完成主要任務，觀察標籤、說明與下一步是否清楚。</span><span class="lang-en" lang="en">Ask a user unfamiliar with the product to complete the primary task and observe whether labels, help, and next steps are clear.</span></li></ul>
+      </div>
+    </section>
+
+    <section class="section-alt" id="layer-legal" aria-labelledby="h-legal">
+      <div class="wrap">
+        <p class="eyebrow"><span class="num">06</span> <span class="lang-zh" lang="zh-Hant">法規層</span><span class="lang-en" lang="en">Jurisdiction</span></p>
+        <h2 class="layer-h" id="h-legal"><span class="lang-zh" lang="zh-Hant">完整法規對照與 WCAG 準則清單</span><span class="lang-en" lang="en">Full jurisdiction mapping and WCAG criteria list</span></h2>
+        
+    <div class="legal-risk-panel">
+      <div class="legal-context-note">
+        <div class="lang-zh" lang="zh-Hant">
+          本頁提供的是<strong>法域脈絡與 WCAG 技術準則對照</strong>，不是法律意見，也不是依 warning 數量計算的法律風險分數。
+          本次 findings 對應的準則：<strong>1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</strong>。
+        </div>
+        <div class="lang-en" lang="en">
+          This page provides <strong>jurisdiction context and WCAG technical mapping</strong>, not legal advice and not a warning-count-derived legal conclusion.
+          Criteria mapped by this audit: <strong>1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</strong>.
+        </div>
+      </div>
+      <div class="risk-grid">
+        
+          <div class="risk-card">
+            <div class="risk-header">
+              <strong>US ADA</strong>
+              <span class="context-badge">Context</span>
+            </div>
+            <p>ADA Title III / Section 508 context &mdash; Use the mapped WCAG criteria as technical evidence; legal exposure depends on business model, sector, and jurisdiction-specific facts.</p>
+            
+            <p class="criteria-map"><strong>WCAG:</strong> 1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</p>
+          </div>
+          <div class="risk-card">
+            <div class="risk-header">
+              <strong>EU EAA</strong>
+              <span class="context-badge">Context</span>
+            </div>
+            <p>European Accessibility Act &mdash; Use the mapped WCAG criteria as technical evidence for consumer digital-service accessibility planning.</p>
+            
+            <p class="criteria-map"><strong>WCAG:</strong> 1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</p>
+          </div>
+          <div class="risk-card">
+            <div class="risk-header">
+              <strong>Japan JIS</strong>
+              <span class="context-badge">Context</span>
+            </div>
+            <p>JIS X 8341-3 context &mdash; Use the mapped WCAG criteria as technical evidence; confirm procurement or sector requirements separately.</p>
+            
+            <p class="criteria-map"><strong>WCAG:</strong> 1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</p>
+          </div>
+          <div class="risk-card">
+            <div class="risk-header">
+              <strong>Taiwan</strong>
+              <span class="context-badge">Context</span>
+            </div>
+            <p>Taiwan accessibility context &mdash; Use the mapped WCAG criteria as technical evidence only; confirm current local program, certification, and seal requirements before making a compliance claim.</p>
+            
+            <p class="criteria-map"><strong>WCAG:</strong> 1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</p>
+          </div>
+          <div class="risk-card">
+            <div class="risk-header">
+              <strong>Canada ACA</strong>
+              <span class="context-badge">Context</span>
+            </div>
+            <p>Accessible Canada Act context &mdash; Use the mapped WCAG criteria as technical evidence; applicability depends on organization type and regulated context.</p>
+            
+            <p class="criteria-map"><strong>WCAG:</strong> 1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</p>
+          </div>
+          <div class="risk-card">
+            <div class="risk-header">
+              <strong>Australia DDA</strong>
+              <span class="context-badge">Context</span>
+            </div>
+            <p>Disability Discrimination Act context &mdash; Use the mapped WCAG criteria as technical evidence; legal assessment requires local context and counsel.</p>
+            
+            <p class="criteria-map"><strong>WCAG:</strong> 1.1.1 Non-text Content; 1.3.1 Info and Relationships; 1.4.3 Contrast (Minimum); 1.4.10 Reflow; 2.3.3; 2.4.7 Focus Visible; 4.1.2 Name, Role, Value</p>
+          </div>
+      </div>
+    </div>
+      </div>
+    </section>
+
+</main>
+
+
+    <footer>
+      <div class="wrap">
+        <p><span class="lang-zh" lang="zh-Hant">Beacon 是免費開源工具，評分背後的驗證資料全數公開。維護者提供無障礙 AI 檢測與修復的顧問服務：<a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span><span class="lang-en" lang="en">Beacon is free and open source, and the validation data behind its scores is public. The maintainer offers accessibility consulting for AI-assisted development: <a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span></p>
+        <p style="margin-top:.6rem;font-size:.82rem;color:var(--ink-muted)"><span class="lang-zh" lang="zh-Hant">Beacon 產生的 audit artifacts 留在本機，除非你明確分享。</span><span class="lang-en" lang="en">Beacon keeps audit artifacts local unless you explicitly share them.</span></p>
+        <p class="foot-engine">engine beacon-static-audit@12+ruleset.25eeae0aa809 &middot; Tier 1 (static file scan only) &middot; confidence low</p>
+      </div>
+    </footer>
+
+<script>
+/* Per-category finding filter. Progressive enhancement — without JS every
+   group is visible. Native <button> = keyboard-accessible. */
+(function(){
+  var btns = document.querySelectorAll('.fbtn');
+  var groups = document.querySelectorAll('.fgroup');
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var f = btn.dataset.filter;
+      btns.forEach(function(b){ b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+      groups.forEach(function(g){
+        g.classList.toggle('is-hidden', f !== 'all' && g.dataset.category !== f);
+      });
+    });
+  });
+})();
+
+/* Language + theme toggles:
+   - default language zh; switch to en, localStorage-persisted
+   - theme default auto (prefers-color-scheme) until a manual light/dark override
+   - native <button> = keyboard-operable, >=44px targets, visible focus (global :focus-visible). */
+(function () {
+  var STORE_LANG = 'beacon-report-lang';
+  var STORE_THEME = 'beacon-report-theme';
+  var root = document.documentElement;
+  var body = document.body;
+
+  function setLang(lang) {
+    body.dataset.activeLang = lang;
+    document.querySelectorAll('[data-lang-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.dataset.langBtn === lang ? 'true' : 'false');
+    });
+    try { localStorage.setItem(STORE_LANG, lang); } catch (e) {}
+  }
+
+  function setTheme(theme) {
+    if (theme === 'auto') { root.removeAttribute('data-theme'); }
+    else { root.setAttribute('data-theme', theme); }
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.dataset.themeBtn === theme ? 'true' : 'false');
+    });
+    try { localStorage.setItem(STORE_THEME, theme); } catch (e) {}
+  }
+
+  var savedLang = 'zh';
+  var savedTheme = 'auto';
+  try {
+    savedLang = localStorage.getItem(STORE_LANG) || 'zh';
+    savedTheme = localStorage.getItem(STORE_THEME) || 'auto';
+  } catch (e) {}
+  setLang(savedLang);
+  setTheme(savedTheme);
+
+  document.querySelectorAll('[data-lang-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { setLang(b.dataset.langBtn); });
+  });
+  document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { setTheme(b.dataset.themeBtn); });
+  });
+})();
+</script>
+</body>
+</html>

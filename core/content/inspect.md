@@ -83,14 +83,13 @@ node scripts/tier2-audit.mjs --url <url-or-file> --output tier2-results.json
 
 # --- Optional cross-checks (not required baseline) ---
 
-# axe-core — optional; adds ARIA-validity rules tier-2 doesn't cover yet.
-# The actual injection recipe is in the "Tier 2 — Playwright MCP Integration"
-# section below (step 3, requires Playwright MCP tools, not this CLI). Merge
-# its findings into audit-results.json the same way as any manual finding
-# (Step 6, --merge-findings).
+# axe-core — optional but first-class when available. Save the complete,
+# standard axe JSON and pass it to static-audit; Beacon retains every
+# violation/node and reconciles confirmed Tier 2 overlap without double scoring.
+node scripts/static-audit.mjs --scope "<scope>" --axe-results axe-results.json --output audit-results.json <file-or-dir>...
 
-# Lighthouse CLI — optional, additional category scoring
-npx lighthouse <url> --only-categories=accessibility --output=json
+# Lighthouse CLI — optional supplementary performance/search signals
+npx lighthouse <url> --only-categories=performance,best-practices,seo --output=json
 
 # eslint a11y plugin (React/JSX) — optional, for source-tree audits
 npx eslint --rule 'jsx-a11y/*' src/
@@ -145,7 +144,7 @@ node scripts/tier2-audit.mjs --url <url-or-file> --output tier2-results.json
 
 Playwright availability is detected in order: an explicit `PLAYWRIGHT_MODULE_PATH` env override (authoritative — a bad value fails immediately, no silent fallthrough), then `require.resolve('playwright')` from the caller's own project, then known global npm installs. If none resolves, the script fails LOUDLY with an actionable error (`npm i -g playwright` then `npx playwright install chromium`, or set the env var) — it never degrades silently.
 
-`tier2-results.json` is a SEPARATE artifact from `audit-results.json`: findings and evidence only, each finding carrying its own engine provenance (`source: beacon-tier2-audit@2`). Read and summarize it for the human (Step 3). Whether these categories automatically enter `audit-results.json`'s score and coverage is an intentionally undecided product question — this skill does not do that today. If a specific tier-2 finding should count toward the score anyway, feed it through the SAME `--merge-findings` mechanism already used for axe/manual findings (Step 6) — that is the existing, generic, manual mechanism, not new scoring machinery.
+`tier2-results.json` is a SEPARATE artifact from `audit-results.json`: findings and evidence only, each finding carrying its own engine provenance (`source: beacon-tier2-audit@2`). Feed it through `static-audit.mjs --merge-findings tier2-results.json` so the same scoring funnel owns the verdict. If axe is also available, pass its complete standard result separately with `--axe-results axe-results.json`; overlap is reconciled by category + WCAG criterion, confirmed evidence remains visible, and an already-confirmed Tier 2 failure is not penalized twice.
 
 **Tier 2 — Playwright MCP Integration (optional, richer interactive checks):**
 
@@ -167,13 +166,11 @@ If Playwright MCP tools are available (`mcp__plugin_playwright_playwright__*`), 
      document.head.appendChild(script);
      await new Promise(r => script.onload = r);
      const results = await axe.run();
-     JSON.stringify({
-       violations: results.violations.length,
-       passes: results.passes.length,
-       incomplete: results.incomplete.length,
-       details: results.violations
-     });
+     JSON.stringify(results);
    `
+   Save the returned JSON as `axe-results.json`, then pass it to
+   `static-audit.mjs --axe-results axe-results.json`. Do not reduce violations
+   to counts: Beacon preserves every rule and every affected DOM node.
 
 3b. Run Beacon's structural detectors on the RENDERED DOM (this is what covers SPAs):
    browser_evaluate -> document.documentElement.outerHTML
@@ -580,8 +577,9 @@ Reference: `../references/legal-brief.md`
 
 `audit-results.json` is the **source of truth**, and `static-audit.mjs` is its **sole author**.
 You do **not** write or edit it by hand. Instead, hand the script the findings that the
-automated scan could not produce on its own — your Step 3 manual review, focus-flow-guided
-manual findings, and (if you want them scored) axe findings — as a small JSON file, and let the script compute the verdict, the
+automated scan could not produce on its own — your Step 3 manual review and focus-flow-guided
+manual findings — as a small JSON file. Pass complete axe output separately with
+`--axe-results`; let the script compute the verdict, the
 severities (via the matrix), and the scores:
 
 ```bash
@@ -593,8 +591,16 @@ severities (via the matrix), and the scores:
 # coverage), not as a finding. Unknown check values are skipped with a warning.
 node scripts/static-audit.mjs --scope "<scope>" \
   --merge-findings manual-findings.json \
+  --axe-results axe-results.json \
   --output audit-results.json <file-or-dir>...
 ```
+
+`--axe-results` accepts the standard axe result object with `violations`, `passes`,
+`incomplete`, and `inapplicable` arrays. One violation rule becomes one Beacon finding
+with every affected node in `instances`. All possible false positives remain visible for
+human judgment. A confirmed Tier 2 finding with the same category and WCAG criterion
+corroborates the axe result without a second score penalty; review-only Tier 2 evidence
+never suppresses a confirmed axe failure.
 
 **Warning — merging moves the score, it is not a free "add more evidence" step.** Once a
 category's merged evidence (pass + fail checks) reaches `THIN_EVIDENCE_MIN` (3), that
@@ -720,18 +726,27 @@ The script emits this shape (reference — do not author it by hand):
 
 ### Step 7: Generate HTML Report
 
-Run the report generator script:
+Generate both reports from the same authoritative audit JSON. The client report is
+decision-first and omits technical evidence; the audit report retains rules, evidence,
+locations, coverage, methodology, and tool output:
 
 ```bash
-node ./scripts/generate-report.mjs audit-results.json
+node ./scripts/generate-report.mjs audit-results.json \
+  --audience client \
+  --output client-report.html
+
+node ./scripts/generate-report.mjs audit-results.json \
+  --audience audit \
+  --output audit-report.html
 ```
 
 For before/after comparison (if previous audit exists):
 
 ```bash
 node ./scripts/generate-report.mjs audit-results.json \
+  --audience audit \
   --previous previous-audit-results.json \
-  --output a11y-report.html
+  --output audit-report.html
 ```
 
 Open the report in the browser for the user to review.

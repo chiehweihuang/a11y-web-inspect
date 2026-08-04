@@ -98,10 +98,21 @@ For a repeatable static baseline, Codex may run:
 node "<beacon-plugin-root>/scripts/static-audit.mjs" --scope "Project UI" --output reports/a11y/audit-results.json src app public
 ```
 
-Then generate the HTML report:
+When a browser runner produced complete standard axe JSON, include it in that same
+authoritative flow:
 
 ```text
-node "<beacon-plugin-root>/scripts/generate-report.mjs" reports/a11y/audit-results.json --output reports/a11y/a11y-report.html
+node "<beacon-plugin-root>/scripts/static-audit.mjs" --scope "Project UI" --axe-results reports/a11y/axe-results.json --output reports/a11y/audit-results.json src app public
+```
+
+Do not reduce axe output to counts. Beacon retains every violation and DOM node, and
+reconciles confirmed Tier 2 overlap without hiding evidence or double-penalizing it.
+
+Then generate both views from the same audit JSON:
+
+```text
+node "<beacon-plugin-root>/scripts/generate-report.mjs" reports/a11y/audit-results.json --audience client --output reports/a11y/client-report.html
+node "<beacon-plugin-root>/scripts/generate-report.mjs" reports/a11y/audit-results.json --audience audit --output reports/a11y/audit-report.html
 ```
 
 These commands are not the required user interface. They exist so the skill can repeat the same checks consistently instead of relying only on free-form review. If Node.js is unavailable, continue with manual review and state that the automated baseline was not run.
@@ -110,10 +121,11 @@ See `../../references/repeat-testing.md` and `../../references/goal-workflows.md
 
 ## HTML Report
 
-If an audit JSON exists, generate Beacon's interactive report:
+If an audit JSON exists, generate the client and audit reports from that one source:
 
 ```text
-node "<beacon-plugin-root>/scripts/generate-report.mjs" audit-results.json --output a11y-report.html
+node "<beacon-plugin-root>/scripts/generate-report.mjs" audit-results.json --audience client --output client-report.html
+node "<beacon-plugin-root>/scripts/generate-report.mjs" audit-results.json --audience audit --output audit-report.html
 ```
 
 Do not invent a numeric score without an evidence-backed audit JSON. If you cannot verify runtime behavior, mark it unverifiable.

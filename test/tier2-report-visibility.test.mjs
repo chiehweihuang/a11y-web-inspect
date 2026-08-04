@@ -157,6 +157,11 @@ test('tier-2 provenance chip + measured line render through the real --merge-fin
     execFileSync('node', [REPORT, mergedJson, '--output', mergedHtml]);
     const audit = JSON.parse(readFileSync(mergedJson, 'utf8'));
     assert.ok(audit.tier2, 'the merged artifact must carry a tier2 provenance block');
+    assert.match(audit.metadata.audit_tier, /Tier 1 \+ Tier 2/, 'metadata must not describe a merged Tier-2 run as static-only');
+    assert.ok(
+      audit.metadata.audit_methods.some(method => /Tier 2 browser measurement/.test(method)),
+      'metadata must name the browser measurement that was actually performed'
+    );
     const html = readFileSync(mergedHtml, 'utf8');
     assert.match(html, /Browser-measured \(tier 2\)/, 'tier2-provenance chip must render');
     assert.match(html, /class="standard-line tier2-measured"/, 'tier2-measured line must render');

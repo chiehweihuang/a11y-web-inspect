@@ -3,7 +3,7 @@
  * a11y-audit HTML Report Generator
  *
  * Usage:
- *   node generate-report.mjs <audit-json-path> [--previous <old-audit-json>] [--output <path>]
+ *   node generate-report.mjs <audit-json-path> [--audience audit|client] [--previous <old-audit-json>] [--output <path>]
  *
  * Input: audit-results.json (structured audit data)
  * Output: Interactive HTML report (Lighthouse-style)
@@ -11,20 +11,28 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
+import { axeViolationToFinding, criteriaFromFinding, getAxeResults } from './axe-results.mjs';
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
-  console.error('Usage: node generate-report.mjs <audit-json> [--previous <old-json>] [--output <path>]');
+  console.error('Usage: node generate-report.mjs <audit-json> [--audience audit|client] [--previous <old-json>] [--output <path>]');
   process.exit(1);
 }
 
 const auditPath = resolve(args[0]);
 let previousPath = null;
 let outputPath = null;
+let audience = 'audit';
 
 for (let i = 1; i < args.length; i++) {
   if (args[i] === '--previous' && args[i + 1]) previousPath = resolve(args[++i]);
   if (args[i] === '--output' && args[i + 1]) outputPath = resolve(args[++i]);
+  if (args[i] === '--audience' && args[i + 1]) audience = args[++i];
+}
+
+if (!['audit', 'client'].includes(audience)) {
+  console.error(`Invalid --audience "${audience}". Expected "audit" or "client".`);
+  process.exit(1);
 }
 
 const audit = JSON.parse(readFileSync(auditPath, 'utf8'));
@@ -74,7 +82,7 @@ function titleHost(audit) {
 if (!outputPath) {
   const slug = buildSlug(audit);
   const date = audit.metadata?.date || 'latest';
-  const parts = ['a11y-report', slug, date].filter(Boolean);
+  const parts = ['a11y-report', audience === 'client' ? 'client' : null, slug, date].filter(Boolean);
   outputPath = resolve(dirname(auditPath), `${parts.join('-')}.html`);
 }
 
@@ -476,51 +484,6 @@ const WCAG_CRITERIA = {
   '4.1.2': { title: 'Name, Role, Value', url: 'https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html' },
 };
 
-const AXE_RULE_CATEGORY = {
-  'aria-allowed-attr': 'screenreader',
-  'aria-allowed-role': 'screenreader',
-  'aria-command-name': 'keyboard',
-  'aria-dialog-name': 'screenreader',
-  'aria-hidden-body': 'screenreader',
-  'aria-hidden-focus': 'keyboard',
-  'aria-input-field-name': 'forms',
-  'aria-required-attr': 'screenreader',
-  'aria-required-children': 'screenreader',
-  'aria-required-parent': 'screenreader',
-  'aria-roles': 'screenreader',
-  'aria-toggle-field-name': 'forms',
-  'aria-valid-attr': 'screenreader',
-  'aria-valid-attr-value': 'screenreader',
-  'button-name': 'keyboard',
-  bypass: 'keyboard',
-  'color-contrast': 'contrast',
-  'document-title': 'screenreader',
-  'duplicate-id': 'screenreader',
-  'empty-heading': 'screenreader',
-  'form-field-multiple-labels': 'forms',
-  'frame-title': 'screenreader',
-  'heading-order': 'screenreader',
-  'html-has-lang': 'screenreader',
-  'html-lang-valid': 'screenreader',
-  'image-alt': 'screenreader',
-  label: 'forms',
-  'label-content-name-mismatch': 'forms',
-  'landmark-one-main': 'screenreader',
-  'landmark-unique': 'screenreader',
-  'link-in-text-block': 'cognitive',
-  'link-name': 'screenreader',
-  list: 'screenreader',
-  listitem: 'screenreader',
-  'meta-viewport': 'responsive',
-  'meta-viewport-large': 'responsive',
-  'nested-interactive': 'keyboard',
-  'page-has-heading-one': 'screenreader',
-  region: 'screenreader',
-  'scrollable-region-focusable': 'keyboard',
-  'target-size': 'touch',
-  'video-caption': 'media',
-};
-
 const DEFAULT_MANUAL_CHECKS = [
   {
     id: 'disabled-user-testing',
@@ -658,62 +621,6 @@ function computeTier2EvidenceByCategory(audit) {
   return out;
 }
 
-function getAxeResults(audit) {
-  const candidates = [
-    audit?.axe,
-    audit?.axe_results,
-    audit?.axeResults,
-    audit?.tier2_axe,
-    audit?.tier2?.axe,
-    audit?.live_audit?.axe,
-    audit?.metadata?.axe_results,
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'object') continue;
-    const violations = Array.isArray(candidate.violations)
-      ? candidate.violations
-      : Array.isArray(candidate.details)
-        ? candidate.details
-        : [];
-    const passes = asArray(candidate.passes || candidate.pass);
-    const inapplicable = asArray(candidate.inapplicable || candidate.not_applicable || candidate.notApplicable);
-    const incomplete = asArray(candidate.incomplete || candidate.review);
-    const counts = {
-      violations: Array.isArray(candidate.violations) ? candidate.violations.length : Number(candidate.violations || violations.length || 0),
-      passes: Array.isArray(candidate.passes) ? candidate.passes.length : Number(candidate.passes || passes.length || 0),
-      inapplicable: Array.isArray(candidate.inapplicable) ? candidate.inapplicable.length : Number(candidate.inapplicable || candidate.not_applicable || candidate.notApplicable || inapplicable.length || 0),
-      incomplete: Array.isArray(candidate.incomplete) ? candidate.incomplete.length : Number(candidate.incomplete || incomplete.length || 0),
-    };
-    if (violations.length || passes.length || inapplicable.length || incomplete.length || Object.values(counts).some(Boolean)) {
-      return { violations, passes, inapplicable, incomplete, counts, raw: candidate };
-    }
-  }
-  return null;
-}
-
-function criterionIdsFromTags(tags = []) {
-  const ids = new Set();
-  for (const tag of tags) {
-    const m = String(tag).match(/^wcag(\d)(\d)(\d+)$/i);
-    if (m) ids.add(`${m[1]}.${m[2]}.${m[3]}`);
-  }
-  return [...ids];
-}
-
-function criterionIdsFromText(text = '') {
-  const ids = new Set();
-  for (const m of String(text).matchAll(/\b([1-4]\.\d\.\d{1,2})\b/g)) ids.add(m[1]);
-  return [...ids];
-}
-
-function criteriaFromFinding(f) {
-  return [
-    ...criterionIdsFromText(f?.wcag || ''),
-    ...criterionIdsFromTags(f?.tags || []),
-  ];
-}
-
 function criteriaLabel(ids) {
   return ids.map(id => {
     const known = WCAG_CRITERIA[id];
@@ -721,102 +628,28 @@ function criteriaLabel(ids) {
   }).join('; ');
 }
 
-function wcagFromAxeRule(rule) {
-  const ids = criterionIdsFromTags(rule.tags || []);
-  if (!ids.length) return rule.tags?.includes('best-practice') ? 'Best Practice' : 'axe-core rule';
-  return `WCAG 2.2: ${criteriaLabel(ids)}`;
-}
-
-function levelFromAxeRule(rule) {
-  const tags = rule.tags || [];
-  if (tags.includes('wcag2aaa') || tags.includes('wcag21aaa') || tags.includes('wcag22aaa')) return 'AAA';
-  if (tags.includes('wcag2aa') || tags.includes('wcag21aa') || tags.includes('wcag22aa')) return 'AA';
-  if (tags.includes('wcag2a') || tags.includes('wcag21a') || tags.includes('wcag22a')) return 'A';
-  return rule.tags?.includes('best-practice') ? 'Best Practice' : 'Review';
-}
-
-function severityFromAxeRule(rule) {
-  if (rule.id === 'color-contrast') return 'warning';
-  if (rule.impact === 'critical' || rule.impact === 'serious') return 'critical';
-  if (rule.impact === 'moderate') return 'warning';
-  return 'tip';
-}
-
-function categoryFromAxeRule(rule) {
-  if (AXE_RULE_CATEGORY[rule.id]) return AXE_RULE_CATEGORY[rule.id];
-  const tags = rule.tags || [];
-  if (tags.includes('cat.color')) return 'contrast';
-  if (tags.includes('cat.forms')) return 'forms';
-  if (tags.includes('cat.keyboard')) return 'keyboard';
-  if (tags.includes('cat.time-and-media')) return 'media';
-  if (tags.includes('cat.text-alternatives') || tags.includes('cat.name-role-value') || tags.includes('cat.aria') || tags.includes('cat.parsing') || tags.includes('cat.semantics')) return 'screenreader';
-  if (/viewport|reflow|zoom/i.test(rule.id || '')) return 'responsive';
-  if (/target|touch|pointer/i.test(rule.id || '')) return 'touch';
-  return 'screenreader';
-}
-
-function normalizeAxeTarget(target) {
-  if (Array.isArray(target)) return target.join(', ');
-  if (target && typeof target === 'object') return JSON.stringify(target);
-  return target || '';
-}
-
-function normalizeAxeNode(node) {
-  const nested = node?.node || {};
-  const selector = normalizeAxeTarget(node?.target || node?.selector || nested.selector || nested.path);
-  const html = node?.html || node?.snippet || nested.snippet || '';
-  const reason = node?.failureSummary || node?.explanation || nested.explanation || '';
-  return {
-    selector,
-    html,
-    reason,
-  };
-}
-
-function axeViolationToFinding(rule, index) {
-  const nodes = asArray(rule.nodes);
-  const criteria = criterionIdsFromTags(rule.tags || []);
-  return {
-    id: `axe-${rule.id || index}`,
-    key: rule.id || undefined,
-    source: 'axe',
-    axe_rule_id: rule.id || undefined,
-    category: categoryFromAxeRule(rule),
-    severity: severityFromAxeRule(rule),
-    wcag: wcagFromAxeRule(rule),
-    level: levelFromAxeRule(rule),
-    title: rule.help || rule.description || rule.id || 'axe-core finding',
-    affected_users: 'Users of assistive technology, keyboard navigation, low-vision settings, or other access adaptations depending on the failed rule.',
-    location: nodes.length ? `${nodes.length} affected DOM element(s)` : 'Runtime DOM',
-    description: rule.description || rule.help || `axe-core rule ${rule.id || index} failed.`,
-    fix: rule.help ? `Resolve the axe-core rule "${rule.help}" for every listed DOM element.` : 'Review and remediate every listed DOM element.',
-    legal_exposure: criteria.length
-      ? `Technical mapping: ${criteriaLabel(criteria)}. This is not a legal conclusion.`
-      : 'Technical accessibility finding. Legal exposure depends on site context and jurisdiction.',
-    helpUrl: rule.helpUrl,
-    tags: rule.tags || [],
-    axe_node_count: nodes.length,
-    instances: nodes.map(normalizeAxeNode),
-    code_before: nodes[0]?.html || nodes[0]?.snippet || '',
-  };
-}
-
 function buildReportFindings(audit) {
   const baseFindings = asArray(audit.findings);
   const axe = getAxeResults(audit);
-  if (!axe?.violations?.length) return baseFindings;
-  const axeFindings = axe.violations.map(axeViolationToFinding);
-  const axeIds = new Set(axeFindings.map(f => f.axe_rule_id).filter(Boolean));
-  const supplemental = baseFindings.filter(f => {
-    const id = f.axe_rule_id || f.axe_rule || f.key || f.id;
-    return !id || !axeIds.has(id);
-  });
-  return [...axeFindings, ...supplemental];
+  if (!axe?.violations?.length || baseFindings.some(finding => finding.axe_rule_id)) return baseFindings;
+  return [
+    ...axe.violations.map((rule, index) => axeViolationToFinding(rule, { index, version: axe.version })),
+    ...baseFindings,
+  ];
+}
+
+// Bug 7 (MEDIUM, 2026-08 axe-integration audit): helpUrl comes from external axe JSON and
+// renders as a live href with target="_blank" — escapeHtml() only neutralises markup, not
+// URL schemes, so a tampered javascript: helpUrl would execute on click. http(s) only.
+function isHttpUrl(url) {
+  if (typeof url !== 'string') return false;
+  try { return ['http:', 'https:'].includes(new URL(url).protocol); }
+  catch { return false; }
 }
 
 function learnMoreLinks(f) {
   const links = [];
-  if (f?.helpUrl) links.push({ href: f.helpUrl, label: f.axe_rule_id ? `axe: ${f.axe_rule_id}` : 'axe rule' });
+  if (isHttpUrl(f?.helpUrl)) links.push({ href: f.helpUrl, label: f.axe_rule_id ? `axe: ${f.axe_rule_id}` : 'axe rule' });
   for (const id of criteriaFromFinding(f)) {
     const known = WCAG_CRITERIA[id];
     if (known?.url) links.push({ href: known.url, label: `WCAG ${id}` });
@@ -847,13 +680,16 @@ function buildJurisdictions(legal) {
 }
 
 const reportFindings = buildReportFindings(audit);
+const presentationFindings = audience === 'client'
+  ? reportFindings.filter(finding => finding.score_effect !== 'corroborating')
+  : reportFindings;
 const axeResults = getAxeResults(audit);
 const tier2Evidence = computeTier2EvidenceByCategory(audit);
 const reportCounts = {
-  total: reportFindings.length,
-  critical: reportFindings.filter(f => f.severity === 'critical').length,
-  warnings: reportFindings.filter(f => f.severity === 'warning').length,
-  tips: reportFindings.filter(f => f.severity === 'tip').length,
+  total: presentationFindings.length,
+  critical: presentationFindings.filter(f => f.severity === 'critical').length,
+  warnings: presentationFindings.filter(f => f.severity === 'warning').length,
+  tips: presentationFindings.filter(f => f.severity === 'tip').length,
 };
 
 // Score bands come from the audit artifact (summary.score_bands — static-audit.mjs is
@@ -1162,6 +998,9 @@ function buildFindingGroupHTML(g) {
       </div>
       <div class="fg-body">
         <p class="who-line"><span class="who-badge">${t('finding_affected')}:</span> ${escapeHtml(g.affected_users || 'N/A')}</p>
+        ${asArray(g.sample.evidence_sources).length
+          ? `<p class="standard-line"><strong>${bi('證據來源', 'Evidence sources')}:</strong> ${asArray(g.sample.evidence_sources).map(escapeHtml).join(' · ')}</p>`
+          : ''}
         ${diffHtml}
         ${buildLocationListHTML(g.locations)}
         ${FINDING_I18N[g.key]?.zh?.standard ? `<p class="standard-line"><strong>${t('finding_standard')}:</strong> ${findingText(g.sample, 'standard')}</p>` : ''}
@@ -1347,6 +1186,109 @@ function buildExecSummaryHTML(audit, groups) {
     </section>`;
 }
 
+function clientTone(score) {
+  if (score == null) return 'review';
+  if (score < 50) return 'crit';
+  if (score < 90) return 'warn';
+  return 'pass';
+}
+
+function clientStatusForScore(score) {
+  if (score == null) return ['需要更多證據', 'More evidence needed'];
+  if (score < 50) return ['需優先處理', 'Priority action needed'];
+  if (score < 90) return ['有改善空間', 'Improvements recommended'];
+  return ['本次基線良好', 'Strong baseline in this run'];
+}
+
+function buildClientPillarHTML({ titleZh, titleEn, tone, statusZh, statusEn, detailZh, detailEn }) {
+  return `
+    <article class="client-pillar ${tone}">
+      <h2>${bi(titleZh, titleEn)}</h2>
+      <p class="client-status">${bi(statusZh, statusEn)}</p>
+      <p>${bi(detailZh, detailEn)}</p>
+    </article>`;
+}
+
+function buildClientReportHTML(audit, groups) {
+  const total = reportCounts.total;
+  const critical = reportCounts.critical;
+  const warnings = reportCounts.warnings;
+  const confirmed = critical + warnings;
+  const a11yTone = critical ? 'crit' : warnings ? 'warn' : total ? 'review' : 'pass';
+  const a11yStatus = critical
+    ? ['需優先處理', 'Priority action needed']
+    : warnings
+      ? ['有改善空間', 'Improvements recommended']
+      : total
+        ? ['需要複審', 'Review recommended']
+        : ['本次未發現阻擋', 'No blockers found in this pass'];
+
+  const lighthousePerformance = asArray(audit.lighthouse?.categories).find(c => c.id === 'performance');
+  const performanceScore = lighthousePerformance?.score ?? null;
+  const performanceTone = clientTone(performanceScore);
+  const performanceStatus = performanceScore == null
+    ? ['本次未量測', 'Not measured in this run']
+    : clientStatusForScore(performanceScore);
+
+  const agentCategory = asArray(audit.summary?.categories).find(c => c.id === 'agent');
+  const agentScore = agentCategory?.state === 'scored' ? agentCategory.score : null;
+  const agentTone = clientTone(agentScore);
+  const agentStatus = clientStatusForScore(agentScore);
+
+  const top3 = groups.filter(group => group.sample?.check !== 'review').slice(0, 3);
+  const scope = audit.metadata?.url || audit.metadata?.scope || '';
+  const lead = critical
+    ? bi(`本次找到 <strong>${critical} 個需要優先處理的嚴重問題</strong>。先完成下列修正，再處理其餘改善項目。`, `This audit found <strong>${critical} critical issue${critical === 1 ? '' : 's'} needing priority action</strong>. Start with the actions below.`)
+    : confirmed
+      ? bi(`本次找到 <strong>${confirmed} 個已確認的改善項目</strong>；另有 ${total - confirmed} 個建議或待複審項目保留在 Audit 版。`, `This audit found <strong>${confirmed} confirmed improvement item${confirmed === 1 ? '' : 's'}</strong>; ${total - confirmed} suggestions or review items remain in the Audit version.`)
+      : total
+        ? bi(`本次有 <strong>${total} 個建議或待複審項目</strong>，完整證據保留在 Audit 版。`, `This audit has <strong>${total} suggestion or review item${total === 1 ? '' : 's'}</strong>; full evidence remains in the Audit version.`)
+      : bi('本次機器與瀏覽器檢查未發現需要優先處理的問題；仍建議用鍵盤、螢幕閱讀器及真實使用流程完成人工確認。', 'The machine and browser checks found no priority issues; keyboard, screen-reader, and real-flow testing are still recommended.');
+
+  return `
+    <section class="client-brief" id="client-summary" aria-labelledby="client-title">
+      <div class="wrap">
+        <p class="eyebrow">${bi('客戶摘要', 'Client Summary')}</p>
+        <h1 id="client-title">${bi('網站檢測結果與下一步', 'Website audit result and next steps')}</h1>
+        ${scope ? `<p class="client-scope"><a href="${escapeHtml(scope)}" target="_blank" rel="noopener noreferrer">${escapeHtml(scope)}</a></p>` : ''}
+        <p class="client-lead">${lead}</p>
+
+        <div class="client-pillars">
+          ${buildClientPillarHTML({
+            titleZh: '無障礙與 Agent 操作', titleEn: 'Accessibility & Agent Operability',
+            tone: a11yTone, statusZh: a11yStatus[0], statusEn: a11yStatus[1],
+            detailZh: `${critical} 個嚴重問題、${warnings} 個警告。`,
+            detailEn: `${critical} critical and ${warnings} warning finding${critical + warnings === 1 ? '' : 's'}.`,
+          })}
+          ${buildClientPillarHTML({
+            titleZh: '效能', titleEn: 'Performance',
+            tone: performanceTone, statusZh: performanceStatus[0], statusEn: performanceStatus[1],
+            detailZh: performanceScore == null ? '需要 Lighthouse 或等效的真實載入量測。' : `Lighthouse 行動版效能分數 ${performanceScore}/100，作為方向性訊號。`,
+            detailEn: performanceScore == null ? 'A Lighthouse or equivalent real-load measurement is still needed.' : `Lighthouse mobile performance: ${performanceScore}/100, treated as a directional signal.`,
+          })}
+          ${buildClientPillarHTML({
+            titleZh: '搜尋與 AI 可發現性', titleEn: 'Search & AI Discoverability',
+            tone: agentTone, statusZh: agentStatus[0], statusEn: agentStatus[1],
+            detailZh: agentScore == null ? '已檢查可取得的結構訊號；仍需搜尋平台與引用資料確認成效。' : `機器可檢查的結構基線 ${agentScore}/100；這不是實際 AI 引用率。`,
+            detailEn: agentScore == null ? 'Available structural signals were checked; platform and citation data are still needed.' : `Machine-checkable structural baseline: ${agentScore}/100. This is not an AI citation rate.`,
+          })}
+        </div>
+
+        <section class="client-priorities" aria-labelledby="client-priorities-title">
+          <h2 id="client-priorities-title">${bi('優先處理', 'Priority actions')}</h2>
+          ${top3.length
+            ? `<div class="fixlist">${top3.map((g, i) => buildFixcardHTML(g, i + 1)).join('')}</div>`
+            : `<p>${bi('目前沒有需要列入前三順位的機器檢測問題。', 'There are no machine-detected issues to place in the top three priorities.')}</p>`}
+        </section>
+
+        <p class="client-boundary">${bi(
+          '這份客戶版只呈現決策需要的資訊。完整規則、證據、位置、工具輸出、覆蓋率與待人工確認項目保留在 Audit 版。',
+          'This client version shows only decision-ready information. Rules, evidence, locations, tool output, coverage, and manual-review items remain in the Audit version.'
+        )}</p>
+      </div>
+    </section>`;
+}
+
 // Life-safety gate notice — rendered before any score so a confirmed seizure risk is
 // impossible to miss. Text-first (not colour-only), bilingual, landmark for SR nav.
 function buildLifeSafetyBanner() {
@@ -1457,7 +1399,7 @@ function buildAxeRuleList(rules, count, titleKey, emptyText) {
           <li>
             <strong>${ruleTitle(rule)}</strong>
             <span class="rule-id">${escapeHtml(rule.id || '')}</span>
-            ${rule.helpUrl ? `<a href="${escapeHtml(rule.helpUrl)}" target="_blank" rel="noopener noreferrer">${t('finding_learn_more')}</a>` : ''}
+            ${isHttpUrl(rule.helpUrl) ? `<a href="${escapeHtml(rule.helpUrl)}" target="_blank" rel="noopener noreferrer">${t('finding_learn_more')}</a>` : ''}
             ${criteriaFromFinding(rule).length ? `<span class="rule-criteria">${escapeHtml(criteriaLabel(criteriaFromFinding(rule)))}</span>` : ''}
           </li>
         `).join('')}
@@ -1468,14 +1410,13 @@ function buildAxeRuleList(rules, count, titleKey, emptyText) {
 function buildAxeEvidenceHTML(audit) {
   const axe = getAxeResults(audit);
   if (!axe) {
-    if (!audit.metadata?.requires_live_audit) return '';
     return `
       <section class="axe-evidence">
         <h3>${bi('Live audit evidence', 'Live Audit Evidence')}</h3>
         <p class="empty">
           ${bi(
-            '本次 JSON 沒有完整 axe 結果。這是 Tier-1 fallback，contrast、visibility 與 runtime DOM 狀態需要 live browser audit。',
-            'This JSON does not include full axe results. This is a Tier-1 fallback; contrast, visibility, and runtime DOM state require a live browser audit.'
+            '本次檢測未包含 axe-core；Tier 2 或其他瀏覽器量測不等於 axe 規則檢查。',
+            'axe-core was not included in this audit; Tier 2 or other browser measurements do not substitute for axe rule checks.'
           )}
         </p>
       </section>`;
@@ -1489,6 +1430,7 @@ function buildAxeEvidenceHTML(audit) {
           'The lists below come directly from axe results; violating DOM nodes are listed inside each finding group.'
         )}
       </p>
+      <p class="standard-line"><strong>${escapeHtml(axe.source || axe.engine || 'axe-core')}</strong> · ${axe.counts.violations} violation rule${axe.counts.violations === 1 ? '' : 's'} · ${axe.counts.violation_nodes} affected DOM node${axe.counts.violation_nodes === 1 ? '' : 's'}</p>
       ${buildAxeRuleList(axe.passes, axe.counts.passes, 'h2_passed_checks', bi('此 JSON 未提供通過項清單。', 'This JSON did not include a passed-check list.'))}
       ${buildAxeRuleList(axe.inapplicable, axe.counts.inapplicable, 'h2_not_applicable_checks', bi('此 JSON 未提供不適用項清單。', 'This JSON did not include a not-applicable list.'))}
       ${buildAxeRuleList(axe.incomplete, axe.counts.incomplete, 'h2_incomplete_checks', bi('此 JSON 未提供 incomplete 清單。', 'This JSON did not include an incomplete-check list.'))}
@@ -1897,15 +1839,15 @@ function buildMastheadHTML(audit) {
       <div class="wrap">
         <div class="brand">
           <span class="beacon-mark" aria-hidden="true"></span>
-          <span>Beacon <span style="color:var(--ink-muted);font-weight:600">${bi('無障礙檢測報告', 'Accessibility Audit')}</span></span>
+          <span>Beacon <span style="color:var(--ink-muted);font-weight:600">${audience === 'client' ? bi('網站檢測摘要', 'Website Audit Summary') : bi('無障礙檢測報告', 'Accessibility Audit')}</span></span>
         </div>
         <div class="metagrid">
           ${pageLine}
           <span><b>${t('meta_date')}</b> ${escapeHtml(audit.metadata?.date || 'N/A')}</span>
           <span><b>${t('meta_standard')}</b> ${escapeHtml(audit.metadata?.standard || 'WCAG 2.2 AA')}</span>
-          <span><b>${bi('層級', 'Tier')}</b> ${escapeHtml(audit.metadata?.audit_tier || 'Tier 1')}</span>
+          ${audience === 'audit' ? `<span><b>${bi('層級', 'Tier')}</b> ${escapeHtml(audit.metadata?.audit_tier || 'Tier 1')}</span>` : ''}
         </div>
-        <div class="engine-tag">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')}</div>
+        ${audience === 'audit' ? `<div class="engine-tag">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')}</div>` : ''}
       </div>
     </header>`;
 }
@@ -1947,12 +1889,12 @@ function buildFooterHTML(audit) {
       <div class="wrap">
         <p><span class="lang-zh" lang="zh-Hant">Beacon 是免費開源工具，評分背後的驗證資料全數公開。維護者提供無障礙 AI 檢測與修復的顧問服務：<a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span><span class="lang-en" lang="en">Beacon is free and open source, and the validation data behind its scores is public. The maintainer offers accessibility consulting for AI-assisted development: <a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span></p>
         <p style="margin-top:.6rem;font-size:.82rem;color:var(--ink-muted)">${bi('Beacon 產生的 audit artifacts 留在本機，除非你明確分享。', 'Beacon keeps audit artifacts local unless you explicitly share them.')}</p>
-        <p class="foot-engine">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')} &middot; ${escapeHtml(audit.metadata?.audit_tier || '')} &middot; confidence ${escapeHtml(audit.metadata?.confidence_level || '')}</p>
+        ${audience === 'audit' ? `<p class="foot-engine">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')} &middot; ${escapeHtml(audit.metadata?.audit_tier || '')} &middot; confidence ${escapeHtml(audit.metadata?.confidence_level || '')}</p>` : ''}
       </div>
     </footer>`;
 }
 
-const allGroups = buildFindingGroups(reportFindings);
+const allGroups = buildFindingGroups(presentationFindings);
 const groupsByCat = groupByCategory(allGroups);
 
 const html = `<!DOCTYPE html>
@@ -1960,7 +1902,7 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Beacon 無障礙檢測報告 &middot; Accessibility Audit Report &mdash; ${escapeHtml(titleHost(audit))}</title>
+<title>${audience === 'client' ? 'Beacon 網站檢測摘要 · Website Audit Summary' : 'Beacon 無障礙檢測報告 · Accessibility Audit Report'} &mdash; ${escapeHtml(titleHost(audit))}</title>
 <style>
 /* ============================================================
    Beacon report — v3.2.0 information architecture.
@@ -1974,7 +1916,7 @@ const html = `<!DOCTYPE html>
      no Ming/Mincho serif is ever reachable (esp. Japanese on Windows). */
   --sans:Arial,"Segoe UI",system-ui,-apple-system,"Noto Sans TC","Noto Sans JP",
          "Yu Gothic UI","Yu Gothic",Meiryo,"Hiragino Sans","Microsoft JhengHei",sans-serif;
-  /* mono Latin for code; CJK inside code falls to CJK SANS (never PMingLiU)
+  /* mono Latin for code; CJK inside code falls to CJK SANS (never a legacy serif)
      before the final monospace keyword. */
   --mono:ui-monospace,"Cascadia Code",Consolas,"SFMono-Regular","Noto Sans Mono",
          "Noto Sans TC","Yu Gothic UI",Meiryo,"Microsoft JhengHei",monospace;
@@ -2101,6 +2043,7 @@ body{
   line-height:1.6;
   color:var(--ink);
   background:var(--bg);
+  overflow-wrap:anywhere;
   overflow-x:hidden;
 }
 img{max-width:100%;height:auto}
@@ -2137,6 +2080,7 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
   box-shadow:0 0 0 1px var(--beacon-line) inset}
 .metagrid{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin-top:.9rem;
   font-size:.9rem;color:var(--ink-soft)}
+.metagrid>span{min-width:0;overflow-wrap:anywhere}
 .metagrid b{color:var(--ink);font-weight:600}
 .engine-tag{font-family:var(--mono);font-size:.78rem;color:var(--ink-muted)}
 
@@ -2314,6 +2258,26 @@ section{padding:2.2rem 0}
 .exec-note{margin-top:1.2rem;padding:.85rem 1rem;background:var(--beacon-soft);
   border-left:4px solid var(--beacon);border-radius:0 10px 10px 0;font-size:.9rem}
 
+/* =========================== CLIENT-ONLY REPORT =========================== */
+.client-brief{padding:2.5rem 0}
+.client-brief h1{font-size:clamp(1.8rem,4vw,2.7rem);margin:.2rem 0 .4rem;max-width:24ch}
+.client-scope{margin:.2rem 0 1.4rem;overflow-wrap:anywhere}
+.client-lead{font-size:1.12rem;max-width:62ch;margin:1.2rem 0 1.6rem}
+.client-pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(20rem,100%),1fr));gap:1rem}
+.client-pillar{border:1px solid var(--border);border-top:5px solid var(--review);
+  border-radius:var(--radius);padding:1.15rem;background:var(--surface);min-width:0}
+.client-pillar.crit{border-top-color:var(--crit)}
+.client-pillar.warn{border-top-color:var(--warn)}
+.client-pillar.pass{border-top-color:var(--pass)}
+.client-pillar h2{font-size:1.05rem;margin:0 0 .45rem}
+.client-pillar p{margin:.25rem 0;color:var(--ink-soft)}
+.client-pillar .client-status{font-size:1.18rem;font-weight:800;color:var(--ink)}
+.client-priorities{margin-top:2rem;padding-top:1.6rem;border-top:1px solid var(--border)}
+.client-priorities > h2{font-size:1.35rem;margin:0 0 1.2rem}
+.client-priorities .who{display:none}
+.client-boundary{margin:2rem 0 0;padding:.9rem 1rem;background:var(--beacon-soft);
+  border-left:4px solid var(--beacon);border-radius:0 10px 10px 0;max-width:70ch}
+
 /* =========================== FOOTER =========================== */
 footer{border-top:1px solid var(--border);background:var(--surface);margin-top:1rem}
 footer .wrap{padding:1.5rem 20px 2.6rem;font-size:.88rem;color:var(--ink-soft)}
@@ -2395,14 +2359,15 @@ footer a{font-weight:600}
 }
 </style>
 </head>
-<body>
+<body data-audience="${audience}">
 <a class="skip" href="#main-content">跳到主要內容 · Skip to main content</a>
 
 ${buildToolbarHTML()}
 ${buildMastheadHTML(audit)}
-${buildJumpNavHTML(!!audit.lighthouse)}
+${audience === 'audit' ? buildJumpNavHTML(!!audit.lighthouse) : ''}
 
 <main id="main-content" tabindex="-1">
+${audience === 'client' ? buildClientReportHTML(audit, allGroups) : `
 ${buildHeroHTML(audit, previous, allGroups)}
 
 <section class="section-alt" id="layer-evidence" aria-labelledby="h-evidence">
@@ -2419,6 +2384,7 @@ ${buildExecSummaryHTML(audit, allGroups)}
 ${buildMethodologySectionHTML(audit)}
 ${buildLegalSectionHTML(audit)}
 ${buildPerformanceSectionHTML(audit)}
+`}
 </main>
 
 ${buildFooterHTML(audit)}

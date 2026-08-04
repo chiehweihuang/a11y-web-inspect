@@ -13,6 +13,7 @@ import { detectAuthBarriers, detectAuthBarriersInSource } from './auth-detect.mj
 import { assessPdf } from './pdf-detect.mjs';
 import { detectQualityFlags } from './quality-detect.mjs';
 import { parseColor, relLuminance, contrastRatio } from './tier2-audit.mjs';
+import { axeViolationToFinding, criteriaFromFinding, normalizeAxeResults } from './axe-results.mjs';
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.nuxt', 'coverage']);
 const FILE_PATTERN = /\.(html?|css|scss|less|jsx|tsx|vue|svelte|js|cjs|mjs|ts|pdf)$/i;
@@ -79,10 +80,8 @@ const SEV_REPEAT_CAP = 3;
 // P3: engine fingerprint. The reproducibility contract is "same page + same fingerprint
 // => identical machine layer". Bump DETECTOR_VERSION when detection/scoring LOGIC changes;
 // the ruleset hash auto-changes when the scoring CONTRACT (weights/matrix/formula) changes.
-// (axe / capture-recipe components are added when Tier-2 findings are merged with their own
-// engine provenance; the pure static engine here is axe-free, so claiming an axe version would
-// be dishonest.)
-const DETECTOR_VERSION = 'beacon-static-audit@12';
+// External engine provenance is carried separately in audit.axe / audit.tier2.
+const DETECTOR_VERSION = 'beacon-static-audit@15';
 
 // A category with 1-2 total machine checks is a coin-flip denominator (a single fail
 // reads identically to a six-check 100). N=3 is a CALIBRATION DECISION, not a physical
@@ -104,16 +103,25 @@ function engineFingerprint() {
   return `${DETECTOR_VERSION}+ruleset.${rulesetHash()}`;
 }
 
-function criterionOf(wcag) {
-  const m = String(wcag || '').match(/\b([1-4]\.\d\.\d{1,2})\b/);
-  return m ? m[1] : null;
+// A composed wcag string (axe rules tagged with several criteria, e.g. "2.4.1 Bypass
+// Blocks; 2.3.1") can carry more than one criterion — ALL of them, not just the first.
+function allCriteriaOf(wcag) {
+  return [...String(wcag || '').matchAll(/\b([1-4]\.\d\.\d{1,2})\b/g)].map(m => m[1]);
 }
 
-// Matrix wins when the finding's WCAG criterion is listed; otherwise the finding keeps
-// its own severity (or 'warning' as a last resort for merged findings with none).
+const SEVERITY_RANK = { critical: 3, warning: 2, tip: 1 };
+
+// Matrix wins when ANY of the finding's WCAG criteria is listed — the strictest mandated
+// severity across all of them applies, so a life-safety criterion (e.g. 2.3.1) can't hide
+// behind a milder one listed first in a composed string. Otherwise the finding keeps its
+// own severity (or 'warning' as a last resort for merged findings with none).
 function mandatedSeverity(wcag, fallback) {
-  const c = criterionOf(wcag);
-  return (c && SEVERITY_MATRIX[c]) || fallback || 'warning';
+  let best = null;
+  for (const c of allCriteriaOf(wcag)) {
+    const sev = SEVERITY_MATRIX[c];
+    if (sev && (!best || SEVERITY_RANK[sev] > SEVERITY_RANK[best])) best = sev;
+  }
+  return best || fallback || 'warning';
 }
 
 // Reproducibility (P3 precursor): the stamped date must be injectable so two runs of the
@@ -127,12 +135,12 @@ function resolveDate(optDate) {
 }
 
 function usage() {
-  console.error('Usage: node static-audit.mjs [--scope name] [--url url] [--output audit-results.json] <file-or-dir>...');
+  console.error('Usage: node static-audit.mjs [--scope name] [--url url] [--axe-results axe.json] [--output audit-results.json] <file-or-dir>...');
   process.exit(1);
 }
 
 function parseArgs(argv) {
-  const opts = { scope: 'Static UI audit', url: null, output: 'audit-results.json', date: null, mergeFindings: null, llmJudgment: null, paths: [] };
+  const opts = { scope: 'Static UI audit', url: null, output: 'audit-results.json', date: null, mergeFindings: null, axeResults: null, llmJudgment: null, paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--scope') opts.scope = argv[++i] || usage();
@@ -140,6 +148,7 @@ function parseArgs(argv) {
     else if (arg === '--output') opts.output = argv[++i] || usage();
     else if (arg === '--date') opts.date = argv[++i] || usage();
     else if (arg === '--merge-findings') opts.mergeFindings = argv[++i] || usage();
+    else if (arg === '--axe-results') opts.axeResults = argv[++i] || usage();
     else if (arg === '--llm-judgment') opts.llmJudgment = argv[++i] || usage();
     else opts.paths.push(arg);
   }
@@ -577,6 +586,7 @@ function addFinding(findings, stats, f) {
     check,
     severity,
   });
+  if (rest.score_effect === 'corroborating') return;
   addCheck(stats, rest.category, check);
   // Only confirmed violations (check:'fail') drive the severity penalty; unverifiable
   // (review) findings never reduce the score (inspect.md Step 4 three-state rule).
@@ -625,6 +635,49 @@ function scanPdfFile(file, root, stats, findings) {
   }
 }
 
+// Single left-to-right scan for masked <script>/<style>/<noscript> bodies and HTML comments
+// (hakuso CRITICAL, 2026-08, reproduced live on fixtures p9/p11): three INDEPENDENT regex
+// passes (script/style, then a raw noscript regex, then comments) let a `<noscript>`-shaped
+// string inside a <script> or an HTML comment pair with the NEXT REAL `</noscript>` and mask
+// everything between — silently swallowing every finding in between (the exact @7 bug class
+// the noscript-image-twin fix reintroduced). <noscript> is a raw-text element per the HTML
+// spec, exactly like <script>/<style>: its content is never re-parsed for nested tags, just
+// scanned for the literal (case-insensitive) close tag. An "open" token is only ever
+// recognized while the cursor is genuinely unmasked — never re-examining text already inside
+// a prior masked range — which is what stops a fake open/close substring living INSIDE one
+// of these from pairing across into another, and preserves the @7 comment-in-script fix by
+// construction (an earlier real <script>/<noscript> open always wins the leftmost-match race
+// over a `<!--` embedded inside its own body, so that body's phantom tokens are consumed
+// wholesale as part of ITS mask and never independently examined).
+// ponytail: a `<!--` inside an HTML ATTRIBUTE VALUE still leaks the same way as before —
+// needs a real attribute-aware lexer to fix; deferred, not hit by any known benchmark site.
+const OPEN_TOKEN = /<(script|style|noscript)\b[^>]*>|<!--/gi;
+
+function scanMaskedRanges(text) {
+  const ranges = [];
+  let cursor = 0;
+  for (;;) {
+    OPEN_TOKEN.lastIndex = cursor;
+    const m = OPEN_TOKEN.exec(text);
+    if (!m) break;
+    const kind = m[0] === '<!--' ? 'comment' : m[1].toLowerCase();
+    const bodyStart = m.index + m[0].length;
+    let end;
+    if (kind === 'comment') {
+      const close = text.indexOf('-->', bodyStart);
+      end = close === -1 ? text.length : close + 3;
+    } else {
+      const closeRe = new RegExp(`<\\/${kind}\\s*>`, 'gi');
+      closeRe.lastIndex = bodyStart;
+      const close = closeRe.exec(text);
+      end = close ? close.index + close[0].length : text.length;
+    }
+    ranges.push([m.index, end]);
+    cursor = end;
+  }
+  return ranges;
+}
+
 function scanFile(file, root, stats, findings) {
   if (PDF_PATTERN.test(file)) return scanPdfFile(file, root, stats, findings);
   const text = readFileSync(file, 'utf8');
@@ -637,23 +690,15 @@ function scanFile(file, root, stats, findings) {
   const jsLike = ['js', 'cjs', 'mjs', 'ts', 'jsx', 'tsx', 'vue', 'svelte'].includes(ext);
 
   if (markup) {
-    // Char ranges of <script>/<style> bodies and HTML comments. The structural detectors
-    // below skip matches inside them so HTML-looking strings in JS/CSS, or markup left in
-    // a comment, are not flagged as real elements (e.g. a `"<ul><div>"` template string
-    // inside an inline script). Also fed into computeHiddenRanges/computeLabelRanges below
-    // (hakuso HIGH, 2026-07-07): those two do their OWN tag-token scan of the raw text, so
-    // without this a phantom token inside a script string or comment could open a range
-    // that never closes and silently swallows every later finding to EOF.
-    // scriptRanges computed FIRST, then comment matches starting inside a scriptRange are
-    // dropped (hakuso round 2, 2026-07-07): a `<!--` inside a JS string is not a real
-    // comment-open, and pairing it with the next REAL `-->` masked everything between.
-    // ponytail: a `<!--` inside an HTML ATTRIBUTE VALUE (e.g. `title="a <!-- b"`) still
-    // leaks the same way — needs a real attribute-aware lexer to fix; deferred, not hit by
-    // any known benchmark site.
-    const scriptRanges = [...text.matchAll(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi)].map(s => [s.index, s.index + s[0].length]);
-    const inScript = (i) => scriptRanges.some(([s, e]) => i >= s && i < e);
-    const commentRanges = [...text.matchAll(/<!--[\s\S]*?-->/g)].filter(m => !inScript(m.index)).map(s => [s.index, s.index + s[0].length]);
-    const masked = [...scriptRanges, ...commentRanges];
+    // Char ranges of <script>/<style>/<noscript> bodies and HTML comments (see
+    // scanMaskedRanges above). The structural detectors below skip matches inside them so
+    // HTML-looking strings in JS/CSS, markup left in a comment, or a <noscript> fallback twin
+    // (outside the a11y tree in a JS-enabled render) are not flagged as real elements. Also
+    // fed into computeHiddenRanges/computeLabelRanges below (hakuso HIGH, 2026-07-07): those
+    // two do their OWN tag-token scan of the raw text, so without this a phantom token inside
+    // a masked region could open a range that never closes and silently swallows every later
+    // finding to EOF.
+    const masked = scanMaskedRanges(text);
     const inMasked = (i) => masked.some(([s, e]) => i >= s && i < e);
     // Subtrees hidden from the accessibility tree: no findings, no passes (see
     // computeHiddenRanges).
@@ -908,12 +953,19 @@ function scanFile(file, root, stats, findings) {
     let namelessButtons = 0;
     // Inner tag group must not swallow </button>: adjacent nameless buttons (icon rows)
     // otherwise merge into one greedy match and get undercounted.
-    for (const m of text.matchAll(/<button\b((?!aria-label|aria-labelledby)[^>])*>\s*(<(?!\/?button\b)[^>]+>\s*)*<\/button>/gi)) {
+    // wild-precision round 1 (2026-08-03), P=0.600: `title` is a valid last-resort accessible-
+    // name source (accname spec) — same treatment the link detector already gives it below.
+    // Round 2 (2026-08, adversarial gate): `title=` was unanchored inside the lookahead, so
+    // it also matched mid-word inside `data-title=` / `data-original-title=` — neither is an
+    // accessible-name source, but they silently suppressed the fail. `\s` anchors it to a
+    // real attribute boundary.
+    for (const m of text.matchAll(/<button\b((?!aria-label|aria-labelledby|\stitle=)[^>])*>\s*(<(?!\/?button\b)[^>]+>\s*)*<\/button>/gi)) {
       if (!visible(m.index || 0)) continue;
-      // A descendant carrying aria-label(ledby) names the button (accessible-name
+      // A descendant carrying aria-label(ledby) or title names the button (accessible-name
       // computation descends); the button's OWN attrs are already excluded above, so
-      // any aria-label inside the match comes from a child (e.g. a labelled <svg>).
-      if (/aria-label(?:ledby)?\s*=\s*["'][^"']/i.test(m[0])) continue;
+      // any match inside the match comes from a child (e.g. a labelled <svg>). Anchored to
+      // `(?:^|\s)` for the same reason as above.
+      if (/(?:^|\s)(?:aria-label(?:ledby)?|title)\s*=\s*["'][^"']/i.test(m[0])) continue;
       namelessButtons += 1;
       addFinding(findings, stats, {
         key: 'button-name-missing',
@@ -928,12 +980,35 @@ function scanFile(file, root, stats, findings) {
         code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
-    // Buttons that DO have a name (text or a NON-EMPTY ARIA label) are verified keyboard
-    // passes. An empty aria-label="" escapes the nameless detector (suppression), but a
-    // suppressed fail is not a pass — exclude those from the count.
-    const emptyLabelButtons = [...text.matchAll(/<button\b[^>]*\saria-label(?:ledby)?\s*=\s*(?:""|'')[^>]*>/gi)].filter(m => visible(m.index || 0)).length;
+    // A button's OWN title="" blocks the lookahead above (the attribute is present, just
+    // empty), so it never reaches the nameless-button loop. But an empty string is not an
+    // accessible name either (accname treats it as absent) — this must still be a fail
+    // (digi24.ro corpus regression: <button title="">), not a silent drop. Scoped to
+    // title="" only — an empty aria-label/aria-labelledby keeps its pre-existing, separately
+    // tested suppression (see "pass evidence is positive" in static-audit-scoring.test.mjs).
+    for (const m of text.matchAll(/<button\b[^>]*\stitle\s*=\s*(?:""|'')[^>]*>/gi)) {
+      if (!visible(m.index || 0)) continue;
+      if (/(?:^|\s)aria-label(?:ledby)?\s*=\s*["'][^"']/i.test(m[0])) continue;
+      namelessButtons += 1;
+      addFinding(findings, stats, {
+        key: 'button-name-missing',
+        category: 'keyboard',
+        severity: 'warning',
+        wcag: 'WCAG 2.2: 4.1.2 Name, Role, Value',
+        title: 'Button may not have an accessible name',
+        affected_users: 'Screen-reader and voice-control users',
+        location: `${rel}:${lineOf(text, m.index || 0)}`,
+        description: 'A button with an empty title has no accessible name; an empty string is treated as absent.',
+        fix: 'Add visible text, aria-label, or aria-labelledby.',
+        code_before: snippetAt(text, m.index || 0, m[0].length),
+      });
+    }
+    // Buttons that DO have a name (text or a NON-EMPTY aria-label/title) are verified
+    // keyboard passes. An empty aria-label="" escapes the nameless detector (suppression),
+    // but a suppressed fail is not a pass — exclude those from the count.
+    const emptyAriaLabelButtons = [...text.matchAll(/<button\b[^>]*\saria-label(?:ledby)?\s*=\s*(?:""|'')[^>]*>/gi)].filter(m => visible(m.index || 0)).length;
     const visibleButtons = [...text.matchAll(/<button\b/gi)].filter(m => visible(m.index || 0)).length;
-    const namedButtons = visibleButtons - namelessButtons - emptyLabelButtons;
+    const namedButtons = visibleButtons - namelessButtons - emptyAriaLabelButtons;
     for (let i = 0; i < Math.max(0, namedButtons); i++) addCheck(stats, 'keyboard', 'pass');
 
     // Link accessible-name. A link is "named" if it OR a descendant carries a
@@ -980,8 +1055,31 @@ function scanFile(file, root, stats, findings) {
       });
     }
 
-    for (const m of text.matchAll(/<(div|span)\b[^>]*(onClick|onclick)[^>]*>/g)) {
+    // Open tags ONLY (matchAll must not consume the body: capturing `([\s\S]*?)<\/\1>`
+    // advances matchAll's cursor past the whole wrapper, so a NESTED <div onclick> inside got
+    // skipped entirely — hakuso CRITICAL, 2026-08, reproduced live: thscore99 2683 -> 1733,
+    // 950 real bare-onclick violations hidden; an unclosed wrapper also reported 0 instead of
+    // 1). The native-control check instead uses a NON-CONSUMING bounded lookahead — the next
+    // ~2000 chars up to the first same-tag OPEN OR CLOSE (case-insensitive), tested for a
+    // <button> or <a href> without touching the match itself. Stopping at a nested same-tag
+    // OPEN too (hakuso round 3, 2026-08), not just the close, enforces "the native control
+    // must appear in the wrapper's own direct content" — thscore99:300 (pMsg) no longer
+    // credits an unrelated <a href> several levels deep inside a nested carousel <div> as the
+    // control for the outer bare onclick div. Surviving Tier-1 ceiling: 102191.html:3576
+    // (lazada) — an analytics-only onclick wrapper (goldlog.record) whose direct body happens
+    // to contain a real <a href> now flags too; a tracker-only handler is indistinguishable
+    // from a real one statically. Accepted.
+    const CLICKABLE_LOOKAHEAD = 2000;
+    // Whitespace-anchored: a bare "onclick" substring (e.g. paginationclickable="true")
+    // must not match — same class as the data-reactid contains id= bug. `i` flag already
+    // covers onClick/onclick/ONCLICK, so no separate alternation is needed.
+    for (const m of text.matchAll(/<(div|span)\b[^>]*\sonclick\s*=[^>]*>/gi)) {
       if (!visible(m.index || 0)) continue;
+      const bodyStart = m.index + m[0].length;
+      const window = text.slice(bodyStart, Math.min(text.length, bodyStart + CLICKABLE_LOOKAHEAD));
+      const closeMatch = window.match(new RegExp(`<\\/?${m[1]}\\b`, 'i'));
+      const scope = closeMatch ? window.slice(0, closeMatch.index) : window;
+      if (/<button\b|<a\b[^>]*\shref\s*=/i.test(scope)) continue;
       addFinding(findings, stats, {
         key: 'clickable-non-button',
         category: 'keyboard',
@@ -1006,7 +1104,11 @@ function scanFile(file, root, stats, findings) {
     // solely for the fail-side skip below, not a general-purpose range.
     const labelRanges = computeLabelRanges(text, masked);
     const inLabel = (i) => labelRanges.some(([s, e]) => i >= s && i < e);
-    for (const m of text.matchAll(/<input\b(?![^>]*(aria-label|aria-labelledby|\sid=|type=["']hidden["']))[^>]*>/gi)) {
+    // wild-precision round 1 (2026-08-03), P=0.417: submit/hidden/button/image/reset are
+    // outside the label requirement, but the old `type=["']hidden["']` guard was
+    // quote-sensitive (missed unquoted/single-quoted) and covered only "hidden". Fixed to
+    // match any quoting and every out-of-scope type; already order-agnostic (lookahead scan).
+    for (const m of text.matchAll(/<input\b(?![^>]*(aria-label|aria-labelledby|\sid=|\stype\s*=\s*(?:["'](?:submit|hidden|button|image|reset)["']|(?:submit|hidden|button|image|reset)(?=[\s\/>]))))[^>]*>/gi)) {
       if (!visible(m.index || 0)) continue;
       if (inLabel(m.index || 0)) { wrappedInputs += 1; continue; }
       unlabelledInputs += 1;
@@ -1369,6 +1471,7 @@ function addSiteAgentReadinessFindings(inputPaths, files, root, stats, findings)
       key: 'llms-txt-missing',
       category: 'agent',
       severity: 'tip',
+      check: 'review',
       wcag: 'Agent readiness structural hygiene',
       level: 'Review',
       title: 'llms.txt was not found in the scanned site files',
@@ -1533,6 +1636,85 @@ function mergeExternalFindings(file, stats, findings) {
   return raw;
 }
 
+function loadAxeResults(file) {
+  try {
+    return normalizeAxeResults(JSON.parse(readFileSync(file, 'utf8')));
+  } catch (error) {
+    console.error(`--axe-results: cannot read/validate ${file}: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+// Bug 1 (CRITICAL, round 2 of the 2026-08 axe-integration audit): category+criterion alone
+// is too coarse for corroboration — many unrelated Tier-1 keys share one category/criterion
+// (keyboard/4.1.2 covers both button-name-missing AND nested-interactive), so a confirmed
+// button-name-missing was wrongly corroborating an unrelated axe nested-interactive
+// violation and erasing its score contribution. Corroboration now requires the axe rule and
+// the confirmed finding to be the SAME defect: an explicit identity mapping, or a literal
+// node/selector overlap. Never category+criterion again.
+const AXE_RULE_TO_BEACON_KEY = {
+  'image-alt': 'image-alt-missing',
+  label: 'input-label-missing',
+  'link-name': 'link-name-missing',
+  'frame-title': 'frame-title-missing',
+  'html-has-lang': 'html-lang-missing',
+  'html-lang-valid': 'html-lang-missing',
+  'document-title': 'document-title-missing',
+  'button-name': 'button-name-missing',
+  'color-contrast': 'tier2-contrast-fail',
+  'target-size': 'tier2-touch-target-fail',
+};
+
+function sameDefect(axeRuleId, finding, candidate) {
+  if (AXE_RULE_TO_BEACON_KEY[axeRuleId] === candidate.key) return true;
+  if (typeof candidate.selector !== 'string' || !candidate.selector) return false;
+  return finding.instances.some(instance =>
+    typeof instance.selector === 'string' && instance.selector
+    && (instance.selector === candidate.selector
+      || instance.selector.includes(candidate.selector)
+      || candidate.selector.includes(instance.selector)));
+}
+
+function mergeAxeFindings(axe, stats, findings) {
+  if (!axe) return;
+  // Corroboration must match ANY already-confirmed check:'fail' finding, native Tier-1
+  // included — not just findings sourced from beacon-tier2-audit. Snapshot BEFORE this loop
+  // adds axe findings, so one axe violation cannot corroborate against another axe
+  // violation from the same run.
+  const confirmed = findings.filter(finding => finding.check === 'fail');
+  let merged = 0, skipped = 0;
+
+  axe.violations.forEach((violation, index) => {
+    // Bug 5 (HIGH): malformed entries (not an object, or no string id) must be skipped,
+    // never minted into a scored "axe-core finding" — mirrors mergeExternalFindings.
+    if (!violation || typeof violation !== 'object' || typeof violation.id !== 'string') {
+      skipped += 1;
+      console.error(`--axe-results: skipped malformed violation entry: ${JSON.stringify(violation).slice(0, 80)}`);
+      return;
+    }
+    const finding = axeViolationToFinding(violation, { index, version: axe.version });
+    const criteria = criteriaFromFinding(finding);
+    // Bug 2 (HIGH): a rule with no wcag* tag (best-practice or otherwise untagged) has no
+    // AA criterion to fail against — it informs without moving a score.
+    if (criteria.length === 0) finding.check = 'review';
+    const matches = confirmed.filter(candidate => sameDefect(violation.id, finding, candidate));
+    const covered = matches.length > 0;
+
+    finding.evidence_sources = [finding.source];
+    if (covered) {
+      finding.score_effect = 'corroborating';
+      for (const match of matches) {
+        match.evidence_sources = [...new Set([match.source, ...(match.evidence_sources || []), finding.source].filter(Boolean))];
+        finding.evidence_sources.push(match.source);
+      }
+      finding.evidence_sources = [...new Set(finding.evidence_sources)];
+    }
+    addFinding(findings, stats, finding);
+    merged += 1;
+  });
+  console.error(`--axe-results: merged ${merged}, skipped ${skipped} from ${axe.source}`);
+}
+
 // P8: the LLM's irreducible semantic judgment (meaningful-alt quality, reading-order sense,
 // cognitive load — the ~60% no engine can touch) has a sanctioned, QUARANTINED home: a
 // passthrough block the script copies verbatim, never scores, and labels "not reproducible".
@@ -1577,6 +1759,8 @@ function main() {
     && Array.isArray(mergedRaw?.summary?.by_viewport))
     ? { metadata: mergedRaw.metadata, summary: mergedRaw.summary }
     : null;
+  const axe = opts.axeResults ? loadAxeResults(opts.axeResults) : null;
+  mergeAxeFindings(axe, stats, findings);
 
   // Contrast verification gate (inspect.md "do not skip"; hakuso+codex found this was
   // doc-promised but not code-backed — the native scan only ever bumps a silent review
@@ -1585,7 +1769,18 @@ function main() {
   // so this is the single reliable "was contrast exercised by a browser this run" signal,
   // checked exactly once, after any merge. A tier-2/axe contrast merge cleanly supersedes
   // both the tip and requires_live_audit; nothing else needs to change downstream.
-  const contrastVerifiedByBrowser = stats.contrast.pass > 0 || stats.contrast.fail > 0;
+  // Bug 3 (HIGH, round 2 of the 2026-08 axe-integration audit): round 1's `Boolean(axe)`
+  // over-claimed — ANY axe file present cleared the disclosure, even one that never touched
+  // color-contrast at all (e.g. only a bypass-blocks violation), while the category still
+  // read pass:0 fail:0. Axe merely running is not evidence contrast was checked; require
+  // color-contrast to actually appear among violations/passes/incomplete (an inapplicable
+  // verdict is not a check either). Pass-accounting (crediting axe.passes into
+  // stats.contrast.pass) is left alone deliberately — that decision depends on bug 1's
+  // corroboration fix already being in place and risks becoming its own score-inflation
+  // vector; out of scope here.
+  const axeCheckedContrast = Boolean(axe) && ['violations', 'passes', 'incomplete']
+    .some(group => (axe[group] || []).some(rule => rule && rule.id === 'color-contrast'));
+  const contrastVerifiedByBrowser = stats.contrast.pass > 0 || stats.contrast.fail > 0 || axeCheckedContrast;
   if (!contrastVerifiedByBrowser) {
     addFinding(findings, stats, {
       key: 'contrast-not-verified',
@@ -1655,11 +1850,25 @@ function main() {
       engine_fingerprint: engineFingerprint(),
       confidence_level: coverage >= 60 ? 'medium' : 'low', // derived from measured weight; a static pipeline never claims high
       requires_live_audit: !contrastVerifiedByBrowser,
-      audit_tier: 'Tier 1 (static file scan only)',
+      audit_tier: tier2 && axe
+        ? 'Tier 1 + Tier 2 + axe-core (static scan + browser measurement)'
+        : tier2
+          ? 'Tier 1 + Tier 2 (static scan + native browser measurement)'
+          : axe
+            ? 'Tier 1 + axe-core (static scan + browser accessibility rules)'
+            : 'Tier 1 (static file scan only)',
       audit_methods: [
         `Static scan of ${files.length} UI-like file(s)`,
         'Pattern checks for semantic HTML, keyboard traps, labels, reflow, motion, AEO structure, and site-level agent-readiness files when a directory is scanned',
-        'Runtime behavior, contrast ratios, and screen-reader task completion were not fully verified',
+        ...(axe ? [
+          `${axe.source}: ${axe.counts.violations} violation rule(s), ${axe.counts.violation_nodes} affected DOM node(s), ${axe.counts.passes} passes, ${axe.counts.incomplete} incomplete, ${axe.counts.inapplicable} inapplicable`,
+        ] : []),
+        ...(tier2 ? [
+          `Tier 2 browser measurement at ${tier2.summary.by_viewport.map(v => v.viewport).join(', ')} for computed text contrast and touch-target size`,
+          'Keyboard flow, dynamic interaction states, and screen-reader task completion still require manual verification',
+        ] : [
+          'Runtime behavior, contrast ratios, and screen-reader task completion were not fully verified',
+        ]),
       ],
     },
     summary: {
@@ -1703,6 +1912,7 @@ function main() {
   // findings, stats, or any score (P8 structural separation).
   if (opts.llmJudgment) audit.llm_judgment = loadLlmJudgment(opts.llmJudgment);
   if (tier2) audit.tier2 = tier2;
+  if (axe) audit.axe = axe;
 
   mkdirSync(dirname(opts.output), { recursive: true });
   writeFileSync(opts.output, JSON.stringify(audit, null, 2));
