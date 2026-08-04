@@ -178,6 +178,43 @@ test('list: ul/ol with a non-li first child is flagged; valid lists, components,
   assert.equal(findingsMatching(ok, /list/i, /1\.3\.1/).length, 0, 'valid list, component, role-overridden list, empty list, and HTML string inside <script> must not flag');
 });
 
+// Regression (found live on round-2 page 100000.html after the comment-placeholder fix
+// above): a CONSUMING match (`([\s\S]*?)<\/\1>`) advances matchAll's cursor past the
+// whole matched span, so an outer <ul> containing a nested <ul> swallowed the inner list
+// entirely — it was never separately examined, and a genuine non-li first child on the
+// INNER list stopped firing. Fixed via a non-consuming open-tag match + bounded
+// depth-counted scan for each list's own close tag.
+test('list: a nested list is still examined on its own (matchAll must not consume the outer list body)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<ul><li>a</li><ul class="inner"><span>x</span><li>b</li></ul></ul>
+</main></body></html>`);
+  const hits = findingsMatching(audit, /list/i, /1\.3\.1/);
+  assert.equal(hits.length, 1, 'exactly the inner list (first child <span>) must flag; the outer list (first child <li>) must not');
+});
+
+// wild-precision round 2, P=0.867: comment nodes are not elements. A <ul> whose ONLY
+// children are Vue/Nuxt/React SSR conditional-render placeholders (<!---->) must not
+// flag — the old code only skipped LEADING comments, so a comment-only list made the
+// regex backtrack past the list's own </ul> and grab an unrelated later element.
+test('list: comment-only children (SSR conditional-render placeholders) do not flag', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<ul class="a"><!----></ul>
+<ul class="b"><!----><!----><!----></ul>
+<div id="not-a-list-child">outside every list, must never be reported as one</div>
+</main></body></html>`);
+  assert.equal(findingsMatching(audit, /list/i, /1\.3\.1/).length, 0, 'comment-only lists must not flag, and must not attribute an unrelated sibling element as their child');
+});
+test('list: a real non-li child right after a comment-only sibling list still flags (near-miss negative)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<ul class="a"><!----></ul>
+<ul class="b"><div>real bad child</div></ul>
+</main></body></html>`);
+  assert.equal(findingsMatching(audit, /list/i, /1\.3\.1/).length, 1, 'the second list has a genuine non-li child and must still flag exactly once');
+});
+
 test('AEO: missing canonical and JSON-LD produce actionable findings', () => {
   const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -196,6 +233,29 @@ test('AEO: missing canonical and JSON-LD produce actionable findings', () => {
   const okKeys = new Set(ok.findings.filter((f) => f.category === 'agent').map((f) => f.key));
   assert.equal(okKeys.has('canonical-missing'), false, 'present canonical should not be flagged');
   assert.equal(okKeys.has('jsonld-missing'), false, 'present JSON-LD should not be flagged');
+});
+
+// wild-precision round 2, P=0.933: the old presence regex assumed type="application/ld+json"
+// was the LAST attribute on the tag. Gatsby (and others) emit trailing attributes after type.
+test('AEO: JSON-LD with type= as a NON-FINAL attribute (Gatsby data-gatsby-head=) is not missed', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Readable page summary.">
+<link rel="canonical" href="https://example.com/page">
+<script type="application/ld+json" data-gatsby-head="true">{"@context":"https://schema.org","@type":"Article","headline":"x"}</script>
+</head><body><main><h1>x</h1></main></body></html>`);
+  const keys = new Set(audit.findings.filter((f) => f.category === 'agent').map((f) => f.key));
+  assert.equal(keys.has('jsonld-missing'), false, 'type= followed by another attribute must still be recognized as JSON-LD');
+});
+test('AEO: a page with no JSON-LD at all still flags (near-miss negative)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Readable page summary.">
+<link rel="canonical" href="https://example.com/page">
+<script src="/app.js"></script>
+</head><body><main><h1>x</h1></main></body></html>`);
+  const keys = new Set(audit.findings.filter((f) => f.category === 'agent').map((f) => f.key));
+  assert.ok(keys.has('jsonld-missing'), 'a page with only an unrelated <script> must still be flagged for missing JSON-LD');
 });
 
 test('AEO: directory scan checks site-level agent-readiness files', () => {
@@ -570,4 +630,101 @@ test('--output to a not-yet-existing nested directory: parent dirs are created, 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// === focus-outline-removed: wild-precision P=0.267 (4 tp / 11 fp) — narrowed to exactly
+// "unscoped universal :focus { outline: none|0 }" with zero focus-visible in the file. ===
+const page = (css) => `<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><main><a href="/x">x</a></main></body></html>`;
+const outlineFindings = (audit) => audit.findings.filter((f) => f.key === 'focus-outline-removed');
+
+test('focus-outline-removed: unscoped universal :focus{outline:none} with no focus-visible anywhere flags', () => {
+  assert.equal(outlineFindings(runScanner(page(':focus { outline: none; }'))).length, 1);
+});
+// Locked TP regression fixture: the shape all 4 real true positives share, embedded among
+// unrelated rules like a real stylesheet — not just the one-line synthetic case above —
+// so the selector-boundary logic (which had its own bug, see the test below) stays honest
+// on something closer to what the narrowed rule is actually supposed to keep catching.
+test('focus-outline-removed: TP fixture — a bare :focus reset amid a realistic multi-rule stylesheet still flags', () => {
+  const css = `
+    body { margin: 0; font-family: sans-serif; }
+    .btn { padding: 8px 16px; border-radius: 4px; }
+    .btn:hover { background: #eee; }
+    a { color: #06c; text-decoration: none; }
+    :focus { outline: none; }
+    .card { box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+  `;
+  assert.equal(outlineFindings(runScanner(page(css))).length, 1, 'the bare :focus reset must still flag amid unrelated surrounding rules');
+});
+// Gate blocker (2026-08, HIGH x2): the narrowed rule recognised ONLY exact `:focus` and
+// went recall-0/3 on real corpus markup. Universal `*`/`*:focus` and a bare TYPE selector
+// (input:focus, a:focus, button:focus) reach every element of that scope too — same
+// sitewide blast radius as bare `:focus` — and are pinned here against the corpus shapes
+// that were actually missed (101337/102559: a bare `*` reset with zero :focus rules in the
+// file; 101550: input:focus inside a comma-separated selector list).
+test('focus-outline-removed: universal * (with zero :focus rules anywhere) flags — recovers wild-corpus 101337/102559', () => {
+  assert.equal(outlineFindings(runScanner(page('* { margin: 0; outline: none; }'))).length, 1);
+});
+test('focus-outline-removed: *:focus flags', () => {
+  assert.equal(outlineFindings(runScanner(page('*:focus { outline: none; }'))).length, 1);
+});
+test('focus-outline-removed: a bare TYPE selector + :focus inside a comma list flags — recovers wild-corpus 101550', () => {
+  assert.equal(outlineFindings(runScanner(page('#lightbox-nav a,.ui-dialog,.ui-menu,input:focus{outline:0}'))).length, 1);
+});
+// The 13 verified false positives from the same corpus must still NOT match any of the
+// newly recognised shapes (reviewer-checked: none of them is bare `*`, `*:focus`, or a
+// bare type selector).
+test('focus-outline-removed: class-scoped :focus (verified corpus false positive) still does not flag', () => {
+  assert.equal(outlineFindings(runScanner(page('.fba-usa-modal:focus { outline: none; }'))).length, 0);
+});
+test('focus-outline-removed: :active/:hover only (verified corpus false positive) still does not flag', () => {
+  assert.equal(outlineFindings(runScanner(page('a:active,a:hover{outline:none}'))).length, 0);
+});
+
+// Gate blocker (2026-08, HIGH x2): `>` is also the CSS child combinator, not just an HTML
+// tag close — including it in the selector-boundary bound mis-scoped `.a > :focus` down to
+// bare `:focus` and fired CRITICAL on a properly scoped rule. Fixed by only cutting through
+// an HTML tag's `>` when the slice still contains raw markup (`<`), and even then only
+// through the LAST REAL `<tag...>`, never a bare `>` combinator.
+test('focus-outline-removed: a properly scoped child-combinator rule (.a > :focus) does NOT flag', () => {
+  assert.equal(outlineFindings(runScanner(page('.a > :focus { outline: none; }'))).length, 0);
+});
+test('focus-outline-removed: minified child-combinator rule (.x>:focus) does NOT flag', () => {
+  assert.equal(outlineFindings(runScanner(page('.x>:focus{outline:none}'))).length, 0);
+});
+test('focus-outline-removed: bare :focus as the FIRST rule in <style> (no prior }/;) still flags — the >-boundary fix must not break this', () => {
+  assert.equal(outlineFindings(runScanner(page(':focus{outline:none}'))).length, 1);
+});
+
+test('focus-outline-removed: tabindex=-1 programmatic-focus wrapper does not flag (near-miss negative)', () => {
+  assert.equal(outlineFindings(runScanner(page('[tabindex="-1"]:focus { outline: none; }'))).length, 0);
+});
+test('focus-outline-removed: a rule scoped to :hover/:active only (never touches :focus) does not flag (near-miss negative)', () => {
+  assert.equal(outlineFindings(runScanner(page('.btn:hover, .btn:active { outline: none; }'))).length, 0);
+});
+test('focus-outline-removed: a compensating indicator on a scoped selector elsewhere does not flag (near-miss negative)', () => {
+  assert.equal(outlineFindings(runScanner(page('.modal:focus { outline: none; } :focus-within { box-shadow: 0 0 0 3px #06f; }'))).length, 0);
+});
+test('focus-outline-removed: outline:none on a non-focusable, class-scoped element does not flag (near-miss negative)', () => {
+  assert.equal(outlineFindings(runScanner(page('.icon:focus { outline: none; }'))).length, 0);
+});
+test('focus-outline-removed: a bare :focus rule is suppressed when focus-visible is used anywhere in the file', () => {
+  assert.equal(outlineFindings(runScanner(page(':focus { outline: none; } a:focus-visible { outline: 3px solid blue; }'))).length, 0);
+});
+
+// === fixed-minmax-overflow: wild-precision P=0.133 (2 tp / 13 fp). Narrowing (auto-fit/
+// auto-fill, @media scoping, axis, minmax(auto,N)) was tried and REJECTED (coordinator
+// review, 2026-08): after excluding those, the residual literal shape is rare enough — and
+// one of only two known true positives was itself an auto-fill case — that the narrowed
+// rule would almost never fire while still moving the score. Kept broad, moved to REVIEW:
+// still surfaced in the report, never a confirmed fail, never affects the score. ===
+const minmaxFindings = (audit) => audit.findings.filter((f) => f.key === 'fixed-minmax-overflow');
+
+test('fixed-minmax-overflow: an unguarded repeat(9, minmax(116px, 1fr)) still produces a review finding that does NOT move the score', () => {
+  const withDeclaration = runScanner(page('.g { grid-template-columns: repeat(9, minmax(116px, 1fr)); }'));
+  const withoutDeclaration = runScanner(page('.g { color: #222; }'));
+  const hits = minmaxFindings(withDeclaration);
+  assert.equal(hits.length, 1, 'the finding must still fire — matching stays broad, not narrowed');
+  assert.equal(hits[0].check, 'review', 'must be review, not a confirmed fail');
+  assert.equal(withDeclaration.summary.overall_score, withoutDeclaration.summary.overall_score, 'a review-only finding must not move the score');
 });

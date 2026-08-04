@@ -51,6 +51,21 @@ test('Latin-vs-Latin: en declared over French / German content FLAGs (3.1.1 blin
 test('Latin-vs-Latin: Vietnamese under en is caught by its diacritics', () => {
   assert.equal(assessLang('en', VI).detectedLang, 'vi');
 });
+// wild-precision round 2, P=0.067: VI_CHARS included plain "ã" (ordinary Portuguese —
+// não, são, informações, opções), and the >=5-hit short-circuit returned before
+// stopword scoring ran, so 14/15 flags were false positives (12 Portuguese pages).
+const PT = 'Como especialista global em gestão de energia, automação e digitalização em mais de 100 países, oferecemos soluções integradas de tecnologia energética em vários segmentos de mercado. Não são apenas soluções, mas também informações e opções para os nossos clientes em todas as regiões onde atuamos. As nossas equipas estão disponíveis para ajudar com quaisquer questões relacionadas com produtos, preços ou disponibilidade, garantindo sempre um atendimento de qualidade e confiança para todos os utilizadores dos nossos serviços.';
+test('Latin-vs-Latin: Portuguese (não/são/informações/opções) is not misread as Vietnamese', () => {
+  assert.equal(detectLatinLanguage(PT).lang, 'pt');
+  assert.equal(assessLang('pt-br', PT).status, 'PASS');
+  assert.equal(assessLang('pt', PT).status, 'PASS');
+});
+test('Latin-vs-Latin: a genuinely Vietnamese page declared pt still mismatches (near-miss negative)', () => {
+  const v = assessLang('pt', VI);
+  assert.equal(v.detectedLang, 'vi');
+  assert.notEqual(v.status, 'PASS');
+});
+
 test('Latin-vs-Latin: correctly declared latin pages still PASS (precision held)', () => {
   assert.equal(assessLang('en', EN).status, 'PASS');
   assert.equal(assessLang('de', DE).status, 'PASS');

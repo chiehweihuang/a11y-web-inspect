@@ -125,3 +125,27 @@ test('L4 cross-stack fairness: the same violations get the same findings and sco
     assert.equal(r.overall, first.overall, `${r.stack} overall (${r.overall}) must equal ${first.stack}'s (${first.overall})`);
   }
 });
+
+// L2 monotonicity, the case the test above cannot reach. VALIDATION.md promises that
+// fixing a violation never lowers a score and adding one never raises it. Both halves are
+// currently FALSE when a category crosses THIN_EVIDENCE_MIN: dropping from 3 evidence
+// items to 2 re-states the category as insufficient-evidence and removes it from the
+// weighted denominator, so a better-scoring category can leave and drag the average down.
+// Marked todo because the fix is a pending product decision (count passes as evidence /
+// clamp the overall / re-calibrate the threshold), NOT because the defect is theoretical:
+// it reproduces here, and on real captured markup (test/wild-corpus/ page 101380 moves
+// 22 -> 0 when one false positive is removed). Delete the todo flag when the fix lands.
+const THIN_WITH = `<html lang="en"><head><title>t</title><meta name="description" content="d">
+<link rel="canonical" href="/"><script type="application/ld+json">{"@type":"Thing"}</script></head>
+<body><main><h1>H</h1>
+<button aria-label="a">A</button><button aria-label="b">B</button>
+<div onclick="x()">clickable with no keyboard path</div>
+<img src="1.png"><img src="2.png"><img src="3.png">
+</main></body></html>`;
+const THIN_FIXED = THIN_WITH.replace('<div onclick="x()">clickable with no keyboard path</div>\n', '');
+
+test('L2 monotonicity: fixing a keyboard violation must not lower the score', { todo: 'THIN_EVIDENCE_MIN discontinuity, see VALIDATION.md L2' }, () => {
+  const withViolation = overall(audit(THIN_WITH));
+  const fixed = overall(audit(THIN_FIXED));
+  assert.ok(fixed >= withViolation, `fixing the violation lowered the score (${withViolation} -> ${fixed})`);
+});

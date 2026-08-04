@@ -108,6 +108,42 @@ the measurement is cheap now: the survey tier supplies wild instances for ~36 ke
 - Top and bottom reachable (goldens pin both).
 - Monotonicity: adding a confirmed violation never raises any score; fixing one never
   lowers any; adding compliant elements never costs points.
+  **KNOWN VIOLATION, measured 2026-08-04, present in released v3.3.0. BOTH directions of
+  the promise fail.** Reproduction, runnable as written:
+
+  ```html
+  <html lang="en"><head><title>t</title><meta name="description" content="d">
+  <link rel="canonical" href="/"><script type="application/ld+json">{"@type":"Thing"}</script></head>
+  <body><main><h1>H</h1>
+  <button aria-label="a">A</button><button aria-label="b">B</button>
+  <div onclick="x()">clickable with no keyboard path</div>
+  <img src="1.png"><img src="2.png"><img src="3.png">
+  </main></body></html>
+  ```
+
+  That page scores **44**. Delete the `<div onclick>` line — a real 2.1.1 violation, now
+  fixed — and it scores **38**. Read the same experiment the other way and it is worse:
+  *adding* a keyboard violation to the fixed page RAISES its score by 6. An independent
+  check reproduced the same discontinuity at larger amplitude on a synthetic page (2 → 21
+  on adding one violation) and on real captured markup: `test/wild-corpus/` page 101380
+  (cuni.cz) moves **22 → 0** when a single false-positive finding is removed.
+
+  Mechanism: the category drops from 3 evidence items to 2, falls under
+  `THIN_EVIDENCE_MIN`, is re-stated as `insufficient-evidence`, and leaves the weighted
+  denominator — and because it had been scoring better than the categories that remain,
+  the average falls. Introduced with the thin-evidence state (`@9`). The existing L2
+  property test cannot reach it: it exercises an image-alt fix inside `screenreader`,
+  which never crosses the threshold. The guard is green while the promise is false.
+
+  This is the highest-priority scoring defect on the list, and it is not a future risk —
+  this batch already hit it: cuni.cz's 22 → 0 is a false-positive REMOVAL making a score
+  worse. It also gates the precision-floor work, because demoting low-precision detectors
+  removes `fail` evidence in bulk, which is exactly the operation that pushes categories
+  across this threshold.
+  Fix direction is an open decision (count passes as evidence of compliance rather than
+  absence of it; keep the threshold but clamp the overall against the same page with one
+  more fail; or re-calibrate/retire `THIN_EVIDENCE_MIN`, which the charter already records
+  as a calibration decision open to revision).
 - Injection dose-response: known violations injected into the clean fixture degrade
   the score monotonically with dose (ground truth is the injection itself).
 - Coverage and score move independently; absence (or thinness) of evidence is a state

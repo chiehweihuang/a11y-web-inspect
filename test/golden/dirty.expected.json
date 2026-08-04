@@ -13,7 +13,7 @@
     ],
     "platform": "Web",
     "tool_version": "beacon codex static baseline",
-    "engine_fingerprint": "beacon-static-audit@15+ruleset.25eeae0aa809",
+    "engine_fingerprint": "beacon-static-audit@16+ruleset.25eeae0aa809",
     "confidence_level": "low",
     "requires_live_audit": true,
     "audit_tier": "Tier 1 (static file scan only)",

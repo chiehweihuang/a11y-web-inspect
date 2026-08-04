@@ -113,14 +113,20 @@ const LATIN_STOPWORDS = {
   it: ['il', 'la', 'le', 'di', 'che', 'un', 'una', 'per', 'con', 'non', 'sono', 'gli', 'della', 'del', 'nel', 'alla', 'questo', 'anche', 'come', 'più', 'sia', 'una', 'lo', 'ed', 'dei', 'delle', 'suo'],
   nl: ['de', 'het', 'een', 'van', 'en', 'is', 'op', 'dat', 'met', 'voor', 'niet', 'zijn', 'aan', 'er', 'ook', 'als', 'maar', 'door', 'over', 'naar', 'worden', 'wordt', 'om', 'te', 'uw'],
 };
-// Vietnamese is Latin-script but unmistakable by its stacked tone marks and đ —
-// far more reliable than stopwords for "Latin but clearly not a Western language".
-const VI_CHARS = /[đĐ]|[ạảãậầẩẫấệềểễếọỏộồổỗốợờởỡớịỉĩựừửữứ]/g;
+// Vietnamese is Latin-script but unmistakable by its STACKED tone marks and đ —
+// a base vowel carrying two combined diacritics (circumflex/horn + tone), which
+// no other Latin-script language in LATIN_LANGS stacks the same way. Audited
+// 2026-08 against pt/es/fr/it/pl/tr/ro (wild-precision round 2, P=0.067): every
+// character below is stacked-diacritic-or-đ and collides with none of them.
+// REMOVED: plain "ã" (bare tilde-a, no circumflex) — that IS ordinary Portuguese
+// (não, são, informações), and alone it was outscoring Portuguese's own stopword
+// signal via the short-circuit below. Vietnamese ã still gets caught by context
+// (it never appears alone in real Vietnamese paragraphs without nearby stacked
+// vowels — see the density gate below).
+const VI_CHARS = /[đĐ]|[ạảậầẩẫấệềểễếọỏộồổỗốợờởỡớịỉĩựừửữứ]/g;
 
 export function detectLatinLanguage(text) {
   const s = String(text);
-  const viHits = (s.match(VI_CHARS) || []).length;
-  if (viHits >= 5) return { lang: 'vi', confidence: 0.9 };
   // ponytail: word split keeps Latin-1 + common diacritic letters; good enough
   // for function-word matching without a full Unicode word segmenter.
   const words = s.toLowerCase().match(/[a-zàâäáãçéèêëíìîïñóòôöõúùûüœæß]+/g) || [];
@@ -133,7 +139,21 @@ export function detectLatinLanguage(text) {
   const [top, topRate] = ranked[0];
   const second = ranked[1] ? ranked[1][1] : 0;
   // Need a clear leader on a meaningful function-word density, else don't guess.
-  if (topRate < 0.06 || topRate < second * 1.3) return { lang: null, confidence: topRate };
+  const stopwordClear = topRate >= 0.06 && topRate >= second * 1.3;
+
+  // Vietnamese char-class evidence used to short-circuit BEFORE stopword scoring
+  // ran at all, so 5 stray character-class hits anywhere in a page (e.g. from
+  // the since-removed "ã") beat a clear, strong stopword signal for a different
+  // Latin language. Now it must clear an absolute floor (>=5 hits — a real
+  // Vietnamese paragraph, not a typo), a DENSITY floor (hits relative to word
+  // count — a huge page can rack up 5 incidental hits without being Vietnamese),
+  // and it loses outright to a clearly-leading stopword profile for another
+  // Latin language, which is stronger evidence than a handful of stray chars.
+  const viHits = (s.match(VI_CHARS) || []).length;
+  const viDensity = viHits / words.length;
+  if (viHits >= 5 && viDensity >= 0.01 && !stopwordClear) return { lang: 'vi', confidence: 0.9 };
+
+  if (!stopwordClear) return { lang: null, confidence: topRate };
   return { lang: top, confidence: topRate };
 }
 

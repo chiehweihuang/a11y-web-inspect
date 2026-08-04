@@ -13,6 +13,7 @@ import { detectAuthBarriers, detectAuthBarriersInSource } from './auth-detect.mj
 import { assessPdf } from './pdf-detect.mjs';
 import { detectQualityFlags } from './quality-detect.mjs';
 import { parseColor, relLuminance, contrastRatio } from './tier2-audit.mjs';
+import { attrState, parseStartTag } from './attr-scan.mjs';
 
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.nuxt', 'coverage']);
@@ -81,7 +82,7 @@ const SEV_REPEAT_CAP = 3;
 // => identical machine layer". Bump DETECTOR_VERSION when detection/scoring LOGIC changes;
 // the ruleset hash auto-changes when the scoring CONTRACT (weights/matrix/formula) changes.
 // External engine provenance is carried separately in audit.axe / audit.tier2.
-const DETECTOR_VERSION = 'beacon-static-audit@15';
+const DETECTOR_VERSION = 'beacon-static-audit@16';
 
 // A category with 1-2 total machine checks is a coin-flip denominator (a single fail
 // reads identically to a six-check 100). N=3 is a CALIBRATION DECISION, not a physical
@@ -928,12 +929,37 @@ function scanFile(file, root, stats, findings) {
     // framework components, and skip lists with an explicit role= (author has
     // taken control of the semantics). Stray non-li children later in the list,
     // and visibility, are deferred to Tier-2 axe.
-    for (const m of text.matchAll(/<(?:ul|ol)\b([^>]*)>\s*(?:<!--[\s\S]*?-->\s*)*<([a-zA-Z][\w-]*)/gi)) {
+    // OPEN TAGS ONLY, non-consuming (same style as clickable-non-button below):
+    // a CONSUMING match (the previous `([\s\S]*?)<\/\1>` version) advances
+    // matchAll's cursor past the whole matched span, so an outer <ul> containing
+    // a nested <ul> swallowed the inner list entirely — it was never separately
+    // examined (hakuso-reported regression, round 2). Finding "this list's own
+    // close" is instead a bounded, depth-counted forward scan: ul/ol opens push,
+    // ul/ol closes pop, stop at depth 0. A few thousand chars is enough for
+    // real-world nesting depth at Tier-1; if no close appears in the window,
+    // examine what we have rather than skipping the list outright.
+    const LIST_CLOSE_WINDOW = 4000;
+    const LIST_BOUNDARY_RE = /<(\/?)\s*(?:ul|ol)\b/gi;
+    const listInner = (openEnd) => {
+      const window = text.slice(openEnd, Math.min(text.length, openEnd + LIST_CLOSE_WINDOW));
+      LIST_BOUNDARY_RE.lastIndex = 0;
+      let depth = 1;
+      let b;
+      while ((b = LIST_BOUNDARY_RE.exec(window))) {
+        depth += b[1] === '/' ? -1 : 1;
+        if (depth === 0) return window.slice(0, b.index);
+      }
+      return window; // no matching close within the window — use what we scanned
+    };
+    for (const m of text.matchAll(/<(ul|ol)\b([^>]*)>/gi)) {
       if (!visible(m.index)) continue; // scripted string or hidden subtree
-      if (/\brole\s*=/.test(m[1]) || /\saria-hidden\s*=\s*["']true/i.test(m[1])) continue; // author-controlled ARIA / hidden from a11y tree
-      const lc = m[2].toLowerCase();
+      if (/\brole\s*=/.test(m[2]) || /\saria-hidden\s*=\s*["']true/i.test(m[2])) continue; // author-controlled ARIA / hidden from a11y tree
+      const inner = listInner(m.index + m[0].length);
+      const cm = inner.match(/^\s*(?:<!--[\s\S]*?-->\s*)*<([a-zA-Z][\w-]*)/);
+      if (!cm) continue; // empty, whitespace-only, or comment-only list — no element child to flag
+      const lc = cm[1].toLowerCase();
       if (lc === 'li' || lc === 'script' || lc === 'template') continue;
-      if (/^[A-Z]/.test(m[2])) continue; // framework component, not a literal element
+      if (/^[A-Z]/.test(cm[1])) continue; // framework component, not a literal element
       addFinding(findings, stats, {
         key: 'list-non-li-child',
         category: 'screenreader',
@@ -945,7 +971,7 @@ function scanFile(file, root, stats, findings) {
         location: `${rel}:${lineOf(text, m.index || 0)}`,
         description: `A <ul>/<ol> has a direct child that is not <li>, <script>, or <template> (found <${lc}>). Screen readers may not announce the list or its item count correctly.`,
         fix: 'Make <li> the only structural child; move wrapper elements inside an <li>, or use role="list"/role="listitem" if a non-standard structure is unavoidable.',
-        code_before: snippetAt(text, m.index || 0, m[0].length),
+        code_before: snippetAt(text, m.index || 0, cm[0].length),
       });
     }
 
@@ -985,9 +1011,11 @@ function scanFile(file, root, stats, findings) {
     // (digi24.ro corpus regression: <button title="">), not a silent drop. Scoped to
     // title="" only — an empty aria-label/aria-labelledby keeps its pre-existing, separately
     // tested suppression (see "pass evidence is positive" in static-audit-scoring.test.mjs).
-    for (const m of text.matchAll(/<button\b[^>]*\stitle\s*=\s*(?:""|'')[^>]*>/gi)) {
+    for (const m of text.matchAll(/<button\b[^>]*>/gi)) {
       if (!visible(m.index || 0)) continue;
-      if (/(?:^|\s)aria-label(?:ledby)?\s*=\s*["'][^"']/i.test(m[0])) continue;
+      if (attrState(m[0], 'title').state !== 'present-empty') continue;
+      if (attrState(m[0], 'aria-label').state === 'present-value') continue;
+      if (attrState(m[0], 'aria-labelledby').state === 'present-value') continue;
       namelessButtons += 1;
       addFinding(findings, stats, {
         key: 'button-name-missing',
@@ -1069,11 +1097,12 @@ function scanFile(file, root, stats, findings) {
     // to contain a real <a href> now flags too; a tracker-only handler is indistinguishable
     // from a real one statically. Accepted.
     const CLICKABLE_LOOKAHEAD = 2000;
-    // Whitespace-anchored: a bare "onclick" substring (e.g. paginationclickable="true")
-    // must not match — same class as the data-reactid contains id= bug. `i` flag already
-    // covers onClick/onclick/ONCLICK, so no separate alternation is needed.
-    for (const m of text.matchAll(/<(div|span)\b[^>]*\sonclick\s*=[^>]*>/gi)) {
+    // attr-scan exact-name lookup (not a `\sonclick\s*=` substring test): an attribute
+    // name that merely CONTAINS "onclick" (e.g. paginationclickable="true") must not
+    // match — same bug class as data-reactid containing id=.
+    for (const m of text.matchAll(/<(div|span)\b[^>]*>/gi)) {
       if (!visible(m.index || 0)) continue;
+      if (attrState(m[0], 'onclick').state === 'absent') continue;
       const bodyStart = m.index + m[0].length;
       const window = text.slice(bodyStart, Math.min(text.length, bodyStart + CLICKABLE_LOOKAHEAD));
       const closeMatch = window.match(new RegExp(`<\\/?${m[1]}\\b`, 'i'));
@@ -1096,19 +1125,27 @@ function scanFile(file, root, stats, findings) {
 
     let unlabelledInputs = 0;
     let wrappedInputs = 0;
-    // `\sid=` is whitespace-anchored: bare `id=` also matched inside data-reactid= /
-    // data-id= and silently suppressed real unlabelled inputs on React pages (caught by
-    // the L4 cross-stack fairness test).
+    let labelledInputs = 0;
     // Only this detector consumes labelRanges — a wrapping <label> is positive evidence
     // solely for the fail-side skip below, not a general-purpose range.
     const labelRanges = computeLabelRanges(text, masked);
     const inLabel = (i) => labelRanges.some(([s, e]) => i >= s && i < e);
-    // wild-precision round 1 (2026-08-03), P=0.417: submit/hidden/button/image/reset are
-    // outside the label requirement, but the old `type=["']hidden["']` guard was
-    // quote-sensitive (missed unquoted/single-quoted) and covered only "hidden". Fixed to
-    // match any quoting and every out-of-scope type; already order-agnostic (lookahead scan).
-    for (const m of text.matchAll(/<input\b(?![^>]*(aria-label|aria-labelledby|\sid=|\stype\s*=\s*(?:["'](?:submit|hidden|button|image|reset)["']|(?:submit|hidden|button|image|reset)(?=[\s\/>]))))[^>]*>/gi)) {
+    const INPUT_SKIP_TYPES = new Set(['submit', 'hidden', 'button', 'image', 'reset']);
+    // attr-scan replaces the old `\sid=` / `\stype=...` substring lookaheads — same bug
+    // class as data-reactid containing id=: exact tokenized attribute names, any quoting,
+    // order irrelevant (wild-precision round 1, P=0.417, already fixed the quote gap; this
+    // is the durable version of that fix).
+    for (const m of text.matchAll(/<input\b[^>]*>/gi)) {
       if (!visible(m.index || 0)) continue;
+      const attrs = parseStartTag(m[0]);
+      const typeValue = attrs.has('type') ? attrs.get('type').toLowerCase() : null;
+      const hasLabelHook = attrs.has('id') || attrs.has('aria-label') || attrs.has('aria-labelledby');
+      // Positive evidence: id/aria-label/aria-labelledby carrying a REAL (non-empty) value
+      // is a verified pass, independent of the fail-side skip below — no double count,
+      // since hasNonEmptyHook implies hasLabelHook, which always hits `continue` below.
+      const hasNonEmptyHook = !!attrs.get('id') || !!attrs.get('aria-label') || !!attrs.get('aria-labelledby');
+      if (typeValue !== 'hidden' && hasNonEmptyHook) labelledInputs += 1;
+      if (hasLabelHook || (typeValue && INPUT_SKIP_TYPES.has(typeValue))) continue;
       if (inLabel(m.index || 0)) { wrappedInputs += 1; continue; }
       unlabelledInputs += 1;
       addFinding(findings, stats, {
@@ -1125,15 +1162,8 @@ function scanFile(file, root, stats, findings) {
       });
     }
     // A wrapping <label> is positive evidence too (same gradient-restoration philosophy as
-    // labelledInputs below), counted separately from the id/aria-* regex so no input is
-    // double-counted: the fail-regex lookahead already excludes id/aria-* inputs from the
-    // skip path above, so wrappedInputs and labelledInputs cannot overlap.
+    // labelledInputs below); disjoint from it by construction (see hasNonEmptyHook above).
     for (let i = 0; i < wrappedInputs; i++) addCheck(stats, 'forms', 'pass');
-    // Non-hidden inputs that DO carry a real label hook are verified form passes. This is
-    // POSITIVE evidence (whitespace-anchored attribute with a non-empty value), deliberately
-    // decoupled from the fail regex above, whose `id=` substring suppression also matches
-    // data-id etc. — a suppressed fail is not a pass.
-    const labelledInputs = [...text.matchAll(/<input\b(?![^>]*type=["']hidden["'])(?=[^>]*\s(?:id|aria-label|aria-labelledby)\s*=\s*["'][^"'])[^>]*>/gi)].filter(m => visible(m.index || 0)).length;
     for (let i = 0; i < labelledInputs; i++) addCheck(stats, 'forms', 'pass');
 
     // Authentication barriers (3.3.8): cognitive-function-test CAPTCHAs and
@@ -1259,7 +1289,16 @@ function scanFile(file, root, stats, findings) {
         });
       } else addCheck(stats, 'agent', 'pass');
 
-      if (!/<script\s+type=["']application\/ld\+json["'][^>]*>/i.test(text)) {
+      // wild-precision round 2 (2026-08), P=0.933: the old presence regex assumed
+      // type="application/ld+json" was the LAST attribute on the tag, so a trailing
+      // attribute (e.g. data-gatsby-head="true") hid real JSON-LD. attr-scan tokenizes
+      // every attribute on the tag, order irrelevant — same bug class as data-reactid
+      // containing id=, an attribute containing onclick, and data-title matching title.
+      const hasJsonLd = [...text.matchAll(/<script\b[^>]*>/gi)].some((m) => {
+        const t = attrState(m[0], 'type');
+        return t.state === 'present-value' && t.value.toLowerCase() === 'application/ld+json';
+      });
+      if (!hasJsonLd) {
         addFinding(findings, stats, {
           key: 'jsonld-missing',
           category: 'agent',
@@ -1288,37 +1327,85 @@ function scanFile(file, root, stats, findings) {
   }
 
   if (style || markup) {
+    // wild-precision, P=0.267 (4 tp / 11 fp): the old check matched ANY outline:none/0
+    // ANYWHERE in the stylesheet and only required no "focus-visible" text in the whole
+    // file — CSS-cascade semantics a static tier cannot resolve (tabindex="-1"
+    // programmatic-focus wrappers, :hover/:active-only rules that never touch :focus,
+    // compensating indicators elsewhere, non-focusable elements, mouse-only state
+    // classes). True positives share one shape: an UNSCOPED selector — bare `:focus`,
+    // universal `*`/`*:focus`, or a bare TYPE selector + `:focus` (input:focus, a:focus —
+    // a type selector still reaches every element of that tag, same sitewide blast
+    // radius; verified live on wild-corpus 101550 minhngoc's
+    // "#lightbox-nav a,.ui-dialog,.ui-menu,input:focus{outline:0}", and 101337/102559
+    // whose only outline reset is a bare `*`) — with zero focus-visible occurrences
+    // anywhere in the file. NOT `.btn:focus`, not `[tabindex="-1"]:focus`, not
+    // `:hover`/`:active` alone.
+    // Known ceiling, not fixed here (unmeasured frequency, out of scope): at-rule
+    // nesting is invisible to the `{`/`}`/`;` boundary scan below — a rule inside
+    // `@media (...) { :focus { outline: none } }` reads its "selector" as
+    // `@media (...) { :focus`, which is not a bare shape, so it silently does not fire.
+    const UNSCOPED_FOCUS = /^(:focus|\*(:focus)?|[a-z][\w-]*:focus)$/i;
     for (const m of text.matchAll(/outline\s*:\s*(none|0)\b/gi)) {
-      if (!/focus-visible/.test(text)) {
-        addFinding(findings, stats, {
-          key: 'focus-outline-removed',
-          category: 'keyboard',
-          severity: 'critical',
-          wcag: 'WCAG 2.2: 2.4.7 Focus Visible',
-          level: 'AA',
-          title: 'Focus outline removed without replacement',
-          affected_users: 'Sighted keyboard users and low-vision keyboard users',
-          location: `${rel}:${lineOf(text, m.index || 0)}`,
-          description: 'Removing outline without a :focus-visible replacement makes keyboard location invisible.',
-          fix: 'Restore outline or add a strong :focus-visible style.',
-          code_before: snippetAt(text, m.index || 0, m[0].length),
-        });
-        break;
+      if (/focus-visible/.test(text)) continue;
+      const openBrace = text.lastIndexOf('{', m.index);
+      if (openBrace === -1) continue;
+      if (text.lastIndexOf('}', m.index) > openBrace) continue; // not inside an open rule body
+      // Bounded by the nearest preceding `}` (previous rule) or `;` (a declaration, can't
+      // start mid-selector) — NOT `>`, which is also the CSS child combinator (`.a > :focus`
+      // read as boundary-then-bare-`:focus` was a false positive on a properly scoped rule).
+      // text is the WHOLE file, not CSS-only, so a <style> block's FIRST rule has no prior
+      // `}`/`;` and the slice runs into the surrounding markup — only THEN, cut through the
+      // last real HTML tag's `>` (an actual `<tag...>`, never a bare combinator `>`).
+      const selStart = Math.max(
+        text.lastIndexOf('}', openBrace - 1),
+        text.lastIndexOf(';', openBrace - 1),
+      ) + 1;
+      let selector = text.slice(selStart, openBrace).trim();
+      if (selector.includes('<')) {
+        const scope = text.slice(0, openBrace);
+        let lastTag = null, tm;
+        for (const htmlTagRe = /<[a-zA-Z][^<>]*>/g; (tm = htmlTagRe.exec(scope));) lastTag = tm;
+        if (lastTag) selector = scope.slice(lastTag.index + lastTag[0].length, openBrace).trim();
       }
+      if (!selector.split(',').some((p) => UNSCOPED_FOCUS.test(p.trim()))) continue;
+      addFinding(findings, stats, {
+        key: 'focus-outline-removed',
+        category: 'keyboard',
+        severity: 'critical',
+        wcag: 'WCAG 2.2: 2.4.7 Focus Visible',
+        level: 'AA',
+        title: 'Focus outline removed without replacement',
+        affected_users: 'Sighted keyboard users and low-vision keyboard users',
+        location: `${rel}:${lineOf(text, m.index || 0)}`,
+        description: 'Removing outline without a :focus-visible replacement makes keyboard location invisible.',
+        fix: 'Restore outline or add a strong :focus-visible style.',
+        code_before: snippetAt(text, m.index || 0, m[0].length),
+      });
+      break;
     }
 
+    // wild-precision, P=0.133 (2 tp / 13 fp): matching `minmax(Npx` textually cannot see
+    // grid semantics (auto-fit/auto-fill adapt column count instead of overflowing, the
+    // rule may sit inside an @media that never applies this narrow, the matched axis may
+    // be rows not columns, or the fixed value may be the MAX bound not the min). Narrowing
+    // to exclude all of that was tried and reverted (coordinator review, 2026-08): the
+    // residue is a rare literal shape, and one of only two known true positives was itself
+    // an auto-fill case — a narrowed detector would almost never fire while still moving
+    // the score. Kept broad, moved to REVIEW instead: still surfaced in the report (a human
+    // or the Tier-2 live audit can resolve it), never confirmed as a fail, never scores.
     for (const m of text.matchAll(/minmax\(\s*\d+px/gi)) {
       if (!/minmax\(\s*min\(\s*\d+px\s*,\s*100%\s*\)/i.test(text)) {
         addFinding(findings, stats, {
           key: 'fixed-minmax-overflow',
           category: 'responsive',
-          severity: 'warning',
+          severity: 'tip',
+          check: 'review',
           wcag: 'WCAG 2.2: 1.4.10 Reflow',
-          title: 'Fixed minmax grid can overflow narrow screens',
+          title: 'Possible fixed minmax grid overflow',
           affected_users: 'Low-vision users, mobile users, and zoom users',
           location: `${rel}:${lineOf(text, m.index || 0)}`,
-          description: 'minmax(Npx, 1fr) keeps a fixed minimum that can overflow at 320px.',
-          fix: 'Use minmax(min(Npx, 100%), 1fr).',
+          description: 'A minmax(Npx, ...) track has a fixed lower bound, but static CSS analysis cannot confirm it actually overflows at 320px: the track may be auto-fit/auto-fill (adapts column count instead of overflowing), the rule may sit inside an @media block that never applies this narrow, the matched axis may be grid-template-rows rather than columns, or the fixed value may be the max bound rather than the min. Verify with a Tier-2 live audit or a human look.',
+          fix: 'Use minmax(min(Npx, 100%), 1fr), or confirm with a live 320px reflow check.',
           code_before: snippetAt(text, m.index || 0, m[0].length),
         });
         break;

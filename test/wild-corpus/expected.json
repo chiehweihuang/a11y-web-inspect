@@ -1,6 +1,6 @@
 {
   "note": "Frozen wild regression corpus. Snapshots are real captured pages (gzipped); expected values were produced by the engine named below. Regenerate deliberately with beacon-benchmark-100/build-wild-corpus.mjs and explain every diff.",
-  "engine": "beacon-static-audit@15+ruleset.25eeae0aa809",
+  "engine": "beacon-static-audit@16+ruleset.25eeae0aa809",
   "built": "2026-08-04",
   "sites": [
     {
@@ -50,11 +50,10 @@
     {
       "id": 100320,
       "url": "https://epa.gov",
-      "score": 94,
+      "score": 97,
       "coverage": 49,
       "keys": {
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "contrast-not-verified": 1
       }
@@ -98,14 +97,13 @@
         "main-landmark-missing": 1,
         "image-alt-missing": 33,
         "frame-title-missing": 27,
-        "list-non-li-child": 6,
+        "list-non-li-child": 1,
         "link-name-missing": 27,
         "input-label-missing": 1,
         "quality-link-generic": 1,
         "viewport-meta-missing": 1,
         "canonical-missing": 1,
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1
@@ -157,20 +155,18 @@
     {
       "id": 100675,
       "url": "https://livejournal.com",
-      "score": 26,
+      "score": 28,
       "coverage": 49,
       "keys": {
         "heading-level-skipped": 1,
         "image-alt-missing": 21,
         "frame-title-missing": 1,
-        "list-non-li-child": 2,
         "button-name-missing": 5,
         "link-name-missing": 5,
         "input-label-missing": 2,
         "quality-link-generic": 8,
         "canonical-missing": 1,
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1
@@ -232,7 +228,6 @@
         "canonical-missing": 1,
         "jsonld-missing": 1,
         "static-contrast-sub-threshold": 5,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1,
@@ -280,12 +275,11 @@
     {
       "id": 101082,
       "url": "https://nishinippon.co.jp",
-      "score": 69,
+      "score": 73,
       "coverage": 36,
       "keys": {
         "button-name-missing": 3,
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1
@@ -317,8 +311,8 @@
     {
       "id": 101380,
       "url": "https://cuni.cz",
-      "score": 22,
-      "coverage": 36,
+      "score": 0,
+      "coverage": 23,
       "keys": {
         "html-lang-mismatch-review": 1,
         "main-landmark-missing": 1,
@@ -330,7 +324,6 @@
         "meta-description-missing": 1,
         "canonical-missing": 1,
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1
@@ -364,7 +357,6 @@
         "quality-alt-filename": 17,
         "quality-alt-generic": 4,
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1
@@ -482,7 +474,6 @@
         "viewport-zoom-disabled": 1,
         "canonical-missing": 1,
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "contrast-not-verified": 1
       }
@@ -584,7 +575,6 @@
         "canonical-missing": 1,
         "jsonld-missing": 1,
         "static-contrast-sub-threshold": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1,
@@ -597,7 +587,6 @@
       "score": 14,
       "coverage": 36,
       "keys": {
-        "html-lang-mismatch": 1,
         "main-landmark-missing": 1,
         "heading-level-skipped": 1,
         "image-alt-missing": 66,
@@ -615,13 +604,11 @@
     {
       "id": 102579,
       "url": "https://sexlog.com",
-      "score": 80,
+      "score": 95,
       "coverage": 36,
       "keys": {
-        "html-lang-mismatch": 1,
         "viewport-zoom-disabled": 1,
         "jsonld-missing": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "contrast-not-verified": 1
       }
@@ -629,7 +616,7 @@
     {
       "id": 102741,
       "url": "https://vu.edu.pk",
-      "score": 28,
+      "score": 39,
       "coverage": 36,
       "keys": {
         "html-lang-missing": 1,
@@ -642,7 +629,6 @@
         "canonical-missing": 1,
         "jsonld-missing": 1,
         "static-contrast-sub-threshold": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "large-fixed-width": 1,
         "contrast-not-verified": 1,
@@ -652,7 +638,7 @@
     {
       "id": 102980,
       "url": "https://yesstyle.com",
-      "score": 41,
+      "score": 43,
       "coverage": 49,
       "keys": {
         "heading-level-skipped": 1,
@@ -660,7 +646,6 @@
         "button-name-missing": 8,
         "input-label-missing": 3,
         "quality-label-role-echo": 1,
-        "focus-outline-removed": 1,
         "motion-reduced-motion-missing": 1,
         "contrast-not-verified": 1
       }
