@@ -1,5 +1,48 @@
 # Changelog
 
+## Unreleased
+
+### Measured
+
+- **Per-detector precision, on pages nobody hand-picked.** VALIDATION.md L1 has always
+  required a wild-sample false-positive measurement before a detector may feed the score;
+  most detectors never had one. Six now do, sampled across distinct real sites, judged
+  instance by instance at the cited markup and adversarially re-judged: `image-alt` 1.000,
+  `link-name` 0.933, `heading-order` 0.867, `clickable` 0.615, `button-name` 0.600,
+  `input-label` 0.417 (n=15 each; confidence intervals and every per-instance call,
+  including the eight the reviewer overturned, in `benchmark/2026-08-03-wild-precision/`).
+  The leading cause of false positives is markup hidden by a stylesheet class rather than
+  an inline style — the first price tag on the Tier-2 capture-annotation gap.
+
+### Added
+
+- **Wild regression corpus** (`test/wild-corpus/`): 40 real captured pages with per-site
+  score and per-key finding counts frozen, re-audited by `node --test`. Catches page-wide
+  regressions that hand-written fixtures structurally cannot show; the 2026-07
+  phantom-mask class would have failed here immediately.
+
+### Fixed
+
+- **Three detector false-positive classes** found by that measurement
+  (`beacon-static-audit@15`): out-of-scope input types (`submit`/`hidden`/`button`/
+  `image`/`reset`) no longer demand a label; `title` is accepted as a button's accessible
+  name, as it already was for links; and an attribute *name* that merely contains the
+  substring `onclick` is no longer read as a click handler. Re-running the same sample
+  afterwards eliminates 7 of the 20 adjudicated false positives with no true positive
+  lost — but that is a re-check on the very instances the fixes were written against, not
+  independent evidence, so the published precision figures stay at their measured values
+  until a fresh holdout sample is drawn and judged.
+- The `title` fix went through three adversarial review rounds and needed all of them: the
+  first version matched any attribute *ending* in `title`, so `data-title` — and worse, an
+  empty `title=""` — silently suppressed genuinely nameless buttons. That is the third
+  appearance of one bug class (an attribute matched by substring rather than by name);
+  a shared attribute-reading primitive that makes the class unrepresentable is queued.
+- Known recall cost, recorded rather than hidden: the `onclick` anchoring also stops the
+  detector from accidentally catching framework click bindings (`data-wp-on--click` and
+  friends) that it had only ever matched by coincidence, through a string inside an
+  attribute *value*. Those elements are real violations; detecting them deliberately is
+  queued.
+
 ## [3.3.0] — 2026-07-27
 
 Native Tier-2 browser measurement harness (`beacon-tier2-audit@2`) + a static contrast

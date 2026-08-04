@@ -63,6 +63,8 @@ Setiap skor disertai `coverage_percent`, yaitu porsi scoring weight yang benar-b
 
 Bagaimana angka ini dijaga tetap jujur (reliability, validitas detector, sifat score-semantics, benchmark eksternal, dan fairness invariant) dijabarkan dan dapat dieksekusi di [VALIDATION.md](VALIDATION.md); data hasil pengukurannya ada di [benchmark/](benchmark/).
 
+Presisi detector diukur pada halaman yang tidak dipilih secara manual, bukan diasumsikan. Berdasarkan survei terhadap situs nyata yang telah diambil, enam detector dengan volume tertinggi disampel di berbagai situs berbeda, dinilai instance demi instance pada markup yang dikutip dan dinilai ulang secara adversarial: `image-alt` 1.000, `link-name` 0.933, `heading-order` 0.867, `clickable` 0.615, `button-name` 0.600, `input-label` 0.417 (masing-masing n=15 — confidence interval dan setiap penilaian per-instance disertakan bersama data di [benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/)). Penyebab dominan false positive adalah markup yang disembunyikan oleh stylesheet class, bukan inline style, yang tidak dapat dilihat oleh tier yang tidak pernah memuat CSS; batasan ini kini diukur, bukan sekadar diungkapkan.
+
 Industri umumnya memperkirakan alat otomatis mencakup ~30-40% kriteria WCAG. Beacon mengukur cakupannya sendiri: dari 55 kriteria A+AA WCAG 2.2, 14 memiliki cakupan (25.5%) dan 2 diputuskan sepenuhnya dalam jangkauan otomasi (3.6%) — tabel per-kriteria dan cara menurunkannya kembali ada di [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage).
 
 ## Categories

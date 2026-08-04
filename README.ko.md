@@ -61,6 +61,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 이 수치가 정직하게 유지되는 방식(신뢰성, detector 유효성, score-semantics 속성, 외부 benchmark, fairness invariant)은 [VALIDATION.md](VALIDATION.md)에 명세되어 실행 가능한 형태로 기록되어 있습니다. 측정 데이터는 [benchmark/](benchmark/) 아래에 있습니다.
 
+Detector 정밀도는 임의로 선택하지 않은 페이지를 대상으로 실측된 것이며, 가정한 값이 아닙니다. 실제로 수집된 사이트 조사를 대상으로, 사용 빈도가 가장 높은 6개의 detector를 서로 다른 사이트에 걸쳐 샘플링하여 인용된 markup마다 인스턴스 단위로 판정한 뒤 적대적으로 재판정했습니다: `image-alt` 1.000, `link-name` 0.933, `heading-order` 0.867, `clickable` 0.615, `button-name` 0.600, `input-label` 0.417(각 n=15 — confidence interval과 인스턴스별 판정 전체는 [benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/) 데이터에 함께 제공됩니다). False positive의 주된 원인은 inline style이 아니라 stylesheet class로 숨겨진 markup이며, CSS를 전혀 로드하지 않는 tier는 이를 감지할 수 없습니다. 이 한계는 이제 단순히 공개되는 데 그치지 않고 실측되었습니다.
+
 업계에서는 자동화 도구가 WCAG 기준의 약 30-40%를 커버한다고 추정합니다. Beacon은 자체 커버리지를 측정했습니다: WCAG 2.2의 A+AA 55개 기준 중 14개에 어떤 형태로든 커버리지가 있고(25.5%), 2개는 automation이 닿는 범위 내에서 완전히 판정됩니다(3.6%) — 항목별 대조표와 재계산 방법은 [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage)에 있습니다.
 
 ## Categories

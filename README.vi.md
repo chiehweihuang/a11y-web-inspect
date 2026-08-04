@@ -63,6 +63,8 @@ Mỗi điểm số đi kèm `coverage_percent`, tức là phần scoring weight 
 
 Cách các con số này được giữ trung thực (reliability, tính hợp lệ của detector, tính chất score-semantics, benchmark bên ngoài, và fairness invariant) được quy định và có thể thực thi trong [VALIDATION.md](VALIDATION.md); dữ liệu đo lường nằm trong [benchmark/](benchmark/).
 
+Độ chính xác của detector được đo trên các trang không được chọn thủ công, không phải giả định. Dựa trên khảo sát các site thực đã thu thập, sáu detector có volume cao nhất được lấy mẫu trên nhiều site khác nhau, được đánh giá từng instance dựa trên markup được trích dẫn và được đánh giá lại một cách adversarial: `image-alt` 1.000, `link-name` 0.933, `heading-order` 0.867, `clickable` 0.615, `button-name` 0.600, `input-label` 0.417 (mỗi loại n=15 — confidence interval và từng đánh giá per-instance đi kèm dữ liệu tại [benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/)). Nguyên nhân chính gây ra false positive là markup bị ẩn bởi stylesheet class thay vì inline style, điều mà một tier không bao giờ load CSS không thể thấy được; giới hạn này giờ đây đã được đo lường chứ không chỉ được công bố.
+
 Ngành công nghiệp thường ước tính công cụ tự động bao phủ ~30-40% tiêu chí WCAG. Beacon đã tự đo lường độ bao phủ của mình: trong 55 tiêu chí A+AA của WCAG 2.2, 14 tiêu chí có độ bao phủ (25.5%) và 2 tiêu chí được quyết định đầy đủ trong phạm vi tự động hóa (3.6%) — bảng đối chiếu từng tiêu chí và cách tính lại có tại [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage).
 
 ## Categories

@@ -112,6 +112,17 @@ How these numbers are kept honest — reliability, detector validity, score-sema
 properties, external benchmarks, and fairness invariants — is specified and executable
 in [VALIDATION.md](VALIDATION.md); the measured data lives under [benchmark/](benchmark/).
 
+Detector precision is measured on pages nobody hand-picked, not assumed. Against a
+survey of real captured sites, six of the highest-volume detectors were sampled across
+distinct sites, judged instance by instance at their cited markup and adversarially
+re-judged: `image-alt` 1.000, `link-name` 0.933, `heading-order` 0.867, `clickable`
+0.615, `button-name` 0.600, `input-label` 0.417 (n=15 each — the confidence intervals
+and every per-instance call ship with the data in
+[benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/)). The
+dominant cause of false positives is markup hidden by a stylesheet class rather than an
+inline style, which a tier that never loads CSS cannot see; that limit is now measured
+rather than merely disclosed.
+
 Automated tools are often estimated to cover ~30-40% of WCAG criteria industry-wide.
 Beacon measured its own coverage: of WCAG 2.2's 55 A+AA criteria, 14 have any coverage
 (25.5%) and 2 are fully decided within automation's reach (3.6%) — row-by-row table and

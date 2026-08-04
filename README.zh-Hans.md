@@ -61,6 +61,8 @@ Plugin facts：`beacon`、version `3.3.0`、MIT、repository `chiehweihuang/beac
 
 这些数字如何保持可信（可靠性、detector 有效性、score-semantics 性质、外部 benchmark、fairness invariant）已在 [VALIDATION.md](VALIDATION.md) 中规范并可执行；实测数据存放在 [benchmark/](benchmark/) 下。
 
+检测器的精度是在没有人为挑选的页面上实测出来的，不是假设出来的。基于对真实抓取站点的调查，针对六个使用量最高的检测器跨站抽样，逐条实例对照其引用的 markup 判定，并进行了对抗性复判：`image-alt` 1.000、`link-name` 0.933、`heading-order` 0.867、`clickable` 0.615、`button-name` 0.600、`input-label` 0.417（各 n=15——置信区间与每条实例判定均随数据一并发布在 [benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/)）。误报（false positive）的主要成因是由 stylesheet class（而非 inline style）隐藏的 markup，从不加载 CSS 的检测层无法看到这类隐藏；这一局限现已被实测，而不仅仅是被披露。
+
 业界普遍估计自动化工具约涵盖 WCAG 准则的 30-40%。Beacon 实测自己：WCAG 2.2 A+AA 的 55 条准则中，14 条有覆盖（25.5%）、2 条在自动化可及范围内完整决定（3.6%）——逐条对照表与重算方式见 [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage)。
 
 ## 检查类别

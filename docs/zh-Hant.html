@@ -131,6 +131,32 @@
       </div>
 
       <p class="footnote">Lighthouse 是併行參照，不是標準答案；召回率相對於機器可檢的候選池。方法、判定規則、對抗式覆核與原始清單：<a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md">VALIDATION.md</a>、<a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark">benchmark/</a>。逐條 WCAG 準則對照表：<a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage">對照表</a>。</p>
+
+      <h3>每個偵測器都帶著自己的實測精度</h3>
+      <p>分數可信與否，取決於底下每一項檢查。每個偵測器都從沒被挑選過的真實網站抽樣、逐條對照它自己標示的原始碼判定，再由第二位覆核者對抗式重判，而覆核者的任務就是推翻第一位。</p>
+
+      <div class="table-wrap" role="region" aria-label="真實網頁上的逐偵測器實測精度" tabindex="0">
+        <table>
+          <caption>野外抽樣精度，每個偵測器 15 個實例、分散於不同網站（2026 年 8 月）</caption>
+          <thead>
+            <tr>
+              <th scope="col">偵測器</th>
+              <th scope="col">精度</th>
+              <th scope="col">95% 信賴區間</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">圖片替代文字</th><td class="win">1.000</td><td>0.78–1.00</td></tr>
+            <tr><th scope="row">連結無障礙名稱</th><td class="win">0.933</td><td>0.70–0.99</td></tr>
+            <tr><th scope="row">標題層級順序</th><td>0.867</td><td>0.62–0.96</td></tr>
+            <tr><th scope="row">可點擊但非按鈕</th><td>0.615</td><td>0.36–0.82</td></tr>
+            <tr><th scope="row">按鈕無障礙名稱</th><td>0.600</td><td>0.36–0.80</td></tr>
+            <tr><th scope="row">表單欄位標籤</th><td>0.417</td><td>0.19–0.68</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="footnote">把難看的那幾列一起公布出來，正是重點：n=15 足以排序偵測器、足以暴露錯誤類型，但不足以為任何單一數字背書。假警報的最大來源是「用樣式表 class 隱藏、而非行內樣式隱藏」的內容，靜態層從不載入 CSS，看不到這種隱藏。每一條逐條判定，包括被覆核者推翻的那些，都隨<a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark/2026-08-03-wild-precision">公開資料</a>一起發布。</p>
     </div>
   </section>
 

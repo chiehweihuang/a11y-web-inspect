@@ -63,6 +63,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ये आंकड़े कैसे honest रखे जाते हैं (reliability, detector validity, score-semantics properties, external benchmarks, और fairness invariants), यह [VALIDATION.md](VALIDATION.md) में specify और executable रूप में दिया गया है; measured data [benchmark/](benchmark/) के तहत है।
 
+Detector की precision उन pages पर measure की जाती है जिन्हें किसी ने हाथ से नहीं चुना, न कि assume की जाती है। वास्तविक रूप से captured sites के एक survey के आधार पर, सबसे अधिक volume वाले छह detectors को अलग-अलग sites में sample किया गया, उनके cited markup पर instance दर instance judge किया गया, और adversarially re-judge किया गया: `image-alt` 1.000, `link-name` 0.933, `heading-order` 0.867, `clickable` 0.615, `button-name` 0.600, `input-label` 0.417 (हर एक के लिए n=15 — confidence intervals और हर per-instance call [benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/) में data के साथ दिए गए हैं)। False positives का प्रमुख कारण वह markup है जो inline style के बजाय stylesheet class द्वारा छुपाया गया हो, जिसे कभी CSS load न करने वाला tier नहीं देख सकता; यह सीमा अब केवल बताई नहीं गई है, बल्कि measure भी की गई है।
+
 Industry में आमतौर पर अनुमान लगाया जाता है कि automated tools WCAG criteria का लगभग 30-40% कवर करते हैं। Beacon ने अपनी coverage खुद measure की: WCAG 2.2 के 55 A+AA criteria में से 14 में कोई-न-कोई coverage है (25.5%), और 2, automation की पहुंच के भीतर पूरी तरह decide होते हैं (3.6%) — row-by-row table और re-derive करने का तरीका [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage) में है।
 
 ## Categories

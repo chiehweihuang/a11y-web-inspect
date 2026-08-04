@@ -63,6 +63,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 ตัวเลขเหล่านี้ถูกรักษาความน่าเชื่อถืออย่างไร (reliability, ความถูกต้องของ detector, คุณสมบัติ score-semantics, benchmark ภายนอก, และ fairness invariant) ถูกระบุไว้และรันได้จริงใน [VALIDATION.md](VALIDATION.md) ข้อมูลที่วัดได้อยู่ใน [benchmark/](benchmark/)
 
+ความแม่นยำของ detector ถูกวัดบนหน้าเว็บที่ไม่มีใครเลือกเอง ไม่ใช่การสันนิษฐาน จากการสำรวจไซต์จริงที่เก็บมา detector ที่มีปริมาณการใช้งานสูงสุดหกตัวถูกสุ่มตัวอย่างข้ามไซต์ที่แตกต่างกัน ตัดสินทีละ instance ตาม markup ที่อ้างอิง และตัดสินซ้ำแบบ adversarial: `image-alt` 1.000, `link-name` 0.933, `heading-order` 0.867, `clickable` 0.615, `button-name` 0.600, `input-label` 0.417 (n=15 ต่อรายการ — confidence interval และการตัดสินแต่ละ instance มาพร้อมกับข้อมูลใน [benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/)) สาเหตุหลักของ false positive คือ markup ที่ถูกซ่อนด้วย stylesheet class แทนที่จะเป็น inline style ซึ่ง tier ที่ไม่เคยโหลด CSS มองไม่เห็น ข้อจำกัดนี้ตอนนี้ถูกวัดแล้ว ไม่ใช่แค่เปิดเผยเท่านั้น
+
 อุตสาหกรรมมักประเมินว่าเครื่องมืออัตโนมัติครอบคลุมเกณฑ์ WCAG ประมาณ 30-40% Beacon วัดความครอบคลุมของตัวเองแล้ว: จาก 55 เกณฑ์ A+AA ของ WCAG 2.2 มี 14 เกณฑ์ที่มีความครอบคลุมบ้าง (25.5%) และ 2 เกณฑ์ที่ตัดสินได้ครบถ้วนภายในขอบเขตที่ระบบอัตโนมัติทำได้ (3.6%) — ตารางไล่ทีละเกณฑ์และวิธีคำนวณซ้ำอยู่ที่ [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage)
 
 ## Categories

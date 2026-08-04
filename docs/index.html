@@ -130,6 +130,32 @@
       </div>
 
       <p class="footnote">Lighthouse is a concurrent reference, not ground truth; recall is relative to the machine-checkable candidate pool. Method, judgement rules, adversarial re-verification, and raw inventories: <a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md">VALIDATION.md</a> and <a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark">benchmark/</a>. WCAG criterion coverage, row by row: <a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage">coverage table</a>.</p>
+
+      <h3>Every detector carries its own measured precision</h3>
+      <p>A score is only as trustworthy as the individual checks under it. Each detector is sampled across distinct real sites nobody hand-picked, judged instance by instance against the markup it cited, then adversarially re-judged by a second reviewer briefed to overturn the first.</p>
+
+      <div class="table-wrap" role="region" aria-label="Measured per-detector precision on unselected real pages" tabindex="0">
+        <table>
+          <caption>Wild-sample precision, 15 instances per detector drawn across distinct sites (2026-08)</caption>
+          <thead>
+            <tr>
+              <th scope="col">Detector</th>
+              <th scope="col">Precision</th>
+              <th scope="col">95% CI</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Image alt text</th><td class="win">1.000</td><td>0.78–1.00</td></tr>
+            <tr><th scope="row">Link accessible name</th><td class="win">0.933</td><td>0.70–0.99</td></tr>
+            <tr><th scope="row">Heading order</th><td>0.867</td><td>0.62–0.96</td></tr>
+            <tr><th scope="row">Clickable non-button</th><td>0.615</td><td>0.36–0.82</td></tr>
+            <tr><th scope="row">Button accessible name</th><td>0.600</td><td>0.36–0.80</td></tr>
+            <tr><th scope="row">Input label</th><td>0.417</td><td>0.19–0.68</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="footnote">Publishing the weak rows is the point: n=15 ranks detectors and exposes error classes, it does not certify any single figure. The leading cause of false positives is markup hidden by a stylesheet class rather than an inline style, which a tier that never loads CSS cannot see. Every per-instance judgement — including the ones the reviewer overturned — ships with <a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark/2026-08-03-wild-precision">the published data</a>.</p>
     </div>
   </section>
 

@@ -61,6 +61,8 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 
 これらの数値がどのように誠実さを保っているか(信頼性、detector の妥当性、score-semantics の性質、外部 benchmark、fairness invariant)は [VALIDATION.md](VALIDATION.md) に仕様化され、実行可能な形で記載されています。計測データは [benchmark/](benchmark/) 以下にあります。
 
+Detector の精度は、誰も恣意的に選んでいないページ群を対象に実測されたものであり、想定値ではありません。実際に収集したサイトの調査を対象に、もっとも使用頻度の高い 6 つの detector を複数の異なるサイトにわたってサンプリングし、引用された markup ごとにインスタンス単位で判定したうえで、敵対的に再判定しました: `image-alt` 1.000、`link-name` 0.933、`heading-order` 0.867、`clickable` 0.615、`button-name` 0.600、`input-label` 0.417(各 n=15 — confidence interval とインスタンスごとの判定はすべて [benchmark/2026-08-03-wild-precision/](benchmark/2026-08-03-wild-precision/) のデータに含まれます)。false positive の主な原因は、inline style ではなく stylesheet class によって隠された markup であり、CSS を一切読み込まない tier はこれを検知できません。この限界は、いまや単に開示されるだけでなく実測されています。
+
 自動化ツールの WCAG カバー率は業界全体でおよそ 30-40% と推定されることが多いです。Beacon は自分自身のカバー率を実測しました: WCAG 2.2 の 55 件の A+AA 基準のうち、14 件に何らかのカバレッジがあり(25.5%)、2 件は自動化が届く範囲内で完全に判定できます(3.6%)。逐条対照表と再計算方法は [VALIDATION.md](VALIDATION.md#wcag-criterion-coverage) を参照してください。
 
 ## Categories

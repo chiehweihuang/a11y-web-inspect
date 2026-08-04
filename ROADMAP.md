@@ -1,6 +1,6 @@
 # Beacon Roadmap
 
-Snapshot **2026-07-11**. Last released **v3.0.0**. Pattern Library v1.0 shipped in v2.2.0; v3.0.0 then replaced placeholder scoring with measured category states, coverage-aware scores, and a committed validation charter.
+Snapshot **2026-08-04**. Last released **v3.3.0**. Pattern Library v1.0 shipped in v2.2.0; v3.0.0 replaced placeholder scoring with measured category states, coverage-aware scores, and a committed validation charter; v3.3.0 added the native Tier-2 browser measurement harness.
 
 This file is the single place to see **where Beacon is, where it is heading, and how far the current work has got**. Glance here instead of watching individual commits. For internals see [ARCHITECTURE.md](./ARCHITECTURE.md); for skill behaviour see `commands/*.md`.
 
@@ -10,7 +10,13 @@ This file is the single place to see **where Beacon is, where it is heading, and
 
 **The thesis (direction · this rarely changes).** Beacon is a distributed *signal* each developer or agent carries, not a central scanner like Lighthouse. The payoff is collective: stop AI from regenerating the **same** accessibility mistakes. To get there, detectors stop being hardcoded copies and become shared, contributable **data**.
 
-**Current focus: validation.** The shared Pattern Library is shipped, the remaining aria-heading attribution gap is fixed in engine @8, and the next measurement work is to rerun ground truth for @8 and finish cross-machine score-drift measurement.
+**Current focus: measuring the engine against pages nobody hand-picked.** A survey tier now captures real sites nightly and re-audits them under one engine, which turned the old open question "how often is a finding wrong in the wild?" into a published per-detector number (`benchmark/2026-08-03-wild-precision/`). Three false-positive classes it surfaced are fixed; a 40-page wild regression corpus guards against page-wide regressions in CI.
+
+The three named gaps now carry evidence instead of adjectives:
+
+- **Stylesheet/class-based hiding** is the leading cause of wild false positives across four of six measured detectors. Closing it needs the Tier-2 capture-annotation plan (stamp computed visibility and accessible names into the snapshot); the case is now empirical rather than theoretical.
+- **Framework click bindings** (`data-wp-on--click`, Alpine `x-on:click`) are real keyboard barriers the engine only ever caught by coincidence, through a string inside an attribute value. That coincidence is now gone; deliberate detection is queued.
+- **Cross-machine score drift** remains unmeasured. The same-machine bar is ±1 point; the two-machine experiment needs a second host with the capture environment installed.
 
 | Phase | When | What it delivers |
 |---|---|---|
