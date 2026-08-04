@@ -21,7 +21,7 @@ pages nobody hand-picked). This charter makes both kinds permanent.
 | L0 Reliability | same input → same output, any machine, any day | `test/golden-vectors.test.mjs` + `test/golden/`; byte-identical test in `test/static-audit-scoring.test.mjs`; CI matrix `.github/workflows/validation.yml` (3 OS × 2 Node); `tools/drift-compare.mjs` | `node --test` locally; matrix in CI | zero diffs; drift only from layer-2 capture, never from the engine |
 | L1 Detector validity | each detector's P/R is measured, not assumed | regression corpora in `test/*.test.mjs`; `tools/measure-detectors.mjs` (report-only characterization); `tools/measure-semantic.mjs` (hard gate) | see `.github/workflows/ci.yml` | semantic gate: precision 1.0, recall ≥ 0.4; new detectors ship with a wild-sample FP measurement (see protocol below) |
 | L2 Score semantics | the formula's promises | `test/scoring-properties.test.mjs` (monotonicity, injection dose-response, cross-stack fairness); state/renormalisation/gate/cap/ceiling tests in `test/static-audit-scoring.test.mjs` | `node --test` | all properties hold |
-| L3 External validity | the number tracks the world | `benchmark/2026-07-05/` (87-site paired benchmark + harness); `benchmark/2026-07-06-ground-truth/` (20-site P/R inventory + harness) | see those READMEs | Spearman not regressing; GT re-verify on detector changes: FP classes eliminated stay eliminated, TPs retained |
+| L3 External validity | the number tracks the world | `benchmark/2026-07-05/` (87-site paired benchmark + harness); `benchmark/2026-07-06-ground-truth/` (20-site P/R inventory + harness); `test/wild-corpus/` (40 real captured pages, per-key counts frozen) | see those READMEs; `node --test` for the corpus | Spearman not regressing; GT re-verify on detector changes: FP classes eliminated stay eliminated, TPs retained; wild-corpus diffs explained line by line |
 | L4 Fairness | same defect → same penalty, however the site is built | cross-stack test in `test/scoring-properties.test.mjs`; life-safety gate test; four-state (never score absence) tests | `node --test` | identical finding sets + scores across dialects; gate uncircumventable |
 | L5 Interpretation | the report cannot overclaim | coverage shown beside every score; `summary.score_bands` as single source; context banner | code review on report changes | see "forbidden claims" |
 
@@ -77,6 +77,31 @@ A detector may not feed the score until it has BOTH:
 When an FP is found, name its CLASS (hidden-state, attribute-order, masked-context,
 name-computation…) and ask across the whole engine: **which other detectors share this
 cause?** Fix the class, not the instance.
+
+**Measured wild precision** (`benchmark/2026-08-03-wild-precision/`, engine @14, 15
+instances per detector drawn across distinct survey sites, adversarially re-judged):
+
+| Detector | Precision | decided n | 95% CI |
+|---|---|---|---|
+| `image-alt-missing` | 1.000 | 14 | 0.78–1.00 |
+| `link-name-missing` | 0.933 | 15 | 0.70–0.99 |
+| `heading-level-skipped` | 0.867 | 15 | 0.62–0.96 |
+| `clickable-non-button` | 0.615 | 13 | 0.36–0.82 |
+| `button-name-missing` | 0.600 | 15 | 0.36–0.80 |
+| `input-label-missing` | 0.417 | 12 | 0.19–0.68 |
+
+Read the intervals, not the point estimates: n=15 ranks detectors and surfaces FP
+classes, it does not publish a precise per-detector number. The dominant class is
+**stylesheet/class-based hiding** (closed dropdowns, `md:hidden`, unopened dialogs,
+consent panels) — outside the a11y tree at rest, invisible to a tier that never loads
+CSS. It affects five of the six detectors and is what puts `input-label-missing` last.
+This is the first price tag on the Tier-2 capture-annotation gap. The remaining classes
+are ordinary bugs, queued: out-of-scope input types flagged for labels, `title` not
+accepted as a button's accessible name, and `onclick` matching inside the substring
+`paginationclickable` (the whitespace-anchoring class of the 2026-07 `data-reactid` bug).
+
+Detectors not in that table still rest on their own regression corpora only. Extending
+the measurement is cheap now: the survey tier supplies wild instances for ~36 keys.
 
 ## L2 — properties the formula must keep
 
@@ -412,6 +437,19 @@ new regression fixture asserting a hidden-body-div title does NOT flag
 any detector/scoring change (`capture-audit.mjs --audit-only`, then `analyze.mjs`);
 the Spearman-vs-Lighthouse trend goes in the CHANGELOG. Lighthouse is a concurrent
 reference, never ground truth (top-compressed: half the sites ≥95).
+
+**Wild regression corpus** (`test/wild-corpus/`): 40 real captured pages (gzipped rendered
+DOM, scores 0–100, 31 detector keys represented) with per-site score, coverage, and
+per-key finding counts frozen. `node --test` re-audits every one and fails on ANY
+unexplained change. This is the guard the hand-written goldens structurally cannot be:
+the 2026-07 phantom-mask class (one stray token silently killing every later finding on a
+page) and detector runaway on one framework's markup both show up here immediately, and
+neither could show up in a 16-line fixture. A diff is not automatically a failure — it is
+an *unexplained* change; intentional detector work regenerates the corpus deliberately
+(`build-wild-corpus.mjs` in the benchmark workspace) and the commit explains every moved
+number, exactly like the goldens. Corpus absent from a checkout → the test skips, never
+fails. Sensitivity verified on introduction: perturbing one score and one key count made
+the test name exactly those two lines.
 
 **Ground-truth P/R** (`benchmark/2026-07-06-ground-truth/`): the strongest claim.
 Protocol: candidates from Beacon ∪ Lighthouse raw nodes ∪ independent sweep → every

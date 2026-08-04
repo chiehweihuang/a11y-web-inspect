@@ -1,0 +1,86 @@
+[
+  {
+    "key": "image-alt-missing",
+    "sites_in_wild": 469,
+    "n": 15,
+    "tp": 14,
+    "fp": 0,
+    "unclear": 1,
+    "precision": 1,
+    "fp_classes": [],
+    "overrides": 0,
+    "note": "Re-checked all 15 (not just a third) by extracting full document-order heading sequences. Both Amazon fp calls hold: cited lines contain only aria-level=6 headings inside nav-coreFlyout/nav-flyout dialogs, closed at rest (30 sibling dialogs, \"Expand Account and Lists\" trigger). All 13 tp skips verified present and AT-visible."
+  },
+  {
+    "key": "link-name-missing",
+    "sites_in_wild": 629,
+    "n": 15,
+    "tp": 14,
+    "fp": 1,
+    "unclear": 0,
+    "precision": 0.933,
+    "fp_classes": [],
+    "overrides": 1,
+    "note": "14/15 hold on fresh reads: verified closing tags, full svg markup (no <title>), empty alt/aria-label/title strings. Only failure mode found was a hidden ancestor the first pass missed (101332 mega-menu display:none). 101139 vce-responsive-nav kept tp — theme CSS is external, hiding unverifiable, and it is nameless at mobile widths anyway."
+  },
+  {
+    "key": "button-name-missing",
+    "sites_in_wild": 519,
+    "n": 15,
+    "tp": 9,
+    "fp": 6,
+    "unclear": 0,
+    "precision": 0.6,
+    "fp_classes": [
+      "title-attribute-not-recognized-as-accessible-name-source",
+      "css-utility-hidden-class-not-evaluated (Tailwind invisible / md:hidden)",
+      "accessible-name-text-in-sibling-span-after-icon-missed"
+    ],
+    "overrides": 1,
+    "note": "Other 14 survive, two with wrong rationale: 100660's flagged buttons are the nameless mobile tabs (fp only via md:hidden wrapper, not the \"Translate text\" sibling); 101639's SVGs do have <use xlink:href=\"#closeIco\">, still unnamed. 102796 fp confirmed - its other two buttons sit under inline visibility:hidden."
+  },
+  {
+    "key": "input-label-missing",
+    "sites_in_wild": 428,
+    "n": 15,
+    "tp": 5,
+    "fp": 7,
+    "unclear": 3,
+    "precision": 0.417,
+    "fp_classes": [
+      "out-of-scope-input-type (type=submit/hidden flagged despite ruleset exclusion)",
+      "css-class-hidden-subtree (element inside class=\"hidden\" wrapper, invisible at rest)"
+    ],
+    "overrides": 7,
+    "note": "Detector fires inside closed overlays (Webflow dropdown, unopened <dialog>, OneTrust .ot-hide panel, bottom sheet, burger drawers) and on out-of-scope type=submit. Only 5 of 15 survive as clean TPs; three more are undecidable because closed-state CSS is external. Original 0.80 precision is inflated."
+  },
+  {
+    "key": "clickable-non-button",
+    "sites_in_wild": 102,
+    "n": 15,
+    "tp": 8,
+    "fp": 5,
+    "unclear": 2,
+    "precision": 0.615,
+    "fp_classes": [
+      "custom-attribute-name substring match (attribute name contains 'clickable' but is a framework config prop, not an onclick handler)",
+      "stylesheet/class-based hidden-at-rest container (CSS selector sets visibility:hidden/display:none, not resolvable by a static parser)"
+    ],
+    "overrides": 5,
+    "note": "Both fp calls confirmed: 100500's hit is the substring \"onclickable\" inside paginationclickable=\"true\"; 101568 .map-gba-modal is visibility:hidden (L2417, JS toggles L3281/3285). The original pass under-checked hidden-at-rest ancestors — five of thirteen tp calls sit in closed drawers, modals, or panels."
+  },
+  {
+    "key": "heading-level-skipped",
+    "sites_in_wild": 523,
+    "n": 15,
+    "tp": 13,
+    "fp": 2,
+    "unclear": 0,
+    "precision": 0.867,
+    "fp_classes": [
+      "css-hidden-nav-flyout-dropdown: heading sits inside a hover/click-triggered dropdown menu (class nav-flyout/nav-coreFlyout) that is display:none at rest via stylesheet, not inline style or aria-hidden, so the static engine flags a heading transition that is outside the AT tree until user interaction"
+    ],
+    "overrides": 0,
+    "note": "Re-checked all 15 (not just a third) by extracting full document-order heading sequences. Both Amazon fp calls hold: cited lines contain only aria-level=6 headings inside nav-coreFlyout/nav-flyout dialogs, closed at rest (30 sibling dialogs, \"Expand Account and Lists\" trigger). All 13 tp skips verified present and AT-visible."
+  }
+]

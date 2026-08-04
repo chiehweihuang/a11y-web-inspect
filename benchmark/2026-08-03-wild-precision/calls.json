@@ -1,0 +1,600 @@
+[
+  {
+    "key": "image-alt-missing",
+    "calls": [
+      {
+        "id": 100003,
+        "line": 549,
+        "call": "tp",
+        "why": "img.product-img has no alt/aria-label/title. Sits in a height:0 mega-menu panel, but height:0 alone isn't a recognized AX-tree removal mechanism per the given rules, so still in-tree."
+      },
+      {
+        "id": 100244,
+        "line": 100,
+        "call": "tp",
+        "why": "Customer/brand logo img (Bynder testimonial logo) has class+src+data-airgap-id only, no alt/aria-label. Not inside any hidden/aria-hidden/sr-only ancestor; sr-only span nearby names a different sibling element."
+      },
+      {
+        "id": 100516,
+        "line": 2169,
+        "call": "unclear",
+        "why": "img.ai-ad-gartner__main-img lacks alt, sits inside a Reka-UI dialog with data-state=\"closed-end\". Likely CSS-hidden while closed, but no inline style/aria-hidden/[hidden]/class evidence in the snapshot confirms it."
+      },
+      {
+        "id": 100713,
+        "line": 145,
+        "call": "tp",
+        "why": "img inside span has no alt attribute at all (only src). Link has sibling text \"Войти\" naming the link, but rule states missing alt itself is always a violation regardless of link naming."
+      },
+      {
+        "id": 100975,
+        "line": 673,
+        "call": "tp",
+        "why": "img is sole content of the <a> and has no alt attribute; no aria-label/title anywhere. Not hidden. Both image-alt and link-name are broken."
+      },
+      {
+        "id": 101209,
+        "line": 2787,
+        "call": "tp",
+        "why": "Techsoulogy partner-logo img has only src+class, no alt. It is NOT wrapped by the adjacent empty <a> (siblings, not nested), so nothing names it. Not hidden."
+      },
+      {
+        "id": 101415,
+        "line": 1076,
+        "call": "tp",
+        "why": "Search-button icon img (search2.png) has only src, no alt/aria-label on the img or its plain wrapping div. Visible UI control, not hidden."
+      },
+      {
+        "id": 101576,
+        "line": 494,
+        "call": "tp",
+        "why": "1x1 IntentIQ tracking-pixel img (width=1 height=1) has no alt attribute at all. Per the stated rule missing alt is always a violation regardless of decorative/tracking intent; not aria-hidden or display:none."
+      },
+      {
+        "id": 101750,
+        "line": 587,
+        "call": "tp",
+        "why": "Decorative hero-graphic img (flowers) inside a visible 'hero animation' section has no alt attribute anywhere in the tag. No aria-hidden/display:none/hidden-class ancestor found."
+      },
+      {
+        "id": 101873,
+        "line": 90,
+        "call": "tp",
+        "why": "Base64 SVG lightning graphic img has only class+style+src, no alt attribute anywhere in the tag. Positioned via absolute/z-index in a visible background block, not hidden."
+      },
+      {
+        "id": 102057,
+        "line": 786,
+        "call": "tp",
+        "why": "Store/product thumbnail img (item_image) has only class+src+width+height, no alt. Standalone in item_image_wrapper div, not wrapped by a link and no descendant naming it."
+      },
+      {
+        "id": 102240,
+        "line": 220,
+        "call": "tp",
+        "why": "Ad-banner img inside a clickable ad <a target=_blank> has only src+style, no alt attribute and no title/aria-label on the link or image."
+      },
+      {
+        "id": 102454,
+        "line": 196,
+        "call": "tp",
+        "why": "The actual AI-feature icon img (icon-AI.svg) has decoding/data-nimg/style but no alt. Its sibling placeholder img correctly has alt=\"\" aria-hidden=\"true\", but that is a different <img> element than the one cited."
+      },
+      {
+        "id": 102672,
+        "line": 363,
+        "call": "tp",
+        "why": "Bare <img> (no src, no alt) used as a carousel next/prev icon inside .foucsButton divs with style=\"\" (not hidden). No aria-hidden/display:none on the element or its container."
+      },
+      {
+        "id": 102819,
+        "line": 27,
+        "call": "tp",
+        "why": "Product photo img (kana-cards.png) sits between two <p> tags, not wrapped by a link, and has only a src attribute — no alt, aria-label, or title anywhere."
+      }
+    ]
+  },
+  {
+    "key": "link-name-missing",
+    "calls": [
+      {
+        "id": 100002,
+        "line": 474,
+        "call": "tp",
+        "why": "Search-toggle <a href=\"#\"> content is only <img alt=\"\" class=\"search-icon\">; no aria-label/title anywhere on the link, so it has no accessible name."
+      },
+      {
+        "id": 100256,
+        "line": 94,
+        "call": "tp",
+        "why": "Thumbnail <a href=\"/todays-selection\"><img alt=\"\"></a> closes immediately after the empty-alt img; no aria-label/title. Adjacent sibling text link does not name this element."
+      },
+      {
+        "id": 100481,
+        "line": 563,
+        "call": "tp",
+        "why": "Instagram <a> wraps only an <svg> with no <title> child and carries no aria-label/title itself; verified full svg (paths/defs/clipPath) has no title element."
+      },
+      {
+        "id": 100683,
+        "line": 121,
+        "call": "tp",
+        "why": "This 'graphicallink' teaser variant's <a> contains only <figure><img alt=\"\"></figure> plus empty Vue comment placeholders; unlike sibling teasers it has no h3 title span, no aria-label."
+      },
+      {
+        "id": 100898,
+        "line": 741,
+        "call": "tp",
+        "why": "Site-logo home link <a href=\"/\"> wraps <img alt=\"\" class=\"wp-image-3125087\">; figcaption text 'TechCrunch' is a sibling outside the <a>, not part of its accessible name."
+      },
+      {
+        "id": 101139,
+        "line": 407,
+        "call": "tp",
+        "why": "Mobile-nav toggle <a class=\"vce-responsive-nav\" href=\"#sidr-main\"><i class=\"fa fa-bars\"></i></a> has only a decorative icon glyph, no aria-label, no text."
+      },
+      {
+        "id": 101332,
+        "line": 181,
+        "call": "fp",
+        "why": "Cited element is a literally empty <a href=\"/\"></a> with zero children/text/aria-label, sitting between an image and a separately-labeled duplicate link 'Image'.",
+        "overridden_from": "tp",
+        "override_why": "The empty <a href=\"/\"></a> sits inside ul.sub-menu (id sub-menu-*) nested under li.pp-has-submenu > ul#menu-main-menu.menu, and the snapshot's own inline <style> (line 19) carries `.fl-node-o4y1hznqbj86 .menu .pp-has-submenu .sub-menu{display:none}` — the wrapper div at line 172 has class fl-node-o4y1hznqbj86, so the whole mega-menu subtree is display:none at rest (the >=1201px block additionally sets visibility:hidden;opacity:0, un-hidden only on :hover / .pp-active). Stylesheet-hidden subtree = outside the a11y tree at rest, so this is an FP."
+      },
+      {
+        "id": 101496,
+        "line": 803,
+        "call": "tp",
+        "why": "Wix partner link has aria-label=\"\" (explicit empty) and wraps only images with alt=\"\" role=\"none\"; accname algorithm falls through to empty subtree content, so no name."
+      },
+      {
+        "id": 101703,
+        "line": 899,
+        "call": "tp",
+        "why": "<a href=\"//arsiv.mackolik.com/\"> wraps only an empty <div class=\"mackolik-logo\"> whose logo is a CSS background-image; no text, alt, or aria-label anywhere."
+      },
+      {
+        "id": 101894,
+        "line": 19,
+        "call": "tp",
+        "why": "Featured-article card <a href=\"...\" class=\"first-page-big-item-first-row-a\" style=\"background-image:url(...)\"></a> closes immediately with no content; thumbnail is CSS background, no aria-label/title, no text."
+      },
+      {
+        "id": 102051,
+        "line": 741,
+        "call": "tp",
+        "why": "Favorite/heart icon link wraps a <div><svg>...<path>...</svg></div> with no <title> element inside the svg and no aria-label on the <a>; verified full svg markup."
+      },
+      {
+        "id": 102219,
+        "line": 1352,
+        "call": "tp",
+        "why": "Pagination 'previous page' <a href=\"#\"> wraps only an svg <path> with no <title>, and carries no aria-label/text; genuinely name-less icon link."
+      },
+      {
+        "id": 102411,
+        "line": 2465,
+        "call": "tp",
+        "why": "Headband logo link has title=\"\" (empty) and wraps <img alt=\"\">; both explicit naming sources are empty strings, so no accessible name."
+      },
+      {
+        "id": 102589,
+        "line": 1892,
+        "call": "tp",
+        "why": "Cited <a aria-label=\"\" class=\"Footer_tag-wrapper__zqVLU\" href=\"\"> wraps only <span role=\"presentation\"></span>; empty explicit aria-label plus empty subtree yields no name (the adjacent sibling pub-domain link does have text but is a separate element)."
+      },
+      {
+        "id": 102782,
+        "line": 4225,
+        "call": "tp",
+        "why": "LinkedIn share <a> carries an 'alt' attribute, which is not a valid/recognized naming attribute on <a> per accname computation; wrapped img has alt=\"\"; no aria-label/title, so no accessible name."
+      }
+    ]
+  },
+  {
+    "key": "button-name-missing",
+    "calls": [
+      {
+        "id": 100006,
+        "line": 909,
+        "call": "tp",
+        "why": "Play-icon button has only decorative SVG (no <title>), no aria-label, no text. No accessible name."
+      },
+      {
+        "id": 100235,
+        "line": 143,
+        "call": "tp",
+        "why": "Icon-only header button (bolt SVG, no <title> element) with no aria-label/title/text. No accessible name."
+      },
+      {
+        "id": 100435,
+        "line": 425,
+        "call": "tp",
+        "why": "Share-close button (tabindex=-1) contains only empty span and X-shaped SVG lines, no aria-label/title/text."
+      },
+      {
+        "id": 100660,
+        "line": 799,
+        "call": "fp",
+        "why": "Tab button has aria-hidden icon span followed by sibling span with 'Translate text' providing a real visible accessible name; engine missed it."
+      },
+      {
+        "id": 100922,
+        "line": 669,
+        "call": "fp",
+        "why": "Button has title='Show Notifications' - title attribute is a valid accessible-name source per rules; engine failed to detect it."
+      },
+      {
+        "id": 101133,
+        "line": 86,
+        "call": "fp",
+        "why": "Button class includes Tailwind 'invisible' (visibility:hidden) - outside a11y tree at rest per class-based hiding rule."
+      },
+      {
+        "id": 101282,
+        "line": 214,
+        "call": "tp",
+        "why": "Cookie-panel toggle button contains only aria-hidden=true chevron SVG, no text/aria-label/title. No accessible name."
+      },
+      {
+        "id": 101451,
+        "line": 95,
+        "call": "tp",
+        "why": "Button type=submit value=Apply is empty; value attribute is not an accessible-name source for <button> (only for <input>). No name."
+      },
+      {
+        "id": 101639,
+        "line": 160,
+        "call": "tp",
+        "why": "Close button wraps a div>svg containing an unrendered <symbol> def, no <use>, no aria-label/title/text."
+      },
+      {
+        "id": 101800,
+        "line": 5274,
+        "call": "tp",
+        "why": "Bookmark button is self-closing/empty (icon-font class only), data-event attributes aren't accessible-name sources, no aria-label/title."
+      },
+      {
+        "id": 102012,
+        "line": 153,
+        "call": "tp",
+        "why": "Wishlist button contains only an <i> icon; label text lives in data-tooltip-text (CSS ::before visual tooltip), not a real accessible-name attribute."
+      },
+      {
+        "id": 102250,
+        "line": 236,
+        "call": "fp",
+        "why": "Button class includes Tailwind 'md:hidden', explicitly named in the ruleset as class-based hiding placing the subtree outside the tree at rest."
+      },
+      {
+        "id": 102421,
+        "line": 71,
+        "call": "fp",
+        "why": "Button has title='Expand operation' - valid accessible-name source; engine failed to detect it despite icon-only content."
+      },
+      {
+        "id": 102647,
+        "line": 1338,
+        "call": "tp",
+        "why": "Button has a non-empty title attribute (refresh keyword tooltip, Chinese text) providing the accessible name; engine missed it.",
+        "overridden_from": "fp",
+        "override_why": "Line 1338 holds 162 buttons: exactly ONE has title=\"重新整理推薦關鍵字\", but 74 are truly nameless and visible - carousel-prev-button, carousel-next-button, and dozens of data-index pill indicators containing only SVG, no aria-label/title/text, no hidden ancestor (controls container is mu-pointer-events-auto, indicators rendered). The judge cherry-picked the single titled button to excuse a line dominated by real violations."
+      },
+      {
+        "id": 102796,
+        "line": 869,
+        "call": "fp",
+        "why": "Button has title='Hurriyet Arama' - title attribute provides the accessible name; engine missed it."
+      }
+    ]
+  },
+  {
+    "key": "input-label-missing",
+    "calls": [
+      {
+        "id": 100002,
+        "line": 474,
+        "call": "fp",
+        "why": "label for=\"search\" but input id=\"search-2\" (duplicate-id Webflow suffixing); for/id mismatch means no programmatic association, only placeholder remains.",
+        "overridden_from": "tp",
+        "override_why": "for/id mismatch is real, but the input sits inside <nav class=\"nav-search-box w-dropdown-list\" id=\"w-dropdown-list-6\"> whose controlling toggle carries aria-expanded=\"false\" aria-controls=\"w-dropdown-list-6\". Webflow's .w-dropdown-list is display:none until .w--open is added; the class is absent. Closed-disclosure subtree, outside the a11y tree at rest."
+      },
+      {
+        "id": 100280,
+        "line": 341,
+        "call": "fp",
+        "why": "<label for=\"search\"> closes before the input; input itself has no id attribute at all, so for/id can never match. No wrapping, no aria-label.",
+        "overridden_from": "tp",
+        "override_why": "The input's ancestor is <dialog role=\"dialog\" aria-modal=\"true\" class=\"n-search-modal quick-search-modal\"> with NO open attribute (only one <dialog> in the file, verified). UA stylesheet applies dialog:not([open]){display:none}, so the whole SearchModal subtree is out of the a11y tree. Hard evidence, not class inference."
+      },
+      {
+        "id": 100508,
+        "line": 259,
+        "call": "tp",
+        "why": "input name=\"hostname\" has only a placeholder (\"Create New Hostname\"); no wrapping label, no for/id label, no aria-label."
+      },
+      {
+        "id": 100733,
+        "line": 580,
+        "call": "fp",
+        "why": "Cited element is <input type=\"submit\" class=\"hide w-button\" value=\"Search\"> — type=submit is explicitly out of input-label scope per the ruleset."
+      },
+      {
+        "id": 101040,
+        "line": 4185,
+        "call": "unclear",
+        "why": "input class=\"search-history__searchinput\" has placeholder=\"\" (empty) and no label/aria-label; nearby button's img alt=\"search\" is a sibling control, not this input's name.",
+        "overridden_from": "tp",
+        "override_why": "Element sits in <div class=\"search-history\" id=\"search-history\"> introduced by the comment <!-- 搜索历史浮层 --> (floating layer) with a sibling <div class=\"search-history__mask\"> scrim, appended after </main>. A full-page scrim cannot be visible at rest, but no .search-history rule exists anywhere in the snapshot (external CSS), so closed-state hiding is unverifiable."
+      },
+      {
+        "id": 101255,
+        "line": 345,
+        "call": "tp",
+        "why": "input class=\"tusachsearcher\" only has a long placeholder string and onkeyup handler; no label element, no aria-label, no for/id."
+      },
+      {
+        "id": 101426,
+        "line": 64,
+        "call": "tp",
+        "why": "Angular input only has placeholder=\"Поиск событий\"; preceding <i class=\"fas fa-search\"> icon is not a label and has no aria-label/for/id linking it."
+      },
+      {
+        "id": 101608,
+        "line": 61,
+        "call": "fp",
+        "why": "Cited element is <input type=\"submit\"> (icon-search submit button) — type=submit is explicitly out of input-label scope per the ruleset."
+      },
+      {
+        "id": 101778,
+        "line": 878,
+        "call": "tp",
+        "why": "input type=\"text\" name=\"domain_text\" only has placeholder=\"ここからスタート！\"; no id, no wrapping label, no aria-label."
+      },
+      {
+        "id": 101923,
+        "line": 274,
+        "call": "fp",
+        "why": "Line contains only type=hidden, type=submit (value=\"Subscribe\" gives accessible name), and a honeypot text input wrapped in <p class=\"hidden\"> — all out of scope or CSS-hidden; the two properly labeled name/email inputs earlier on this line are correctly excluded."
+      },
+      {
+        "id": 102096,
+        "line": 1176,
+        "call": "fp",
+        "why": "input type=\"checkbox\" class=\"ot-host-box\" role=\"button\" aria-expanded=\"false\" (OneTrust accordion toggle) has no id, no label, no aria-label; no CSS hiding found for this class in the stylesheet.",
+        "overridden_from": "tp",
+        "override_why": "Prior why only checked .ot-host-box itself, not ancestors. The checkbox (offset 321506) is inside <div id=\"onetrust-pc-sdk\" class=\"otPcPanel ot-hide ot-fade-in\"> (offset 310342, closes before onetrust-banner-sdk at 323297), and the page's own inline CSS contains .ot-hide,#onetrust-pc-sdk .ot-hide{display:none !important}. Verified hidden ancestor."
+      },
+      {
+        "id": 102273,
+        "line": 23,
+        "call": "unclear",
+        "why": "input data-qa=\"HamburgerMenuSearchArea-SearchInput\" only has placeholder=\"Search\"; no id/for label, no aria-label/aria-labelledby.",
+        "overridden_from": "tp",
+        "override_why": "The input has no naming mechanism, but it lives inside the closed hamburger drawer (HamburgerMenu-Container > HamburgerMenuWrapper-Container/.css-14salbq > MenuWrapper/.css-4v21rb, with an empty HamburgerMenuWrapper-Layer backdrop). Those emotion classes appear only in markup; their rules are in external Next.js CSS, so whether the closed drawer is display:none or merely translated off-screen cannot be decided."
+      },
+      {
+        "id": 102431,
+        "line": 93,
+        "call": "tp",
+        "why": "input name=\"q\" only has placeholder=\"Search\"; the adjacent <span class=\"search-button\">Search</span> is a sibling, not a wrapping label or aria-labelledby target."
+      },
+      {
+        "id": 102574,
+        "line": 1276,
+        "call": "fp",
+        "why": "input inside visible role=\"dialog\" filter sheet has only placeholder=\"Search...\"; no label element, no aria-label, no for/id.",
+        "overridden_from": "tp",
+        "override_why": "Not a visible dialog. It is the last child of body: <div class=\"filter-sheet-scrim\"></div><div class=\"filter-sheet\" role=\"dialog\" aria-modal=\"true\"> with <div class=\"sheet-body\"></div> EMPTY (filter options injected on open) plus a scrim backdrop and aria-modal that would render the rest of the page inert. Closed bottom sheet, outside the tree at rest."
+      },
+      {
+        "id": 102785,
+        "line": 354,
+        "call": "unclear",
+        "why": "input name=\"q\" only has placeholder=\"検索\"; the type=submit sibling and separate <a> element don't name this text input.",
+        "overridden_from": "tp",
+        "override_why": "The input is inside <div class=\"header-content__dropdown\" data-bx-header-menu-dropdown-section=\"\">, the burger panel toggled by data-bx-header-menu-switch, which duplicates the entire header (logo, nav, registration button, language selector) and therefore cannot be shown at rest. But .header-content__dropdown appears only in markup, never in any snapshot CSS, so the hidden state is unverifiable."
+      }
+    ]
+  },
+  {
+    "key": "clickable-non-button",
+    "calls": [
+      {
+        "id": 100060,
+        "line": 182,
+        "call": "tp",
+        "why": "span onclick=\"TRUSTeWidget.Tab.link()\" wraps AdChoices img; no href, no role, no tabindex — genuinely clickable with zero keyboard path."
+      },
+      {
+        "id": 100222,
+        "line": 112,
+        "call": "unclear",
+        "why": "div role=\"link\" onclick=\"Responsive_RequestDesktopView()\" has no tabindex, so role alone grants no native focusability — unreachable by keyboard.",
+        "overridden_from": "tp",
+        "override_why": "The div is inside div.responsive_page_menu_ctn.mainmenu / #responsive_page_menu (L67-68), Steam's mobile off-canvas menu, and the snapshot renders as <html class=\" responsive DesktopUI\">; its own text \"View desktop website\" is mobile-only UI. shared_responsive.css is external, so desktop-width visibility of that container cannot be confirmed from the file."
+      },
+      {
+        "id": 100500,
+        "line": 1622,
+        "call": "fp",
+        "why": "Cited div has attribute paginationclickable=\"true\" (a Vue/Swiper config prop), not an onclick handler; real nav controls are the adjacent <button> elements."
+      },
+      {
+        "id": 100760,
+        "line": 4842,
+        "call": "fp",
+        "why": "div onclick=\"window.location.href='/products/...'\" navigates on click; no wrapping <a>, no tabindex, no role — no keyboard equivalent.",
+        "overridden_from": "tp",
+        "override_why": "The div sits inside <cart-drawer class=\"drawer is-empty\"> (L4742) — Shopify Dawn's cart drawer, hidden at rest by the external component-cart-drawer CSS (.drawer{visibility:hidden}); the inline CSS in the snapshot carries only the toggle rule .drawer.active{z-index:999999} and the element has no 'active' class. Class-based hidden-at-rest subtree = FP."
+      },
+      {
+        "id": 101096,
+        "line": 839,
+        "call": "tp",
+        "why": "div.spotlight-title onclick=\"setActiveSpotlight(...)\" selects a spotlight tab; only an h2 inside, no tabindex/role — keyboard users cannot activate it."
+      },
+      {
+        "id": 101255,
+        "line": 345,
+        "call": "tp",
+        "why": "span onclick=\"loadTusachModal()\" opens a modal via a wrench icon; no tabindex, no role, no accessible name beyond decorative icon — no keyboard path."
+      },
+      {
+        "id": 101337,
+        "line": 5457,
+        "call": "tp",
+        "why": "div.back-top onclick=\"window.scrollTo(0,0)\"; CSS shows opacity:1 (visible at rest, not hidden), no tabindex/role — mouse-only control."
+      },
+      {
+        "id": 101568,
+        "line": 2963,
+        "call": "fp",
+        "why": "Close div sits inside .map-gba-modal, styled visibility:hidden in the stylesheet at rest (toggled visible only via JS) — class/stylesheet-based hiding a static engine can't resolve."
+      },
+      {
+        "id": 101679,
+        "line": 423,
+        "call": "tp",
+        "why": "div uses WP Interactivity API data-wp-on--click to toggle a weather panel; no tabindex, no role, no keydown handler found — no keyboard path."
+      },
+      {
+        "id": 101779,
+        "line": 6400,
+        "call": "fp",
+        "why": "Empty backdrop div onclick=\"toggleModal(...)\" is the modal's only close mechanism (no visible close button, no Escape-key handler found in file) — keyboard users get trapped.",
+        "overridden_from": "tp",
+        "override_why": "The .bg backdrop is inside div.login-modal#login-modal, shown only when JS adds 'active-login-modal' (L7075 classList.toggle). A second .login-modal (#set-pseudo-modal, L7011) exists in the same page, so .login-modal cannot be visible at rest. Class-based hidden-at-rest container = FP; name the class .login-modal / .active-login-modal."
+      },
+      {
+        "id": 101866,
+        "line": 2772,
+        "call": "tp",
+        "why": "div.coo-btn onclick=\"setcookies()\" is the cookie-consent accept/close control, visible by default for first-time visitors, no tabindex/role — no keyboard activation."
+      },
+      {
+        "id": 101969,
+        "line": 803,
+        "call": "tp",
+        "why": "span.sodify onclick=\"firehose_set_options(...)\" has a title (naming) but no tabindex/role; naming doesn't grant focusability — still unreachable by keyboard."
+      },
+      {
+        "id": 102099,
+        "line": 1638,
+        "call": "unclear",
+        "why": "div has tabindex=\"4\" (focusable) but no role=\"button\" and no keydown/keypress handler anywhere in file — Tab reaches it, Enter/Space cannot activate it.",
+        "overridden_from": "tp",
+        "override_why": "The div is inside #erisilebilirlikPaneli.meb-panel (L1608), an accessibility drawer that is closed at rest — its opener button is aria-label=\"Erişilebilirlik Menüsünü Aç\" (open the menu). No CSS for .meb-panel exists in the snapshot, so whether the closed state is display:none (out of tree, FP) or off-canvas positioning (still in tree, TP) cannot be decided."
+      },
+      {
+        "id": 102247,
+        "line": 413,
+        "call": "fp",
+        "why": "span.closetv onclick=\"stopVideoPlay()\" has visible text but no tabindex/role; no inline/class hiding evidence found for .tvplayshow at rest — no keyboard path.",
+        "overridden_from": "tp",
+        "override_why": "span.closetv is inside div.tvplayshow (L411), which carries no inline style in the capture; playVideo() sets videoBox.style.display='block' to show it (JS comment 「// 显示」, L1233) and stopVideoPlay() sets 'none' (L1259). So .tvplayshow is display:none at rest via external CSS — hidden subtree, FP."
+      },
+      {
+        "id": 102392,
+        "line": 4406,
+        "call": "tp",
+        "why": "div.textoverlay onclick=\"window.location='/helping-americans'\" navigates the page; cursor:pointer only, no tabindex/role, no wrapping anchor — mouse-only."
+      }
+    ]
+  },
+  {
+    "key": "heading-level-skipped",
+    "calls": [
+      {
+        "id": 100006,
+        "line": 914,
+        "call": "tp",
+        "why": "Sequence h2 'What Our Customers Say' (908) -> h4 testimonial quote (914) direct, no h3; visible section, not hidden."
+      },
+      {
+        "id": 100180,
+        "line": 173,
+        "call": "tp",
+        "why": "h1 hero (159) -> h4 'We work hard...' (173) direct, skips h2/h3; both visible, no hiding attrs."
+      },
+      {
+        "id": 100417,
+        "line": 1951,
+        "call": "fp",
+        "why": "role=heading aria-level=6 'Your Lists'/'Your Account' sit inside #nav-flyout-accountList (class nav-coreFlyout nav-flyout), Amazon's hover/click account dropdown hidden via CSS at rest -- outside AT tree until interaction."
+      },
+      {
+        "id": 100616,
+        "line": 177,
+        "call": "tp",
+        "why": "Hero h1 'Fast, affordable internet' directly followed by tab-toggle h6 'At Home'/'On the Go' labels, skipping h2-h5; both fully visible interactive controls."
+      },
+      {
+        "id": 100753,
+        "line": 383,
+        "call": "tp",
+        "why": "h2 'Store and share files...' (372) -> h5 'Cloud storage' (383) direct, skips h3/h4; visible feature-card grid."
+      },
+      {
+        "id": 100999,
+        "line": 1505,
+        "call": "tp",
+        "why": "Three-up-cards h3 titles ('Get complete...', etc.) are immediately followed by a sibling 'Events' block-feature card using h5 ('See how AI strategy...'), skipping h4; both visible, no aria-hidden/display:none."
+      },
+      {
+        "id": 101158,
+        "line": 26,
+        "call": "tp",
+        "why": "h2 'Security' directly followed by h4 'Errata'/'OpenSCAP and OVAL'/'Software Bill of Materials' cards, skipping h3; visible content, mirrors the same h2->h4 pattern used site-wide."
+      },
+      {
+        "id": 101404,
+        "line": 47,
+        "call": "tp",
+        "why": "h2 'I video del momento' directly followed by h4 video-card titles ('Pier Silvio Berlusconi...' etc.), skipping h3; visible grid, no hiding."
+      },
+      {
+        "id": 101572,
+        "line": 308,
+        "call": "tp",
+        "why": "Hero h1 'Where creative becomes...' directly followed by h3 (class heading-4) 'Enterprise GenAI...' cards, skipping h2; visible feature section."
+      },
+      {
+        "id": 101790,
+        "line": 99,
+        "call": "tp",
+        "why": "Full heading sequence on the page has exactly one bad transition: h2 'Use the best from every platform' -> h4 'Stay true to the web', skipping h3; both visible, no hiding class/attr found."
+      },
+      {
+        "id": 101980,
+        "line": 284,
+        "call": "tp",
+        "why": "Visible (non aria-hidden) carousel slides 1-3 each contain h4 class=capabilities-header directly followed by nested h6 class=heading-245, skipping h5; slides are not aria-hidden so this is AT-visible."
+      },
+      {
+        "id": 102191,
+        "line": 1366,
+        "call": "tp",
+        "why": "Footer h1 'Nyaman Belanja Online' (1358) directly followed by h3 'Terpercaya Se-Asia Tenggara' (1366), skipping h2; both visible footer text, no hiding."
+      },
+      {
+        "id": 102382,
+        "line": 81,
+        "call": "tp",
+        "why": "Hero h1 'Move the world' (76) directly followed by repeated h3 category-tile headings (81), skipping h2; visible tiles, no aria-hidden."
+      },
+      {
+        "id": 102607,
+        "line": 873,
+        "call": "fp",
+        "why": "Same pattern as amazon.in: role=heading aria-level=6 'Your Lists'/'Your Account' inside #nav-flyout-accountList (class nav-coreFlyout nav-flyout), the hover/click account dropdown hidden via CSS at rest."
+      },
+      {
+        "id": 102782,
+        "line": 2836,
+        "call": "tp",
+        "why": "Hero h1 'Real-time insight. Real-world results.' (2763) directly followed by h5 'Big brands. Big decisions. Proven CX impact.' (2836), skipping h2-h4; visible logo-slab section."
+      }
+    ]
+  }
+]
