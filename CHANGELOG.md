@@ -2,28 +2,6 @@
 
 ## [3.3.1] — 2026-08-08
 
-### Bug Fixes
-
-- score thin evidence with same-line qualifier, retire insufficient-evidence (engine @17) (360b785)
-- repair three broken detectors found by measuring all of them (engine @16) (0dec813)
-- unify masking, kill three FP classes (engine @12 -> @15) (a1d3322)
-- create parent directories before writing output artifacts (b825c15)
-
-### Documentation
-
-- publish measured per-detector precision across README, translations, and the site (e625bd6)
-- exclusion mapping — name who this scan's silence leaves out (6ea1c7e)
-- publish Beacon's own measured WCAG criterion coverage (5673765)
-- record the Codex-authored changes audit (4c6862d)
-- de-Claude the Codex skill and references, add interface metadata (96c2380)
-- merge the duplicate 3.3.0 sections into one curated entry (16613b5)
-
-### Tests
-
-- wild-sample precision for 6 detectors + frozen wild regression corpus (e6f1de4)
-
-## Unreleased
-
 ### Measured
 
 - **Per-detector precision, on pages nobody hand-picked.** VALIDATION.md L1 has always
@@ -77,6 +55,38 @@
   friends) that it had only ever matched by coincidence, through a string inside an
   attribute *value*. Those elements are real violations; detecting them deliberately is
   queued.
+- **Three previously-unmeasured detectors were badly broken** (`beacon-static-audit@16`):
+  completing the wild-sample precision table above surfaced `html-lang-mismatch` (precision
+  0.067 — its Vietnamese character class included ordinary Portuguese diacritics, misflagging
+  every á/ã page), `focus-outline-removed` (0.267 — narrowed to unscoped resets after missing
+  four real violations, including `* { outline: none }`), and `fixed-minmax-overflow`
+  (0.133 — has no model of CSS grid, so demoted to `check:'review'` rather than narrowed to
+  fit two examples). `list-non-li-child` also lost a true positive to a backreference bug and
+  was rewritten to a non-consuming, depth-counted scan. A shared attribute-tokenization
+  primitive (`core/scripts/attr-scan.mjs`) now backs four detectors that had each
+  independently mismatched attributes by substring.
+- **Masking unified into one scanner, plus a wrapper false-positive class**
+  (`beacon-static-audit@13`/`@14`): script/style/noscript/comment ranges were three
+  independent regex passes that could pair across each other and open a phantom mask
+  swallowing every later finding on the page (latent since `@5`); now one left-to-right
+  scan. A div/span whose own direct content wraps a native `<button>`/`<a href>` (an
+  analytics wrapper) no longer reads as a keyboard barrier.
+- **`--output` to a nonexistent directory no longer crashes**: `static-audit.mjs`,
+  `generate-report.mjs`, `tier2-audit.mjs`, and `lighthouse-extract.mjs` now create the
+  parent directory before writing, matching the documented
+  `--output reports/a11y/audit-results.json` usage on a project's first run.
+
+### Documentation
+
+- Published the per-detector precision table above and Beacon's own measured WCAG 2.2
+  A+AA coverage (14/55 criteria have any detector, 2/55 fully decided) across every
+  README, translation, and the landing site, replacing the inherited "~30-40%" industry
+  estimate.
+- Named who each of the 53 undecided WCAG criteria leaves out, per that criterion's own
+  W3C-documented beneficiary population, correcting 12 previously wrong or imprecise rows.
+- De-Claude'd the Codex-adapter skill and reference docs (a marker-block system so
+  `build.mjs` emits divergent prose per adapter from one source) and fixed a Codex
+  plugin-manifest validation gap (missing `capabilities`/`defaultPrompt` fields).
 
 ## [3.3.0] — 2026-07-27
 
