@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.3.1] — 2026-08-08
+
+### Bug Fixes
+
+- score thin evidence with same-line qualifier, retire insufficient-evidence (engine @17) (360b785)
+- repair three broken detectors found by measuring all of them (engine @16) (0dec813)
+- unify masking, kill three FP classes (engine @12 -> @15) (a1d3322)
+- create parent directories before writing output artifacts (b825c15)
+
+### Documentation
+
+- publish measured per-detector precision across README, translations, and the site (e625bd6)
+- exclusion mapping — name who this scan's silence leaves out (6ea1c7e)
+- publish Beacon's own measured WCAG criterion coverage (5673765)
+- record the Codex-authored changes audit (4c6862d)
+- de-Claude the Codex skill and references, add interface metadata (96c2380)
+- merge the duplicate 3.3.0 sections into one curated entry (16613b5)
+
+### Tests
+
+- wild-sample precision for 6 detectors + frozen wild regression corpus (e6f1de4)
+
 ## Unreleased
 
 ### Measured
