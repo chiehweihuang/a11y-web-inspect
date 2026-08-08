@@ -13,8 +13,8 @@
     ],
     "platform": "Web",
     "tool_version": "beacon codex static baseline",
-    "engine_fingerprint": "beacon-static-audit@16+ruleset.25eeae0aa809",
-    "confidence_level": "low",
+    "engine_fingerprint": "beacon-static-audit@17+ruleset.bde99ddc0571",
+    "confidence_level": "medium",
     "requires_live_audit": true,
     "audit_tier": "Tier 1 (static file scan only)",
     "audit_methods": [
@@ -24,8 +24,8 @@
     ]
   },
   "summary": {
-    "overall_score": 0,
-    "coverage_percent": 23,
+    "overall_score": 9,
+    "coverage_percent": 61,
     "life_safety_flag": false,
     "score_bands": [
       {
@@ -54,7 +54,8 @@
         "fail": 0,
         "review": 2,
         "state": "not-machine-checkable",
-        "score": null
+        "score": null,
+        "thin": false
       },
       {
         "id": "keyboard",
@@ -62,8 +63,9 @@
         "pass": 0,
         "fail": 2,
         "review": 0,
-        "state": "insufficient-evidence",
-        "score": null
+        "state": "scored",
+        "score": 0,
+        "thin": true
       },
       {
         "id": "screenreader",
@@ -72,7 +74,8 @@
         "fail": 11,
         "review": 0,
         "state": "scored",
-        "score": 0
+        "score": 0,
+        "thin": false
       },
       {
         "id": "forms",
@@ -80,8 +83,9 @@
         "pass": 0,
         "fail": 1,
         "review": 0,
-        "state": "insufficient-evidence",
-        "score": null
+        "state": "scored",
+        "score": 0,
+        "thin": true
       },
       {
         "id": "responsive",
@@ -89,8 +93,9 @@
         "pass": 1,
         "fail": 1,
         "review": 0,
-        "state": "insufficient-evidence",
-        "score": null
+        "state": "scored",
+        "score": 45,
+        "thin": true
       },
       {
         "id": "touch",
@@ -99,7 +104,8 @@
         "fail": 0,
         "review": 1,
         "state": "not-machine-checkable",
-        "score": null
+        "score": null,
+        "thin": false
       },
       {
         "id": "cognitive",
@@ -108,7 +114,8 @@
         "fail": 0,
         "review": 1,
         "state": "not-machine-checkable",
-        "score": null
+        "score": null,
+        "thin": false
       },
       {
         "id": "motion",
@@ -117,7 +124,8 @@
         "fail": 0,
         "review": 0,
         "state": "not-applicable",
-        "score": null
+        "score": null,
+        "thin": false
       },
       {
         "id": "media",
@@ -126,7 +134,8 @@
         "fail": 0,
         "review": 1,
         "state": "not-machine-checkable",
-        "score": null
+        "score": null,
+        "thin": false
       },
       {
         "id": "agent",
@@ -135,7 +144,8 @@
         "fail": 3,
         "review": 0,
         "state": "scored",
-        "score": 0
+        "score": 0,
+        "thin": false
       }
     ]
   },

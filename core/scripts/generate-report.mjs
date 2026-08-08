@@ -112,8 +112,7 @@ const I18N = {
     th_score: '結果',
     state_not_machine_checkable: '已完成靜態掃描 · 需人工驗證',
     state_not_applicable: '已完成靜態掃描 · 本頁不適用',
-    state_insufficient_evidence: '已完成靜態掃描 · 證據不足以計分',
-    category_summary_note: '所有分類都已執行靜態掃描。只有取得可計分機器證據的分類顯示分數；其餘分類顯示掃描狀態。',
+    category_summary_note: '所有分類都已執行靜態掃描。只要取得可計分機器證據（哪怕只有一筆）就顯示分數，證據量不足 3 筆會標示「證據薄弱」；其餘分類顯示掃描狀態。',
     category_expand_all: '全部展開',
     category_collapse_all: '全部收合',
     category_show_details: '展開詳情',
@@ -121,7 +120,7 @@ const I18N = {
     category_detail_scored: '已取得可計分的機器證據。',
     category_detail_manual: '靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。',
     category_detail_na: '靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。',
-    category_detail_insufficient: '靜態掃描已完成；這個分類的機器可判定證據太少，一兩項結果不足以代表整體，因此不製造分數，但下方仍完整列出所有發現項目。',
+    score_qual_thin: '證據薄弱',
     coverage_line: '機測權重涵蓋',
     coverage_note: '其餘部分需人工或即時審查',
     score_na: '—',
@@ -133,6 +132,7 @@ const I18N = {
     meta_auditor: '審查者',
     // Verdict (suggestion-toned, not judgmental)
     verdict_pass: '達到基準',
+    verdict_pass_thin: '達到基準（證據涵蓋率低）',
     verdict_needs_work: '建議考慮改進',
     verdict_fail: '建議優先檢視',
     verdict_issues_found: '個發現項目',
@@ -218,8 +218,7 @@ const I18N = {
     th_score: 'Result',
     state_not_machine_checkable: 'Static scan complete · human verification needed',
     state_not_applicable: 'Static scan complete · not applicable here',
-    state_insufficient_evidence: 'Static scan complete · not enough evidence to score',
-    category_summary_note: 'Every category was statically scanned. A score appears only when machine-scoreable evidence exists; otherwise the completed scan state is shown.',
+    category_summary_note: 'Every category was statically scanned. A score appears as soon as any machine-scoreable evidence exists, even a single check; under 3 checks is marked "thin evidence". Otherwise the completed scan state is shown.',
     category_expand_all: 'Expand all',
     category_collapse_all: 'Collapse all',
     category_show_details: 'Show details',
@@ -227,7 +226,7 @@ const I18N = {
     category_detail_scored: 'Machine-scoreable evidence was collected.',
     category_detail_manual: 'The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).',
     category_detail_na: 'The static scan completed. No applicable content for this category was detected in the audited scope.',
-    category_detail_insufficient: 'The static scan completed. This category has too few machine-checkable results for one or two to represent the whole, so no score is invented, but every finding is still listed in full below.',
+    score_qual_thin: 'thin evidence',
     coverage_line: 'Machine-measured weight coverage',
     coverage_note: 'the rest needs human or live review',
     score_na: 'n/a',
@@ -237,6 +236,7 @@ const I18N = {
     meta_standard: 'Standard',
     meta_auditor: 'Auditor',
     verdict_pass: 'Meets baseline',
+    verdict_pass_thin: 'Meets baseline (low coverage)',
     verdict_needs_work: 'Consider improving',
     verdict_fail: 'Priority review recommended',
     verdict_issues_found: 'observations',
@@ -868,10 +868,16 @@ const BAND_COLORS = { pass: 'var(--pass)', 'needs-work': 'var(--mid)', fail: 'va
 const BAND_LABEL_KEYS = { pass: 'verdict_pass', 'needs-work': 'verdict_needs_work', fail: 'verdict_fail' };
 
 // Unscored-category states (score null) each carry a badge + a detail line; 'scored'
-// is handled separately above. Missing entries fall back to the not-machine-checkable
-// text (pre-@9 artifacts never carried insufficient-evidence).
-const STATE_BADGE_KEYS = { 'not-applicable': 'state_not_applicable', 'insufficient-evidence': 'state_insufficient_evidence' };
-const STATE_DETAIL_KEYS = { 'not-applicable': 'category_detail_na', 'insufficient-evidence': 'category_detail_insufficient' };
+// (thin or not, engine @17) is handled separately above. Missing entries fall back to
+// the not-machine-checkable text — this also covers a stale cached artifact that still
+// carries the retired 'insufficient-evidence' state (pre-@17).
+const STATE_BADGE_KEYS = { 'not-applicable': 'state_not_applicable' };
+const STATE_DETAIL_KEYS = { 'not-applicable': 'category_detail_na' };
+
+// Coverage threshold below which the 90-100 "pass" band's conclusion wording is
+// downgraded (user ruling 2026-08-08, #3): a 100 built on a sliver of measured weight
+// must not read as an unqualified "meets baseline".
+const LOW_COVERAGE_CONCLUSION_MAX = 50;
 
 function bandOf(score) {
   return SCORE_BANDS.find(b => score >= b.min) || SCORE_BANDS[SCORE_BANDS.length - 1];
@@ -882,9 +888,11 @@ function scoreColor(score) {
   return BAND_COLORS[bandOf(score).id] || 'var(--fail)';
 }
 
-function scoreLabel(score) {
+function scoreLabel(score, coverage) {
   if (score === null || score === undefined) return t('score_na');
-  return t(BAND_LABEL_KEYS[bandOf(score).id] || 'verdict_fail');
+  const band = bandOf(score).id;
+  if (band === 'pass' && (coverage ?? 100) < LOW_COVERAGE_CONCLUSION_MAX) return t('verdict_pass_thin');
+  return t(BAND_LABEL_KEYS[band] || 'verdict_fail');
 }
 
 // Short class-name-friendly band tone ('pass' | 'warn' | 'crit'), only ever called
@@ -993,7 +1001,7 @@ const EVIDENCE_HIGH_MIN = 30;
 
 function evidenceTier(cat) {
   if (cat.state === 'not-machine-checkable' || cat.state === 'not-applicable') return 'nmc';
-  if (cat.state === 'insufficient-evidence') return 'low';
+  if (cat.thin) return 'low';
   return (cat.pass + cat.fail) >= EVIDENCE_HIGH_MIN ? 'high' : 'mod';
 }
 
@@ -1001,7 +1009,7 @@ function evidenceTierLabelHTML(cat) {
   const labels = {
     high: ['高證據量', 'high'],
     mod: ['中等證據', 'moderate'],
-    low: ['證據不足', 'insufficient'],
+    low: ['證據薄弱', 'thin evidence'],
     nmc: ['未自動檢測', 'not machine-checkable'],
   };
   const [zh, en] = labels[evidenceTier(cat)];
@@ -1036,22 +1044,26 @@ function tier2ProvenanceHTML(tier2Info) {
   return `<p class="cat-cause tier2-provenance"><span class="chip review">${bi('瀏覽器層量測（tier 2）', 'Browser-measured (tier 2)')}</span> ${bi(`已量測 ${tier2Info.measured} 項（${vp}）`, `${tier2Info.measured} measured (${vp})`)}${errNote}</p>`;
 }
 
-// One evidence-density card per category. Scored categories get a number;
-// every unscored state (not-machine-checkable / not-applicable /
-// insufficient-evidence) gets a text badge — a state, never a painted zero.
+// One evidence-density card per category. Scored categories (thin or not, engine @17)
+// get a number; every unscored state (not-machine-checkable / not-applicable) gets a
+// text badge — a state, never a painted zero.
 function buildCategoryCardHTML(cat, prevCat, groupsByCat, tier2Evidence) {
   const groups = groupsByCat.get(cat.id) || [];
   const scored = cat.state === 'scored';
   const auditable = cat.pass + cat.fail;
-  const cardClass = scored ? 'catcard' : cat.state === 'insufficient-evidence' ? 'catcard thin' : 'catcard nmc';
+  const cardClass = scored ? 'catcard' : 'catcard nmc';
   const linkHref = groups.length ? `#fg-${slugify(groups[0].key)}` : '#layer-findings';
   const isLink = scored || groups.length > 0;
 
+  // A+ presentation contract (user ruling 2026-08-08): a thin-evidence category still
+  // scores, but the "證據薄弱"/thin-evidence qualifier sits on the SAME line as the
+  // score, same dark/bold weight — never a colour-only or footnote-only signal.
+  const scoreBadgeHTML = `<div class="score-badge"><b class="s-${bandTone(cat.score)}">${cat.score}</b><small>/ 100</small>${prevCat?.score != null ? deltaArrow(cat.score, prevCat.score) : ''}</div>`;
   const topRight = scored
-    ? `<div class="score-badge"><b class="s-${bandTone(cat.score)}">${cat.score}</b><small>/ 100</small>${prevCat?.score != null ? deltaArrow(cat.score, prevCat.score) : ''}</div>`
-    : `<div class="state-badge"><span class="chip ${cat.state === 'insufficient-evidence' ? 'thin' : 'review'}">${t(STATE_BADGE_KEYS[cat.state] || 'state_not_machine_checkable')}</span></div>`;
+    ? (cat.thin ? `<div class="score-bound"><span class="score-qual">${t('score_qual_thin')}</span>${scoreBadgeHTML}</div>` : scoreBadgeHTML)
+    : `<div class="state-badge"><span class="chip review">${t(STATE_BADGE_KEYS[cat.state] || 'state_not_machine_checkable')}</span></div>`;
 
-  const showMeter = scored || cat.state === 'insufficient-evidence';
+  const showMeter = scored;
   const reviewSuffix = cat.review ? bi(`，另 ${cat.review} 待複審`, `, ${cat.review} pending review`) : '';
   const evi = showMeter
     ? `<div class="evi">
@@ -1217,10 +1229,10 @@ function buildHeroHTML(audit, previous, groups) {
   const ringColor = overall != null ? `var(--${tone})` : 'var(--review)';
   const circumference = 2 * Math.PI * 56;
   const offset = overall != null ? circumference * (1 - overall / 100) : circumference;
-  const bandLabel = scoreLabel(overall);
   const coverage = audit.summary.coverage_percent ?? 0;
+  const bandLabel = scoreLabel(overall, coverage);
   const reviewCount = audit.summary.categories.filter(c => c.state === 'not-machine-checkable' || c.state === 'not-applicable').length;
-  const thinCount = audit.summary.categories.filter(c => c.state === 'insufficient-evidence').length;
+  const thinCount = audit.summary.categories.filter(c => c.thin === true).length;
   const prevLine = previous?.summary?.overall_score != null
     ? `<p class="coverage" style="margin-top:.3rem">${t('cmp_previous')}: ${previous.summary.overall_score} ${deltaArrow(overall, previous.summary.overall_score)}</p>`
     : '';
@@ -1260,8 +1272,8 @@ function buildHeroHTML(audit, previous, groups) {
               <span class="band" style="background:var(--${tone}-bg);color:var(--${tone});border-color:var(--${tone}-line)">${bandLabel}</span>
               <p class="coverage">${bi(`此分數僅代表可機測的 <b>${coverage}%</b> 權重`, `This score covers only the <b>${coverage}%</b> of weight that is machine-checkable.`)}<br>
                 <span style="font-size:.85rem;color:var(--ink-soft)">${bi(
-                  `${reviewCount} 個分類僅供人工複審、${thinCount} 個分類證據不足未計分`,
-                  `${reviewCount} review-only, ${thinCount} with insufficient evidence`
+                  `${reviewCount} 個分類僅供人工複審、${thinCount} 個分類已計分但證據薄弱`,
+                  `${reviewCount} review-only, ${thinCount} scored on thin evidence`
                 )}</span>${audit.summary.life_safety_flag ? '' : `<br>
                 <span style="font-size:.85rem;color:var(--pass);font-weight:600">${bi(
                   '生命安全檢查（閃爍/癲癇風險）：未觸發',
@@ -1997,7 +2009,7 @@ const html = `<!DOCTYPE html>
   --warn:#8a5a00;   --warn-bg:#fbf3e1;  --warn-line:#ecdcb2;
   --pass:#1f7a43;   --pass-bg:#e7f4ec;  --pass-line:#bfe3cd;
   --review:#465166; --review-bg:#eef1f6;--review-line:#d3dae6;
-  --thin:#544bc0;   --thin-bg:#efedfb;  --thin-line:#d3cdf3;
+  --thin:#544bc0;
 
   --shadow:0 1px 2px rgba(23,32,58,.06),0 6px 18px rgba(23,32,58,.06);
   --radius:14px;
@@ -2037,7 +2049,7 @@ const html = `<!DOCTYPE html>
     --warn:#e8b55c; --warn-bg:#271f0f; --warn-line:#463713;
     --pass:#5fc98a; --pass-bg:#122619; --pass-line:#1f4630;
     --review:#9aa6bc;--review-bg:#1a2230;--review-line:#303c50;
-    --thin:#a29cf0; --thin-bg:#191634; --thin-line:#312a5e;
+    --thin:#a29cf0;
 
     --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
     color-scheme:dark;
@@ -2054,7 +2066,7 @@ const html = `<!DOCTYPE html>
   --warn:#8a5a00;--warn-bg:#fbf3e1;--warn-line:#ecdcb2;
   --pass:#1f7a43;--pass-bg:#e7f4ec;--pass-line:#bfe3cd;
   --review:#465166;--review-bg:#eef1f6;--review-line:#d3dae6;
-  --thin:#544bc0;--thin-bg:#efedfb;--thin-line:#d3cdf3;
+  --thin:#544bc0;
   --shadow:0 1px 2px rgba(23,32,58,.06),0 6px 18px rgba(23,32,58,.06);
   color-scheme:light;
 }
@@ -2067,7 +2079,7 @@ const html = `<!DOCTYPE html>
   --warn:#e8b55c;--warn-bg:#271f0f;--warn-line:#463713;
   --pass:#5fc98a;--pass-bg:#122619;--pass-line:#1f4630;
   --review:#9aa6bc;--review-bg:#1a2230;--review-line:#303c50;
-  --thin:#a29cf0;--thin-bg:#191634;--thin-line:#312a5e;
+  --thin:#a29cf0;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
   color-scheme:dark;
 }
@@ -2209,7 +2221,6 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
 .chip.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
 .chip.pass{background:var(--pass-bg);color:var(--pass);border-color:var(--pass-line)}
 .chip.review{background:var(--review-bg);color:var(--review);border-color:var(--review-line)}
-.chip.thin{background:var(--thin-bg);color:var(--thin);border-color:var(--thin-line)}
 .chip.wcag{background:var(--surface-2);color:var(--ink-soft);border-color:var(--border);
   font-family:var(--mono);font-size:.72rem}
 
@@ -2224,7 +2235,6 @@ section{padding:2.2rem 0}
   border:1px solid var(--border);border-radius:12px;padding:1rem 1.05rem;
   text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
 .catcard:hover{border-color:var(--border-strong);transform:translateY(-2px)}
-.catcard.thin{background:var(--surface);border-style:dashed;opacity:.94}
 .catcard.nmc{background:var(--surface);opacity:.9}
 .cat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem}
 .cat-name{font-weight:700;font-size:1.02rem;line-height:1.3}
@@ -2236,14 +2246,18 @@ section{padding:2.2rem 0}
 .score-badge b.s-pass{color:var(--pass)}
 .score-badge small{display:block;font-size:.68rem;color:var(--ink-muted)}
 .state-badge{flex:0 0 auto;font-size:.74rem;font-weight:700;text-align:right;max-width:120px}
+/* A+ thin-evidence qualifier: same line as the score, same dark/bold weight as the
+   score itself — never colour-alone (user ruling 2026-08-08). */
+.score-bound{flex:0 0 auto;display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap;
+  justify-content:flex-end}
+.score-qual{font-size:.78rem;font-weight:700;color:var(--thin);background:var(--bg);
+  border:1px solid currentColor;border-radius:999px;padding:.1rem .55rem;white-space:nowrap}
 
 /* evidence-density meter — THE signature */
 .evi{margin-top:.1rem}
 .evi-track{height:8px;border-radius:5px;background:var(--surface-2);overflow:hidden;
   border:1px solid var(--border)}
 .evi-fill{height:100%;background:linear-gradient(90deg,var(--beacon),var(--beacon-line))}
-.catcard.thin .evi-track{border-style:dashed}
-.catcard.thin .evi-fill{background:repeating-linear-gradient(90deg,var(--thin) 0 4px,transparent 4px 8px)}
 .evi-label{margin-top:.4rem;font-size:.8rem;color:var(--ink-soft);
   display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
 .evi-label .tier{font-weight:700}

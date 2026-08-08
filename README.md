@@ -102,7 +102,7 @@ Use the score as a triage signal:
 | 50-89 | Some barriers or review items were found. Prioritize findings by affected users and severity. |
 | 0-49 | High-priority review recommended. The inspected evidence suggests substantial barriers. |
 
-Every score is paired with `coverage_percent`, the share of scoring weight actually measured. Categories without machine evidence report a state (`not-machine-checkable` / `not-applicable`) instead of a number, and a category with only 1-2 machine checks reports `insufficient-evidence` instead of a number; a confirmed seizure-risk finding (WCAG 2.3.1) caps the overall score into the 0-49 band regardless of category weights.
+Every score is paired with `coverage_percent`, the share of scoring weight actually measured. Categories without machine evidence report a state (`not-machine-checkable` / `not-applicable`) instead of a number. A category with any evidence scores; one with only 1-2 machine checks additionally carries `thin: true` and renders a same-line "thin evidence" qualifier next to the score, rather than being hidden. A confirmed seizure-risk finding (WCAG 2.3.1) caps the overall score into the 0-49 band regardless of category weights.
 
 If a report says `requires_live_audit: true`, Beacon found signals that static evidence is not enough. That is common for client-rendered apps, hidden/conditional UI, runtime ARIA, computed contrast, and interactive behavior.
 

@@ -106,10 +106,15 @@ the measurement is cheap now: the survey tier supplies wild instances for ~36 ke
 ## L2 — properties the formula must keep
 
 - Top and bottom reachable (goldens pin both).
-- Monotonicity: adding a confirmed violation never raises any score; fixing one never
-  lowers any; adding compliant elements never costs points.
-  **KNOWN VIOLATION, measured 2026-08-04, present in released v3.3.0. BOTH directions of
-  the promise fail.** Reproduction, runnable as written:
+- Monotonicity, **in a fixed measurement universe** (user ruling 2026-08-08: the promise
+  cannot be unconditional when coverage itself can move — if a "fix" is deleting evidence
+  rather than resolving a violation, the measurement universe changed and the promise does
+  not apply): adding a confirmed violation never raises any score; turning a confirmed
+  `fail` into a `pass` on the SAME evidence never lowers any score; adding compliant
+  elements never costs points.
+  **KNOWN VIOLATION, measured 2026-08-04, present in released v3.3.0, FIXED by engine `@17`
+  (user ruling 2026-08-08).** BOTH directions of the promise used to fail. Reproduction,
+  runnable as written:
 
   ```html
   <html lang="en"><head><title>t</title><meta name="description" content="d">
@@ -121,49 +126,62 @@ the measurement is cheap now: the survey tier supplies wild instances for ~36 ke
   </main></body></html>
   ```
 
-  That page scores **44**. Delete the `<div onclick>` line — a real 2.1.1 violation, now
-  fixed — and it scores **38**. Read the same experiment the other way and it is worse:
-  *adding* a keyboard violation to the fixed page RAISES its score by 6. An independent
-  check reproduced the same discontinuity at larger amplitude on a synthetic page (2 → 21
-  on adding one violation) and on real captured markup: `test/wild-corpus/` page 101380
-  (cuni.cz) moves **22 → 0** when a single false-positive finding is removed.
+  Under `@16` that page scored **44**; deleting the `<div onclick>` line (a real 2.1.1
+  violation, now fixed) dropped it to **38** — fixing a violation LOWERED the score. Under
+  `@17` fixing the same violation RAISES the score, **33 → 45**
+  (`test/scoring-properties.test.mjs`, no longer `todo`) — the promise now holds, and the
+  result is stronger than mere score-equality: keyboard evidence stays in the weighted
+  denominator (`pass+fail` drops 3 → 2, thin now true, but the category stays scored — under
+  `@16` it would have exited the denominator at exactly that point),
+  so its category score jumps 55 → 100 and pulls the overall up with it, instead of exiting
+  the denominator and dragging a better-scoring category out with the violation. (`@16`'s
+  and `@17`'s absolute numbers on this page differ, 44/38 vs 33/45, because `@17` also
+  scores `responsive` and `keyboard` as thin rather than excluding them — the number to
+  compare is the DIRECTION of the fix, not the absolute score.) An independent check
+  reproduced the same discontinuity at larger amplitude on a synthetic page (2 → 21 on
+  adding one violation) and on real captured markup: `test/wild-corpus/` page 101380
+  (cuni.cz) moved **22 → 0** under `@16` when a single false-positive finding was removed;
+  under `@17` it moves **0 → 58** (see the 2026-08-08 movement table below) — the recovery
+  this fix exists for.
 
-  Mechanism: the category drops from 3 evidence items to 2, falls under
-  `THIN_EVIDENCE_MIN`, is re-stated as `insufficient-evidence`, and leaves the weighted
+  Mechanism (fixed): the category used to drop from 3 evidence items to 2, fall under
+  `THIN_EVIDENCE_MIN`, get re-stated as `insufficient-evidence`, and leave the weighted
   denominator — and because it had been scoring better than the categories that remain,
-  the average falls. Introduced with the thin-evidence state (`@9`). The existing L2
-  property test cannot reach it: it exercises an image-alt fix inside `screenreader`,
-  which never crosses the threshold. The guard is green while the promise is false.
-
-  This is the highest-priority scoring defect on the list, and it is not a future risk —
-  this batch already hit it: cuni.cz's 22 → 0 is a false-positive REMOVAL making a score
-  worse. It also gates the precision-floor work, because demoting low-precision detectors
-  removes `fail` evidence in bulk, which is exactly the operation that pushes categories
-  across this threshold.
-  Fix direction is an open decision (count passes as evidence of compliance rather than
-  absence of it; keep the threshold but clamp the overall against the same page with one
-  more fail; or re-calibrate/retire `THIN_EVIDENCE_MIN`, which the charter already records
-  as a calibration decision open to revision).
+  the average fell. Introduced with the thin-evidence state (`@9`). `@17` retires the
+  `insufficient-evidence` state: ANY auditable evidence (`pass + fail >= 1`) now scores and
+  stays in the weighted denominator; a category below `THIN_EVIDENCE_MIN` just carries a
+  `thin: true` flag, rendered in the report as a same-line, same-weight qualifier next to
+  the score (never colour-alone) rather than hidden as an unscored state.
+  Fix direction taken: count-what-you-see (any evidence scores), not the continuous-weight
+  or clamp-the-counterfactual alternatives that were also on the table (see
+  `plans/` for the comparison) — chosen because it is the only one that removes the
+  variable-denominator mechanism itself rather than smoothing it.
 - Injection dose-response: known violations injected into the clean fixture degrade
   the score monotonically with dose (ground truth is the injection itself).
-- Coverage and score move independently; absence (or thinness) of evidence is a state
-  (`not-machine-checkable` / `not-applicable` / `insufficient-evidence`, score null),
-  never a number.
+- Coverage and score move independently; absence of evidence is a state
+  (`not-machine-checkable` / `not-applicable`, score null), never a number. Thinness of
+  evidence (engine `@17`) is a `thin: true` qualifier on an otherwise normal score, not a
+  separate unscored state.
 - Life-safety gate (confirmed 2.3.1 critical → overall ≤ 49) beats all weights.
 - Severity repeat-cap (3 per finding key) is a CALIBRATION DECISION, revisit with
   data; the pass/fail base ratio always counts every instance.
-- Thin-evidence floor (engine @9): a category with `pass + fail < 3` reports
-  `insufficient-evidence` (score null) instead of a number, and exits the weighted-average
-  denominator the same way `not-machine-checkable`/`not-applicable` already do. N=3 is a
+- Thin-evidence flag (engine `@17`, retired the `@9` floor): a category with
+  `pass + fail < 3` still scores normally and stays in the weighted-average denominator and
+  `coverage_percent`; it additionally carries `thin: true`, which the report surfaces as a
+  same-line "證據薄弱"/"thin evidence" qualifier next to the score. N=3 is still a
   CALIBRATION DECISION (same status as the severity repeat-cap above), not a physical
-  constant — revisit with data. Findings are unaffected; only the category-level score is
-  suppressed. Measured effect (2026-07-22 benchmark rerun, n=71 paired):
-  Spearman 0.477 → 0.468 (small decrease — rank correlation, uneven across the cohort);
-  score-delta distribution across 85 comparable sites: median |Δ| 7, p95 19, max 23, 18
-  band flips (both directions — a thin category exiting the denominator can raise OR
-  lower the overall depending on whether it was scoring below or above the remaining
-  average). Motivating case: rakuten.co.jp 40 → 54 (`responsive`/`motion` each had a
-  single fail with no counterbalancing pass).
+  constant — revisit with data. Findings are unaffected either way.
+  Historical `@9` measurement (superseded, kept for the record — exclusion-based floor, n=71
+  paired, 2026-07-22): Spearman 0.477 → 0.468; score-delta distribution across 85 comparable
+  sites: median |Δ| 7, p95 19, max 23, 18 band flips (both directions — a thin category
+  EXITING the denominator could raise OR lower the overall). `@17` measurement (inclusion-based
+  flag, n=40 real captured pages, `test/wild-corpus/`, 2026-08-08): 38/40 sites moved, median
+  |Δ| 7, max |Δ| 58 (cuni.cz, the KNOWN VIOLATION motivating case above); finding keys
+  byte-identical on all 40 sites (scoring-only change, verified by `node --test`). Full
+  per-site table: `benchmark/2026-08-08-aplus-movement.md`. Motivating case retained:
+  rakuten.co.jp was 40 (`@8`, pre-thin-floor) → 54 (`@9`, thin-excluded, `responsive`/`motion`
+  each a single uncountered fail) — under `@17` both single-fail categories score instead of
+  exiting, so the discontinuity that produced the 40→54 jump no longer exists.
 
 ### L2 — Tier-2 (browser-measured) thresholds, engine `beacon-tier2-audit@2`
 
@@ -173,22 +191,26 @@ explicit, agent-initiated step (`--merge-findings`, `core/content/inspect.md` St
 NOT because the scoring mechanism is undecided. `mergeExternalFindings()`
 (`core/scripts/static-audit.mjs` ~1440-1486) has been the sole channel for Tier-2/manual
 findings to enter the scored artifact since commit `a1d8cab` (2026-06-21), and
-`tier2-audit.mjs` findings use that exact same channel as axe or any manual finding. Once
-a category's merged evidence (pass + fail) reaches `THIN_EVIDENCE_MIN` (3), the category
-leaves `not-machine-checkable`/`insufficient-evidence` and becomes `scored`. Measured on
-the committed fixture `test/golden/clean.html` (pinned by `test/golden/clean.expected.json`,
+`tier2-audit.mjs` findings use that exact same channel as axe or any manual finding. Since
+engine `@17` (2026-08-08), a category with ANY merged evidence (pass + fail >= 1) leaves
+`not-machine-checkable` and becomes `scored` immediately — `THIN_EVIDENCE_MIN` (3) now only
+gates the `thin: true` qualifier, not whether the category scores at all. Measured on the
+committed fixture `test/golden/clean.html` (pinned by `test/golden/clean.expected.json`,
 reproducible with `node scripts/static-audit.mjs --scope golden-clean --date 2026-07-26
 [--merge-findings <N tier2-contrast-fail findings>.json] test/golden/clean.html`): baseline
-contrast (0 pass/0 fail) → `not-machine-checkable`, overall 100, coverage 23%; +1 merged
-fail → `insufficient-evidence` (still overall 100, coverage 23%); +3 → contrast `scored` at
-0, overall 100 → 64, coverage 23% → 36%. `confidence_level` stays `low` throughout (the
-band boundary is 60% coverage) — it moves only when a coverage change crosses that
-boundary. What is genuinely undecided (USER DECISIONS, see
+contrast (0 pass/0 fail) → `not-machine-checkable`, overall 100, coverage 66%; +1 merged
+fail → `scored` at 0 (`thin: true`), overall 100 → 84, coverage 66% → 79%; +3 → contrast
+still `scored` at 0, now `thin: false`, overall and coverage unchanged from the +1 case (84,
+79%) — the score already reflected the evidence at n=1, only the thin qualifier clears at
+n=3. `confidence_level` stays `medium` throughout this example (the band boundary is 60%
+coverage; the clean fixture already clears it before any merge, since @17 counts its other
+thin-but-scored categories into coverage too) — it moves only when a coverage change crosses
+that boundary. What is genuinely undecided (USER DECISIONS, see
 `plans/2026-07-25-v3.3-browser-measurements.md` Workstream A step 4): (a) whether the
 default inspect flow should run tier-2 + auto-merge, so scores move by default rather than
 only on an explicit agent action; (b) whether `THIN_EVIDENCE_MIN=3` is the right threshold
 for a tier-2 source that can produce hundreds of checks per page, where one merge call
-instantly clears it; (c) how the report distinguishes a static-only score from a
+instantly clears the thin flag; (c) how the report distinguishes a static-only score from a
 tier-2-inclusive one so the two numbers are never confusable. Every threshold below is a
 CALIBRATION DECISION, not a physical constant — revisit with data the same way the
 static-tier N=3 floor and severity repeat-cap are tracked above.
@@ -813,7 +835,8 @@ Record in CHANGELOG: engine version, Spearman, and (when GT re-ran) P/R.
 | @12 title/lang bug fix retention | Old-vs-new engine diff on `html-lang-*`/`document-title-missing` findings, final (post-correction) version: 20/20 GT sites zero diff; 86-site `benchmark/2026-07-05/` population zero diff (ADDED 0 / REMOVED 0) — see the `@12` engine-section detail above for the head/body-scoped first attempt's one false positive (linear.app idx 77) and the fix that removed it |
 | @5 re-verification | 14/15 FP classes eliminated, 39/39 TPs retained, 18 new catches |
 | @7 wild input-label FP elimination | 46/57 findings were wrapped-input FPs → 0; only jnto (+20) and spotify (+8) moved |
-| @9 thin-evidence state (`insufficient-evidence`, N=3) | Spearman 0.477 → 0.468 (n=71); score-delta median \|Δ\| 7, p95 19, max 23 across 85 comparable sites, 18 band flips; `total_findings` byte-identical @8→@9 on all 85 sites incl. all 7 `gt-remap-6` sites (finding emission unaffected) |
+| @9 thin-evidence state (`insufficient-evidence`, N=3) | Spearman 0.477 → 0.468 (n=71); score-delta median \|Δ\| 7, p95 19, max 23 across 85 comparable sites, 18 band flips; `total_findings` byte-identical @8→@9 on all 85 sites incl. all 7 `gt-remap-6` sites (finding emission unaffected) — SUPERSEDED by @17 below |
+| @17 A+ scoring fix (thin evidence scores, `thin: true` flag, retires `insufficient-evidence`; user ruling 2026-08-08) | 38/40 sites moved on `test/wild-corpus/` (real captured pages), median \|Δ\| 7, max \|Δ\| 58 (cuni.cz, the L2 KNOWN VIOLATION motivating case, recovers 0→58); finding keys byte-identical on all 40 sites (scoring-only change, `node --test`). No fresh Spearman/P/R rerun against Lighthouse or GT for @17 — findings are unaffected by this change so both are expected unchanged from @12, not yet empirically re-verified. Full per-site table: `benchmark/2026-08-08-aplus-movement.md` |
 | CJK fairness | jp-tw FP 0.214 → ~0.01 residual after @7; no CJK-text-semantics bias found |
 | Score error bar, temporal (same machine, 2-day, n=13) | median 0 / p95 1 / max 1; 0 band flips |
 | Score error bar, cross-machine | NOT YET MEASURED — run the two-machine experiment before quoting scores across machines |
@@ -835,5 +858,14 @@ Record in CHANGELOG: engine version, Spearman, and (when GT re-ran) P/R.
 6. ~~Engine @9 thin-evidence category state~~ DONE 2026-07-22: `insufficient-evidence`
    (N=3 floor) ships; benchmark rerun Spearman 0.477 → 0.468 (n=71), score-delta median
    7 / p95 19 / max 23 across 85 sites, 18 band flips; GT retention confirmed
-   (`total_findings` byte-identical @8→@9 on all 85 sites incl. `gt-remap-6`). N=3 stays
-   an open calibration knob (CHANGELOG 3.2.0).
+   (`total_findings` byte-identical @8→@9 on all 85 sites incl. `gt-remap-6`). SUPERSEDED:
+   this exclusion mechanism was the L2 KNOWN VIOLATION's root cause (a thin category could
+   exit the weighted denominator and drag the overall the wrong way when a violation was
+   fixed) — see item 7.
+7. ~~L2 monotonicity KNOWN VIOLATION / engine @17 A+ scoring fix~~ DONE 2026-08-08 (user
+   ruling): retired `insufficient-evidence`; any auditable evidence now scores and stays in
+   the weighted denominator, with `thin: true` as a same-line report qualifier instead of an
+   exclusion. `test/scoring-properties.test.mjs`'s `todo` monotonicity test now passes for
+   real. 38/40 `test/wild-corpus/` sites moved (median |Δ| 7, max |Δ| 58), finding keys
+   unchanged (`benchmark/2026-08-08-aplus-movement.md`). N=3 stays an open calibration knob
+   for the `thin` flag (CHANGELOG 3.2.0).

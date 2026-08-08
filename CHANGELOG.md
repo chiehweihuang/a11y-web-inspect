@@ -23,6 +23,19 @@
 
 ### Fixed
 
+- **L2 monotonicity KNOWN VIOLATION** (`beacon-static-audit@16` → `@17`, user ruling
+  2026-08-08, "A+"): retired the `insufficient-evidence` category state, which could exit a
+  thin (1-2 check) category from the weighted average and let fixing a violation LOWER the
+  overall score. Any auditable evidence now scores; a category below `THIN_EVIDENCE_MIN` (3)
+  instead carries a `thin: true` flag, rendered in the report as a same-line, same-weight
+  qualifier next to the score (never colour-alone) rather than an unscored, hidden state.
+  The 90-100 band's conclusion wording also downgrades when overall coverage is under 50%
+  (ruling #3), so a high score built on a sliver of measured weight no longer reads as an
+  unqualified "meets baseline". 38/40 sites moved on the 40-site wild regression corpus
+  (median |Δ| 7, max |Δ| 58 — cuni.cz, `0 → 58`, the case that motivated the fix); finding
+  keys unchanged on all 40 sites (scoring-only change, `benchmark/2026-08-08-aplus-movement.md`).
+  No fresh Spearman/GT rerun for `@17` — findings are unaffected by this change, so both are
+  expected unchanged from `@12`, not yet empirically re-verified.
 - **Three detector false-positive classes** found by that measurement
   (`beacon-static-audit@15`): out-of-scope input types (`submit`/`hidden`/`button`/
   `image`/`reset`) no longer demand a label; `title` is accepted as a button's accessible

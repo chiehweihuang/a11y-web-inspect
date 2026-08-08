@@ -1,13 +1,13 @@
 {
   "note": "Frozen wild regression corpus. Snapshots are real captured pages (gzipped); expected values were produced by the engine named below. Regenerate deliberately with beacon-benchmark-100/build-wild-corpus.mjs and explain every diff.",
-  "engine": "beacon-static-audit@16+ruleset.25eeae0aa809",
-  "built": "2026-08-04",
+  "engine": "beacon-static-audit@17+ruleset.bde99ddc0571",
+  "built": "2026-08-08",
   "sites": [
     {
       "id": 100020,
       "url": "https://a-mo.net",
       "score": 0,
-      "coverage": 23,
+      "coverage": 35,
       "keys": {
         "html-lang-missing": 1,
         "document-title-missing": 1,
@@ -23,8 +23,8 @@
     {
       "id": 100116,
       "url": "https://debian.org",
-      "score": 74,
-      "coverage": 36,
+      "score": 81,
+      "coverage": 48,
       "keys": {
         "main-landmark-missing": 1,
         "input-label-missing": 1,
@@ -36,8 +36,8 @@
     {
       "id": 100136,
       "url": "https://googleadservices.com",
-      "score": 34,
-      "coverage": 23,
+      "score": 56,
+      "coverage": 35,
       "keys": {
         "main-landmark-missing": 1,
         "headings-missing": 1,
@@ -50,8 +50,8 @@
     {
       "id": 100320,
       "url": "https://epa.gov",
-      "score": 97,
-      "coverage": 49,
+      "score": 90,
+      "coverage": 66,
       "keys": {
         "jsonld-missing": 1,
         "motion-reduced-motion-missing": 1,
@@ -61,8 +61,8 @@
     {
       "id": 100322,
       "url": "https://cnet.com",
-      "score": 72,
-      "coverage": 36,
+      "score": 84,
+      "coverage": 66,
       "keys": {
         "image-alt-missing": 1,
         "link-name-missing": 40,
@@ -76,8 +76,8 @@
     {
       "id": 100356,
       "url": "https://paloaltonetworks.com",
-      "score": 92,
-      "coverage": 49,
+      "score": 94,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "auth-recaptcha-v2": 1,
@@ -90,8 +90,8 @@
     {
       "id": 100461,
       "url": "https://sina.com.cn",
-      "score": 7,
-      "coverage": 23,
+      "score": 12,
+      "coverage": 53,
       "keys": {
         "html-lang-missing": 1,
         "main-landmark-missing": 1,
@@ -112,8 +112,8 @@
     {
       "id": 100515,
       "url": "https://scribd.com",
-      "score": 100,
-      "coverage": 36,
+      "score": 92,
+      "coverage": 66,
       "keys": {
         "quality-link-generic": 2,
         "motion-reduced-motion-missing": 1,
@@ -123,8 +123,8 @@
     {
       "id": 100652,
       "url": "https://hbr.org",
-      "score": 78,
-      "coverage": 36,
+      "score": 80,
+      "coverage": 66,
       "keys": {
         "heading-level-skipped": 1,
         "list-non-li-child": 1,
@@ -140,8 +140,8 @@
     {
       "id": 100671,
       "url": "https://flashtalking.com",
-      "score": 60,
-      "coverage": 36,
+      "score": 70,
+      "coverage": 66,
       "keys": {
         "heading-level-skipped": 1,
         "frame-title-missing": 1,
@@ -155,8 +155,8 @@
     {
       "id": 100675,
       "url": "https://livejournal.com",
-      "score": 28,
-      "coverage": 49,
+      "score": 39,
+      "coverage": 66,
       "keys": {
         "heading-level-skipped": 1,
         "image-alt-missing": 21,
@@ -175,8 +175,8 @@
     {
       "id": 100683,
       "url": "https://bild.de",
-      "score": 75,
-      "coverage": 36,
+      "score": 85,
+      "coverage": 61,
       "keys": {
         "frame-title-missing": 1,
         "link-name-missing": 34,
@@ -186,8 +186,8 @@
     {
       "id": 100728,
       "url": "https://discord.media",
-      "score": 27,
-      "coverage": 23,
+      "score": 65,
+      "coverage": 48,
       "keys": {
         "main-landmark-missing": 1,
         "heading-level-skipped": 1,
@@ -201,8 +201,8 @@
     {
       "id": 100759,
       "url": "https://un.org",
-      "score": 63,
-      "coverage": 36,
+      "score": 72,
+      "coverage": 48,
       "keys": {
         "html-lang-missing": 1,
         "main-landmark-missing": 1,
@@ -216,8 +216,8 @@
     {
       "id": 100851,
       "url": "https://baidu.com",
-      "score": 15,
-      "coverage": 23,
+      "score": 45,
+      "coverage": 66,
       "keys": {
         "html-lang-missing": 1,
         "main-landmark-missing": 1,
@@ -237,8 +237,8 @@
     {
       "id": 100900,
       "url": "https://qq.com",
-      "score": 24,
-      "coverage": 36,
+      "score": 31,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "headings-missing": 1,
@@ -260,8 +260,8 @@
     {
       "id": 101069,
       "url": "https://hwg.org",
-      "score": 13,
-      "coverage": 23,
+      "score": 8,
+      "coverage": 35,
       "keys": {
         "html-lang-missing": 1,
         "main-landmark-missing": 1,
@@ -275,8 +275,8 @@
     {
       "id": 101082,
       "url": "https://nishinippon.co.jp",
-      "score": 73,
-      "coverage": 36,
+      "score": 78,
+      "coverage": 66,
       "keys": {
         "button-name-missing": 3,
         "jsonld-missing": 1,
@@ -288,8 +288,8 @@
     {
       "id": 101337,
       "url": "https://dns.com",
-      "score": 11,
-      "coverage": 49,
+      "score": 16,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "image-alt-missing": 32,
@@ -311,8 +311,8 @@
     {
       "id": 101380,
       "url": "https://cuni.cz",
-      "score": 0,
-      "coverage": 23,
+      "score": 58,
+      "coverage": 66,
       "keys": {
         "html-lang-mismatch-review": 1,
         "main-landmark-missing": 1,
@@ -332,8 +332,8 @@
     {
       "id": 101475,
       "url": "https://transip.eu",
-      "score": 88,
-      "coverage": 36,
+      "score": 82,
+      "coverage": 53,
       "keys": {
         "clickable-non-button": 1,
         "canonical-missing": 1,
@@ -344,8 +344,8 @@
     {
       "id": 101512,
       "url": "https://vietnamnet.vn",
-      "score": 7,
-      "coverage": 49,
+      "score": 23,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "heading-level-skipped": 1,
@@ -365,8 +365,8 @@
     {
       "id": 101538,
       "url": "https://digi24.ro",
-      "score": 54,
-      "coverage": 36,
+      "score": 57,
+      "coverage": 66,
       "keys": {
         "button-name-missing": 3,
         "link-name-missing": 17,
@@ -380,8 +380,8 @@
     {
       "id": 101550,
       "url": "https://minhngoc.net.vn",
-      "score": 40,
-      "coverage": 36,
+      "score": 22,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "heading-level-skipped": 1,
@@ -402,7 +402,7 @@
       "id": 101559,
       "url": "https://bhg.com",
       "score": 2,
-      "coverage": 23,
+      "coverage": 35,
       "keys": {
         "html-lang-missing": 1,
         "document-title-missing": 1,
@@ -418,8 +418,8 @@
     {
       "id": 101676,
       "url": "https://larazon.es",
-      "score": 72,
-      "coverage": 36,
+      "score": 71,
+      "coverage": 53,
       "keys": {
         "heading-level-skipped": 1,
         "link-name-missing": 7,
@@ -432,8 +432,8 @@
     {
       "id": 101804,
       "url": "https://gotomeeting.com",
-      "score": 95,
-      "coverage": 49,
+      "score": 89,
+      "coverage": 66,
       "keys": {
         "list-non-li-child": 1,
         "quality-alt-generic": 2,
@@ -445,8 +445,8 @@
     {
       "id": 101895,
       "url": "https://facebook-hardware.com",
-      "score": 37,
-      "coverage": 23,
+      "score": 24,
+      "coverage": 35,
       "keys": {
         "main-landmark-missing": 1,
         "image-alt-missing": 1,
@@ -460,8 +460,8 @@
     {
       "id": 102099,
       "url": "https://meb.gov.tr",
-      "score": 18,
-      "coverage": 49,
+      "score": 21,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "heading-level-skipped": 1,
@@ -481,8 +481,8 @@
     {
       "id": 102117,
       "url": "https://anker-in.com",
-      "score": 56,
-      "coverage": 49,
+      "score": 60,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "heading-level-skipped": 1,
@@ -501,8 +501,8 @@
     {
       "id": 102163,
       "url": "https://hentaila.tv",
-      "score": 51,
-      "coverage": 36,
+      "score": 57,
+      "coverage": 53,
       "keys": {
         "main-landmark-missing": 1,
         "button-name-missing": 15,
@@ -515,8 +515,8 @@
     {
       "id": 102195,
       "url": "https://wpzoom.com",
-      "score": 82,
-      "coverage": 49,
+      "score": 79,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "link-name-missing": 3,
@@ -530,8 +530,8 @@
     {
       "id": 102300,
       "url": "https://mp4moviez.bot",
-      "score": 85,
-      "coverage": 23,
+      "score": 93,
+      "coverage": 48,
       "keys": {
         "canonical-missing": 1,
         "jsonld-missing": 1,
@@ -541,8 +541,8 @@
     {
       "id": 102328,
       "url": "https://lazada.sg",
-      "score": 45,
-      "coverage": 36,
+      "score": 25,
+      "coverage": 66,
       "keys": {
         "html-lang-missing": 1,
         "main-landmark-missing": 1,
@@ -564,8 +564,8 @@
     {
       "id": 102403,
       "url": "https://xv-ru.com",
-      "score": 19,
-      "coverage": 36,
+      "score": 29,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "headings-missing": 1,
@@ -584,8 +584,8 @@
     {
       "id": 102559,
       "url": "https://pavietnam.vn",
-      "score": 14,
-      "coverage": 36,
+      "score": 45,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "heading-level-skipped": 1,
@@ -604,8 +604,8 @@
     {
       "id": 102579,
       "url": "https://sexlog.com",
-      "score": 95,
-      "coverage": 36,
+      "score": 75,
+      "coverage": 53,
       "keys": {
         "viewport-zoom-disabled": 1,
         "jsonld-missing": 1,
@@ -616,8 +616,8 @@
     {
       "id": 102741,
       "url": "https://vu.edu.pk",
-      "score": 39,
-      "coverage": 36,
+      "score": 59,
+      "coverage": 66,
       "keys": {
         "html-lang-missing": 1,
         "main-landmark-missing": 1,
@@ -638,8 +638,8 @@
     {
       "id": 102980,
       "url": "https://yesstyle.com",
-      "score": 43,
-      "coverage": 49,
+      "score": 50,
+      "coverage": 66,
       "keys": {
         "heading-level-skipped": 1,
         "image-alt-missing": 4,
@@ -653,8 +653,8 @@
     {
       "id": 102985,
       "url": "https://lexmark.com",
-      "score": 89,
-      "coverage": 36,
+      "score": 86,
+      "coverage": 66,
       "keys": {
         "main-landmark-missing": 1,
         "quality-link-generic": 1,

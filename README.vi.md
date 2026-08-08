@@ -59,7 +59,7 @@ Hãy dùng điểm số như một tín hiệu triage:
 | 50-89 | Đã tìm thấy một số barrier hoặc mục cần review. Ưu tiên findings theo người dùng bị ảnh hưởng và mức độ nghiêm trọng. |
 | 0-49 | Khuyến nghị review ưu tiên cao. Bằng chứng đã kiểm tra cho thấy có barrier đáng kể. |
 
-Mỗi điểm số đi kèm `coverage_percent`, tức là phần scoring weight thực sự được đo. Category không có bằng chứng máy sẽ báo cáo trạng thái (`not-machine-checkable` / `not-applicable`) thay vì con số, category chỉ có 1-2 machine check sẽ báo cáo `insufficient-evidence` thay vì con số, và một finding về nguy cơ co giật đã xác nhận (WCAG 2.3.1) sẽ giới hạn overall score vào band 0-49 bất kể trọng số category.
+Mỗi điểm số đi kèm `coverage_percent`, tức là phần scoring weight thực sự được đo. Category không có bằng chứng máy sẽ báo cáo trạng thái (`not-machine-checkable` / `not-applicable`) thay vì con số. Category có bất kỳ bằng chứng nào đều được tính điểm; category chỉ có 1-2 machine check sẽ được gắn thêm `thin: true` và hiển thị chú thích "thin evidence" ngay trên cùng dòng với điểm số, thay vì bị ẩn đi. Một finding về nguy cơ co giật đã xác nhận (WCAG 2.3.1) sẽ giới hạn overall score vào band 0-49 bất kể trọng số category.
 
 Cách các con số này được giữ trung thực (reliability, tính hợp lệ của detector, tính chất score-semantics, benchmark bên ngoài, và fairness invariant) được quy định và có thể thực thi trong [VALIDATION.md](VALIDATION.md); dữ liệu đo lường nằm trong [benchmark/](benchmark/).
 

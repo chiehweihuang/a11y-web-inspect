@@ -126,15 +126,15 @@ test('L4 cross-stack fairness: the same violations get the same findings and sco
   }
 });
 
-// L2 monotonicity, the case the test above cannot reach. VALIDATION.md promises that
-// fixing a violation never lowers a score and adding one never raises it. Both halves are
-// currently FALSE when a category crosses THIN_EVIDENCE_MIN: dropping from 3 evidence
-// items to 2 re-states the category as insufficient-evidence and removes it from the
-// weighted denominator, so a better-scoring category can leave and drag the average down.
-// Marked todo because the fix is a pending product decision (count passes as evidence /
-// clamp the overall / re-calibrate the threshold), NOT because the defect is theoretical:
-// it reproduces here, and on real captured markup (test/wild-corpus/ page 101380 moves
-// 22 -> 0 when one false positive is removed). Delete the todo flag when the fix lands.
+// L2 monotonicity, the case the test above cannot reach: crossing THIN_EVIDENCE_MIN.
+// FIXED by engine @17 (user ruling 2026-08-08, VALIDATION.md L2): dropping from 3
+// evidence items to 2 used to re-state the category as insufficient-evidence and remove
+// it from the weighted denominator, so a better-scoring category could leave and drag the
+// average down. Now a thin category (auditable < THIN_EVIDENCE_MIN) still scores and stays
+// in the denominator — it only gains a `thin: true` flag the report surfaces as a
+// same-line qualifier. Kept as a real (non-todo) regression test: this exact case
+// previously reproduced the defect, and on real captured markup (test/wild-corpus/ page
+// 101380 moved 22 -> 0 when one false positive was removed).
 const THIN_WITH = `<html lang="en"><head><title>t</title><meta name="description" content="d">
 <link rel="canonical" href="/"><script type="application/ld+json">{"@type":"Thing"}</script></head>
 <body><main><h1>H</h1>
@@ -144,7 +144,7 @@ const THIN_WITH = `<html lang="en"><head><title>t</title><meta name="description
 </main></body></html>`;
 const THIN_FIXED = THIN_WITH.replace('<div onclick="x()">clickable with no keyboard path</div>\n', '');
 
-test('L2 monotonicity: fixing a keyboard violation must not lower the score', { todo: 'THIN_EVIDENCE_MIN discontinuity, see VALIDATION.md L2' }, () => {
+test('L2 monotonicity: fixing a keyboard violation must not lower the score (crosses the old 3->2 evidence threshold)', () => {
   const withViolation = overall(audit(THIN_WITH));
   const fixed = overall(audit(THIN_FIXED));
   assert.ok(fixed >= withViolation, `fixing the violation lowered the score (${withViolation} -> ${fixed})`);

@@ -26,7 +26,7 @@ Conduct a structured accessibility audit that produces **quantitative scores** a
 4. **Jurisdiction Context** — Per-jurisdiction framing tied to the WCAG criteria found in the audit, without presenting mechanical warning counts as legal risk
 5. **Local Artifacts Only** — Beacon keeps audit artifacts local; detector updates come from maintainer-run offline work and plugin releases
 6. **Confidence Level** — Derived by the script from measured weight coverage, never hardcoded
-7. **Category States** — A category with no machine evidence reports a state (`not-machine-checkable` / `not-applicable`), and a category with fewer than 3 total machine checks reports `insufficient-evidence` (a 1-2 check denominator is a coin flip, not a score) — all with `score: null`, never a number; unverifiable items are flagged, not penalized
+7. **Category States** — A category with no machine evidence reports a state (`not-machine-checkable` / `not-applicable`, `score: null`, never a number); a category with any evidence scores, and one with fewer than 3 total machine checks additionally carries `thin: true` (a 1-2 check denominator is a coin flip, so the report flags it, but it still gets a number); unverifiable items are flagged, not penalized
 8. **Pedagogical Demo Detection** — Intentionally bad examples in educational content are excluded from scoring
 
 ## Scoring Calibration
@@ -483,11 +483,21 @@ This category covers both assistive technology agents (screen readers) and AI ag
 | `fail` | Evidence confirms violation | +1 to category fail count + finding |
 | `unverifiable` | Cannot confirm from static HTML (e.g., JS-rendered content, runtime behavior, actual contrast) | Excluded from both pass and fail counts. Does NOT reduce score. |
 
-A category's evidence rolls up to a **state** in the artifact: `scored` (3+ pass/fail
-checks), `insufficient-evidence` (1-2 pass/fail checks — too thin a denominator to read as
-a score), `not-machine-checkable` (review-only), or `not-applicable` (no evidence at all).
-Unscored categories carry `score: null` — absence (or thinness) of evidence is reported as
-a state, never as a number, and never as 100.
+A category's evidence rolls up to a **state** in the artifact: `scored` (any pass/fail
+evidence at all, `pass + fail >= 1`), `not-machine-checkable` (review-only), or
+`not-applicable` (no evidence at all). Unscored categories carry `score: null` — absence of
+evidence is reported as a state, never as a number, and never as 100.
+
+A `scored` category with fewer than `THIN_EVIDENCE_MIN` (3) checks additionally carries
+`thin: true` — a 1-2 check denominator is a coin flip, too thin to trust alone, but that is
+no longer a reason to hide the number (user ruling 2026-08-08, "A+"). The report renders
+`thin: true` as a same-line, same-weight qualifier next to the score ("證據薄弱"/"thin
+evidence"), never a colour-only or footnote-only signal, so a 100 built on one passing check
+reads as "the one thing checked passed", not "nothing wrong here". This replaces the old
+`insufficient-evidence` state, which excluded thin categories from scoring entirely and
+broke the monotonicity guarantee below (VALIDATION.md L2 KNOWN VIOLATION, fixed by engine
+`@17`): dropping from 3 evidence items to 2 could re-state a category as unscored and drop
+it out of the weighted average, so FIXING a violation could LOWER the overall score.
 
 This system prevents penalizing CSR/SPA sites for things that simply cannot be verified from static HTML. It also reduces inter-auditor variance by eliminating the "probably fails" gray area.
 
@@ -596,20 +606,22 @@ node scripts/static-audit.mjs --scope "<scope>" \
   --output audit-results.json <file-or-dir>...
 ```
 
-**Warning — merging moves the score, it is not a free "add more evidence" step.** Once a
-category's merged evidence (pass + fail checks) reaches `THIN_EVIDENCE_MIN` (3), that
-category leaves `not-machine-checkable` / `insufficient-evidence` and becomes `scored` —
-which can shift `overall_score`, `coverage_percent`, and that category's own state, all in
+**Warning — merging moves the score, it is not a free "add more evidence" step.** Since
+engine `@17`, a category with ANY merged evidence (pass + fail >= 1) leaves
+`not-machine-checkable` and becomes `scored` immediately — `THIN_EVIDENCE_MIN` (3) only
+gates the `thin: true` qualifier, not whether the category scores at all. That single
+merge can shift `overall_score`, `coverage_percent`, and that category's own state, all in
 the SAME run. Measured example (`test/golden/clean.html`, a committed fixture pinned by
 `test/golden/clean.expected.json` so the numbers below cannot silently drift — reproduce
 with `node scripts/static-audit.mjs --scope golden-clean --date 2026-07-26 [--merge-findings
 <1-or-3 tier2-contrast-fail findings>.json] test/golden/clean.html`): contrast 0 pass/0 fail
-→ `not-machine-checkable`, overall 100, coverage 23%; merging 1 tier-2/axe contrast fail →
-still unscored, now `insufficient-evidence`, overall and coverage unchanged; merging 3 →
-contrast `scored` at 0, overall 100 → 64, coverage 23% → 36%. `confidence_level` stays `low`
-throughout this example — it only moves once a coverage change crosses the 60% band boundary
-(`static-audit.mjs`'s `coverage >= 60 ? 'medium' : 'low'`). Decide whether to merge with this
-in mind.
+→ `not-machine-checkable`, overall 100, coverage 66%; merging 1 tier-2/axe contrast fail →
+`scored` at 0 (`thin: true`), overall 100 → 84, coverage 66% → 79%; merging 3 → contrast
+still `scored` at 0, now `thin: false`, overall and coverage unchanged from the 1-fail case
+(84, 79%) — the score already reflected the evidence, only the thin qualifier clears at n=3.
+`confidence_level` stays `medium` throughout this example — it only moves once a coverage
+change crosses the 60% band boundary (`static-audit.mjs`'s `coverage >= 60 ? 'medium' :
+'low'`). Decide whether to merge with this in mind.
 
 The script re-scans, folds in your merged findings, applies the severity matrix and the
 category/overall formulas, and writes the authoritative artifact. Pass `--date <YYYY-MM-DD>`

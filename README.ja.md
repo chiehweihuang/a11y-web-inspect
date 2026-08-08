@@ -57,7 +57,7 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 | 50-89 | いくつかの barrier や要確認項目が見つかりました。影響を受けるユーザーと深刻度で findings の優先順位を付けてください。 |
 | 0-49 | 優先度の高いレビューを推奨します。検査された証拠は重大な barrier を示唆しています。 |
 
-すべてのスコアには `coverage_percent`(実際に測定された scoring weight の割合)が付きます。機械的な証拠がないカテゴリは数値の代わりに状態(`not-machine-checkable` / `not-applicable`)を報告し、機械チェックが1-2件しかないカテゴリは `insufficient-evidence` を報告します。確認された seizure リスクの finding(WCAG 2.3.1)がある場合は、カテゴリの重みに関わらず overall score が 0-49 帯に制限されます。
+すべてのスコアには `coverage_percent`(実際に測定された scoring weight の割合)が付きます。機械的な証拠がないカテゴリは数値の代わりに状態(`not-machine-checkable` / `not-applicable`)を報告します。証拠が1件でもあるカテゴリはスコアが付き、機械チェックが1-2件しかないカテゴリにはさらに `thin: true` が付与され、スコアと同じ行に「thin evidence」という補足が表示されます(非表示にはなりません)。確認された seizure リスクの finding(WCAG 2.3.1)がある場合は、カテゴリの重みに関わらず overall score が 0-49 帯に制限されます。
 
 これらの数値がどのように誠実さを保っているか(信頼性、detector の妥当性、score-semantics の性質、外部 benchmark、fairness invariant)は [VALIDATION.md](VALIDATION.md) に仕様化され、実行可能な形で記載されています。計測データは [benchmark/](benchmark/) 以下にあります。
 

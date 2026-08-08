@@ -57,7 +57,7 @@ Plugin facts：`beacon`、version `3.3.0`、MIT、repository `chiehweihuang/beac
 | 50-89 | 发现了一些 barrier 或待复核项，请依受影响用户与严重程度排定 finding 优先级。 |
 | 0-49 | 建议优先复核，已检查的证据显示存在较严重的 barrier。 |
 
-每个分数都会附带 `coverage_percent`（实际测量到的 scoring weight 占比）。没有机器证据的类别会以状态（`not-machine-checkable` / `not-applicable`）取代数字，机器检查只有 1-2 项的类别会以 `insufficient-evidence` 取代数字；一旦确认存在癫痫发作风险的 finding（WCAG 2.3.1），无论各类别权重如何，overall score 都会被限制在 0-49 区间。
+每个分数都会附带 `coverage_percent`（实际测量到的 scoring weight 占比）。没有机器证据的类别会以状态（`not-machine-checkable` / `not-applicable`）取代数字。只要有任何证据的类别就会计分；机器检查只有 1-2 项的类别会额外标上 `thin: true`，并在分数旁以同一行呈现"证据薄弱"标示，而不是被隐藏。一旦确认存在癫痫发作风险的 finding（WCAG 2.3.1），无论各类别权重如何，overall score 都会被限制在 0-49 区间。
 
 这些数字如何保持可信（可靠性、detector 有效性、score-semantics 性质、外部 benchmark、fairness invariant）已在 [VALIDATION.md](VALIDATION.md) 中规范并可执行；实测数据存放在 [benchmark/](benchmark/) 下。
 

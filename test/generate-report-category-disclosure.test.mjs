@@ -19,9 +19,9 @@ test('category cards expose completed states as text (never a painted score), an
         overall_score: 100, coverage_percent: 10, total_findings: 1,
         critical: 1, warnings: 0, tips: 0,
         categories: [
-          { id: 'contrast', name: 'Color & Contrast', pass: 0, fail: 0, review: 1, state: 'not-machine-checkable', score: null },
-          { id: 'screenreader', name: 'Screen Reader', pass: 1, fail: 1, review: 0, state: 'scored', score: 100 },
-          { id: 'responsive', name: 'Responsive & Reflow', pass: 1, fail: 0, review: 0, state: 'insufficient-evidence', score: null },
+          { id: 'contrast', name: 'Color & Contrast', pass: 0, fail: 0, review: 1, state: 'not-machine-checkable', score: null, thin: false },
+          { id: 'screenreader', name: 'Screen Reader', pass: 1, fail: 1, review: 0, state: 'scored', score: 100, thin: false },
+          { id: 'responsive', name: 'Responsive & Reflow', pass: 1, fail: 0, review: 0, state: 'scored', score: 100, thin: true },
         ],
       },
       findings: [
@@ -33,15 +33,25 @@ test('category cards expose completed states as text (never a painted score), an
     execFileSync('node', [join(ROOT, 'core/scripts/generate-report.mjs'), audit, '--output', report]);
     const html = readFileSync(report, 'utf8');
 
-    // Unscored categories carry a text badge, never a score/ring — engine @9's
-    // not-machine-checkable and insufficient-evidence states both render as text.
+    // Unscored categories (not-machine-checkable / not-applicable) carry a text badge,
+    // never a score/ring.
     assert.match(html, /data-category="contrast"[\s\S]*?已完成靜態掃描 · 需人工驗證/);
-    assert.match(html, /data-category="responsive"[\s\S]*?已完成靜態掃描 · 證據不足以計分/);
-    assert.doesNotMatch(
+
+    // A+ (engine @17, user ruling 2026-08-08): a thin category (evidence < N=3) still
+    // scores -- the "證據薄弱" qualifier sits on the SAME line as the score badge, not a
+    // footnote, and it must appear before score-badge in card markup order.
+    assert.match(
       html,
-      /data-category="responsive"[\s\S]{0,400}score-badge/,
-      'an insufficient-evidence category must not render a score badge'
+      /data-category="responsive"[\s\S]{0,400}class="score-qual">[\s\S]{0,120}證據薄弱[\s\S]{0,200}class="score-badge"/,
+      'a thin category must render its score-qual chip immediately before the score badge, same card row'
     );
+    assert.match(html, /data-category="responsive"[\s\S]{0,400}<b class="s-pass">100<\/b>/, 'the thin category still renders its actual score');
+
+    // Ruling #3 (user ruling 2026-08-08): a 90-100 overall score built on low weight
+    // coverage (here 10%) downgrades the band conclusion wording instead of an unqualified
+    // "Meets baseline" -- both languages.
+    assert.match(html, /class="band"[\s\S]{0,120}達到基準（證據涵蓋率低）/, 'low-coverage pass band must use the downgraded zh wording');
+    assert.match(html, /class="band"[\s\S]{0,200}Meets baseline \(low coverage\)/, 'low-coverage pass band must use the downgraded en wording');
 
     // Masthead: page URL escaped, bilingual label present.
     assert.match(html, /受測網頁/);

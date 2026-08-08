@@ -59,7 +59,7 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 | 50-89 | พบ barrier หรือรายการที่ต้องตรวจสอบเพิ่มเติมบางส่วน ให้จัดลำดับ findings ตามผู้ใช้ที่ได้รับผลกระทบและความรุนแรง |
 | 0-49 | แนะนำให้ตรวจสอบเป็นลำดับแรก หลักฐานที่ตรวจพบชี้ว่ามี barrier ที่รุนแรง |
 
-ทุกคะแนนจะมาพร้อม `coverage_percent` ซึ่งคือสัดส่วนของ scoring weight ที่วัดได้จริง หมวดที่ไม่มีหลักฐานเชิงเครื่องจะรายงานสถานะ (`not-machine-checkable` / `not-applicable`) แทนตัวเลข หมวดที่มี machine check เพียง 1-2 รายการจะรายงาน `insufficient-evidence` แทนตัวเลข และ finding ความเสี่ยงชักที่ยืนยันแล้ว (WCAG 2.3.1) จะจำกัด overall score ให้อยู่ใน band 0-49 โดยไม่ขึ้นกับน้ำหนักของหมวดนั้น
+ทุกคะแนนจะมาพร้อม `coverage_percent` ซึ่งคือสัดส่วนของ scoring weight ที่วัดได้จริง หมวดที่ไม่มีหลักฐานเชิงเครื่องจะรายงานสถานะ (`not-machine-checkable` / `not-applicable`) แทนตัวเลข หมวดที่มีหลักฐานแม้เพียงเล็กน้อยก็จะได้คะแนน ส่วนหมวดที่มี machine check เพียง 1-2 รายการจะได้ป้าย `thin: true` เพิ่มเติมและแสดงข้อความกำกับ "thin evidence" ในบรรทัดเดียวกับคะแนน แทนที่จะถูกซ่อนไว้ และ finding ความเสี่ยงชักที่ยืนยันแล้ว (WCAG 2.3.1) จะจำกัด overall score ให้อยู่ใน band 0-49 โดยไม่ขึ้นกับน้ำหนักของหมวดนั้น
 
 ตัวเลขเหล่านี้ถูกรักษาความน่าเชื่อถืออย่างไร (reliability, ความถูกต้องของ detector, คุณสมบัติ score-semantics, benchmark ภายนอก, และ fairness invariant) ถูกระบุไว้และรันได้จริงใน [VALIDATION.md](VALIDATION.md) ข้อมูลที่วัดได้อยู่ใน [benchmark/](benchmark/)
 

@@ -59,7 +59,7 @@ Plugin facts: `beacon`, version `3.3.0`, MIT, repository `chiehweihuang/beacon`.
 | 50-89 | कुछ barrier या review items पाए गए। प्रभावित users और severity के आधार पर findings को प्राथमिकता दें। |
 | 0-49 | High-priority review की सलाह दी जाती है। जांची गई evidence substantial barriers का संकेत देती है। |
 
-हर स्कोर के साथ `coverage_percent` जुड़ा होता है, यानी scoring weight का वह हिस्सा जो वास्तव में measure हुआ। Machine evidence के बिना categories संख्या के बजाय एक स्थिति (`not-machine-checkable` / `not-applicable`) रिपोर्ट करती हैं, केवल 1-2 machine checks वाली category संख्या के बजाय `insufficient-evidence` रिपोर्ट करती है, और एक confirmed seizure-risk finding (WCAG 2.3.1) category weights की परवाह किए बिना overall score को 0-49 band में सीमित कर देती है।
+हर स्कोर के साथ `coverage_percent` जुड़ा होता है, यानी scoring weight का वह हिस्सा जो वास्तव में measure हुआ। Machine evidence के बिना categories संख्या के बजाय एक स्थिति (`not-machine-checkable` / `not-applicable`) रिपोर्ट करती हैं। जिस category के पास कोई भी evidence है उसे score मिलता है; केवल 1-2 machine checks वाली category को अतिरिक्त रूप से `thin: true` मिलता है और score के साथ उसी line में "thin evidence" qualifier दिखता है, छुपाया नहीं जाता। एक confirmed seizure-risk finding (WCAG 2.3.1) category weights की परवाह किए बिना overall score को 0-49 band में सीमित कर देती है।
 
 ये आंकड़े कैसे honest रखे जाते हैं (reliability, detector validity, score-semantics properties, external benchmarks, और fairness invariants), यह [VALIDATION.md](VALIDATION.md) में specify और executable रूप में दिया गया है; measured data [benchmark/](benchmark/) के तहत है।
 
