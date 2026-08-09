@@ -13,7 +13,7 @@
     ],
     "platform": "Web",
     "tool_version": "beacon codex static baseline",
-    "engine_fingerprint": "beacon-static-audit@17+ruleset.bde99ddc0571",
+    "engine_fingerprint": "beacon-static-audit@18+ruleset.bde99ddc0571",
     "confidence_level": "medium",
     "requires_live_audit": true,
     "audit_tier": "Tier 1 (static file scan only)",
@@ -25,7 +25,7 @@
   },
   "summary": {
     "overall_score": 100,
-    "coverage_percent": 66,
+    "coverage_percent": 61,
     "life_safety_flag": false,
     "score_bands": [
       {
@@ -41,11 +41,11 @@
         "id": "fail"
       }
     ],
-    "total_findings": 1,
+    "total_findings": 2,
     "critical": 0,
-    "warnings": 0,
+    "warnings": 1,
     "tips": 1,
-    "unverifiable": 5,
+    "unverifiable": 6,
     "categories": [
       {
         "id": "contrast",
@@ -120,12 +120,12 @@
       {
         "id": "motion",
         "name": "Motion & Animation",
-        "pass": 1,
+        "pass": 0,
         "fail": 0,
-        "review": 0,
-        "state": "scored",
-        "score": 100,
-        "thin": true
+        "review": 1,
+        "state": "not-machine-checkable",
+        "score": null,
+        "thin": false
       },
       {
         "id": "media",
@@ -150,6 +150,20 @@
     ]
   },
   "findings": [
+    {
+      "level": "AAA",
+      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "key": "motion-reduced-motion-missing",
+      "category": "motion",
+      "severity": "warning",
+      "wcag": "WCAG 2.2: 2.3.3 Animation from Interactions",
+      "title": "Motion with reduced-motion handling present",
+      "affected_users": "Vestibular disorder, migraine, and attention-sensitive users",
+      "location": "test/golden/clean.html",
+      "description": "Motion-bearing CSS was found on a markup-reachable selector, and prefers-reduced-motion handling is also present.",
+      "fix": "No action needed.",
+      "check": "review"
+    },
     {
       "level": "AA",
       "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",

@@ -3,11 +3,13 @@
 <meta name="description" content="A fully compliant static fixture.">
 <link rel="canonical" href="https://example.com/golden-clean">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"golden"}</script>
-<style>.spin{animation: spin 2s;} @media (prefers-reduced-motion: reduce){.spin{animation: none;}}</style>
+<style>@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.spin{animation: spin 2s;} @media (prefers-reduced-motion: reduce){.spin{animation: none;}}</style>
 </head><body><main><h1>Golden clean</h1>
 <h2>Section</h2>
 <a href="/home">Home</a>
 <a href="/logo"><img alt="Site logo" src="logo.png"></a>
+<div class="spin">Loading</div>
 <button>Save</button>
 <button aria-label="Close dialog"><svg focusable="false" aria-hidden="true"></svg></button>
 <label for="email">Email</label><input id="email" type="email">

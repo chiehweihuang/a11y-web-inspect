@@ -360,6 +360,83 @@ test('input-label-missing: input after a CLOSED label (not wrapped) is still fla
   assert.equal(inputLabelFindings(audit).length, 1, 'an input outside the label range (label already closed) must still flag');
 });
 
+// === HTML-AAM accname fallback chain (engine @18, 2026-08 hunt round 2, ids
+// 100545/103280/104362, three agents converged): aria-labelledby(resolving) ->
+// aria-label -> label[for]/wrapping <label> -> title -> placeholder. A bare `id` no
+// longer exempts an input by itself -- it must have a MATCHING <label for="that id">
+// (fixes the false-negative twin of the old id-presence exemption, VALIDATION.md:603). ===
+const inputLabelWeak = (audit) => audit.findings.filter((f) => f.key === 'input-label-weak');
+
+test('input-label-missing: an `id` with NO matching <label for> is flagged, not exempted (false-negative twin fix)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<label for="other">Other field</label>
+<input type="text" id="savings" name="s">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 1, 'a bare id with no matching for= must still flag');
+});
+
+test('input-label-missing: an `id` WITH a matching <label for> is named (positive control)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<label for="savings">Savings</label>
+<input type="text" id="savings" name="s">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 0);
+  assert.equal(inputLabelWeak(audit).length, 0);
+});
+
+test('input-label: a resolving aria-labelledby names the input (no finding)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<span id="lbl">Search</span>
+<input type="text" aria-labelledby="lbl">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 0);
+  assert.equal(inputLabelWeak(audit).length, 0);
+});
+
+test('input-label: a NON-resolving aria-labelledby (dangling IDREF) is flagged, not exempted', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<input type="text" aria-labelledby="nowhere">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 1, 'a dangling aria-labelledby IDREF must not exempt the input');
+});
+
+test('input-label: title-only or placeholder-only is `input-label-weak` review, not a critical fail (axe precedent)', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<input type="text" title="Search term">
+<input type="text" placeholder="Search">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 0, 'title/placeholder must not count as fully nameless');
+  const weak = inputLabelWeak(audit);
+  assert.equal(weak.length, 2);
+  for (const f of weak) {
+    assert.equal(f.check, 'review', 'title/placeholder-only must be review, not a confirmed fail');
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.level, 'A');
+  }
+});
+
+test('input-label: a stronger name source (aria-label) takes precedence over title/placeholder — no weak finding', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<input type="text" aria-label="Search" title="also has a title" placeholder="also has a placeholder">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit).length, 0);
+  assert.equal(inputLabelWeak(audit).length, 0, 'a real aria-label must win over the weak title/placeholder path');
+});
+
+test('input-label-missing: level is Level A (3.3.2), not the AA default', () => {
+  const audit = runScanner(`<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head><body><main>
+<input type="text" name="u">
+</main></body></html>`);
+  assert.equal(inputLabelFindings(audit)[0].level, 'A');
+});
+
 // hakuso HIGH, 2026-07-07: a tag-shaped token inside a <script> string or an HTML comment
 // must not open a phantom range in computeHiddenRanges/computeLabelRanges — the old
 // unclosed-tail behavior would swallow every later finding on the page to EOF.
@@ -727,4 +804,211 @@ test('fixed-minmax-overflow: an unguarded repeat(9, minmax(116px, 1fr)) still pr
   assert.equal(hits.length, 1, 'the finding must still fire — matching stays broad, not narrowed');
   assert.equal(hits[0].check, 'review', 'must be review, not a confirmed fail');
   assert.equal(withDeclaration.summary.overall_score, withoutDeclaration.summary.overall_score, 'a review-only finding must not move the score');
+});
+
+// === isHiddenAttrs quote-blindness (engine @18, 2026-08 hunt round 2, id 100594 / youku):
+// a bare /\shidden/ regex over the raw attrs blob used to read "hidden" inside a quoted
+// attribute VALUE as the boolean hidden ATTRIBUTE, opening a phantom hidden range that
+// blacked out the rest of the document. ===
+const namelessButtonFindings = (audit) => audit.findings.filter((f) => f.key === 'button-name-missing');
+const framePage = (bodyInner) => `<!DOCTYPE html><html lang="en"><head><title>t</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body>${bodyInner}</body></html>`;
+
+test('isHiddenAttrs: "hidden" inside a quoted style VALUE must not hide the subtree', () => {
+  const audit = runScanner(framePage('<div style="overflow: hidden overlay;"><main><button></button></main></div>'));
+  assert.equal(namelessButtonFindings(audit).length, 1, 'the nameless button must still be seen, not blacked out by a phantom hidden range');
+});
+
+test('isHiddenAttrs: "hidden" inside a quoted class VALUE (Tailwind-style) must not hide the subtree', () => {
+  const audit = runScanner(framePage('<div class="btn hidden md:block"><main><button></button></main></div>'));
+  assert.equal(namelessButtonFindings(audit).length, 1, 'must still see the nameless button after a class="...hidden..." token');
+});
+
+test('isHiddenAttrs: real hidden markers still suppress their subtree (regression)', () => {
+  const cases = [
+    '<div hidden><button></button></div>',
+    '<div hidden=""><button></button></div>',
+    '<div aria-hidden="true"><button></button></div>',
+    '<div style="display:none"><button></button></div>',
+  ];
+  for (const c of cases) {
+    const audit = runScanner(framePage(`<main>${c}</main>`));
+    assert.equal(namelessButtonFindings(audit).length, 0, `${c} must still hide its subtree`);
+  }
+});
+
+// === quality-flags loop missing the visible() gate (engine @18, 2026-08 hunt round 2,
+// id 104733): every other detector loop in this file gates on visible(); this one didn't,
+// so a review-only signal inside an aria-hidden modal still fired. ===
+const qualityAltGeneric = (audit) => audit.findings.filter((f) => f.key === 'quality-alt-generic');
+
+test('quality-flags: a generic alt inside an aria-hidden ancestor is not emitted', () => {
+  const audit = runScanner(framePage('<main><div aria-hidden="true"><img src="x.png" alt="icon"></div></main>'));
+  assert.equal(qualityAltGeneric(audit).length, 0, 'hidden-subtree quality signals must not be reported');
+});
+
+test('quality-flags: the same generic alt OUTSIDE any hidden ancestor still fires (regression)', () => {
+  const audit = runScanner(framePage('<main><img src="x.png" alt="icon"></main>'));
+  assert.equal(qualityAltGeneric(audit).length, 1, 'visible quality signals must be unaffected by the gate');
+});
+
+// === link-name entity decoding (engine @18, 2026-08 hunt round 2, id 104362): entity
+// character references were replaced with a SPACE before trimming, so an entity-only
+// label ("&gt;&gt;" pagination controls) collapsed to '' and read as nameless. ===
+const linkNameMissing = (audit) => audit.findings.filter((f) => f.key === 'link-name-missing');
+
+test('link-name: an entity-only label ("&gt;&gt;") is a real accessible name, not nameless', () => {
+  const audit = runScanner(framePage('<main><a href="/all/2.php">&gt;&gt;</a></main>'));
+  assert.equal(linkNameMissing(audit).length, 0, 'a decoded ">>" is real link text');
+});
+
+test('link-name: common named entities (&raquo; &laquo; &hellip; &times; &rarr;) all count as real content', () => {
+  for (const entity of ['&raquo;', '&laquo;', '&hellip;', '&times;', '&rarr;']) {
+    const audit = runScanner(framePage(`<main><a href="/x">${entity}</a></main>`));
+    assert.equal(linkNameMissing(audit).length, 0, `${entity} must decode to real, non-empty link text`);
+  }
+});
+
+test('link-name: a label that is ONLY whitespace entities (&nbsp;) is still nameless (regression)', () => {
+  const audit = runScanner(framePage('<main><a href="/x">&nbsp;&nbsp;</a></main>'));
+  assert.equal(linkNameMissing(audit).length, 1, 'whitespace-only content must still read as no name');
+});
+
+test('link-name: mixed entity + word content keeps its word separator ("A&nbsp;B" reads as real text)', () => {
+  const audit = runScanner(framePage('<main><a href="/x">A&nbsp;B</a></main>'));
+  assert.equal(linkNameMissing(audit).length, 0);
+});
+
+test('link-name: a genuinely empty link (no text, no entities) is still nameless (regression)', () => {
+  const audit = runScanner(framePage('<main><a href="/x"></a></main>'));
+  assert.equal(linkNameMissing(audit).length, 1);
+});
+
+// === motion-reduced-motion-missing: demoted out of scoring + rewritten trigger (engine
+// @18, 2026-08 hunt round 2, ids 100571 + 100635, user ruling 2026-08-09):
+// property-blind, reachability-blind, AAA mislabelled as AA. Now check:'review' always
+// (never scores, never enters legal_risk mapping), and only fires on motion-bearing CSS
+// (transform/position offset/@keyframes) whose selector is reachable in the markup. ===
+const motionFindings = (audit) => audit.findings.filter((f) => f.key === 'motion-reduced-motion-missing');
+const motionCategory = (audit) => audit.summary.categories.find((c) => c.id === 'motion');
+
+test('motion: a dead CSS rule (selector matches nothing in the markup) produces no finding at all (100571)', () => {
+  const audit = runScanner(framePage(`
+    <style>.dropdown-icon{transition:transform .2s;}</style>
+    <main><button>No dropdown icon here</button></main>
+  `));
+  assert.equal(motionFindings(audit).length, 0);
+  assert.equal(motionCategory(audit).state, 'not-applicable', 'zero motion evidence -> not-applicable, not not-machine-checkable');
+});
+
+test('motion: a color-only transition on a REACHABLE selector is not motion (100635)', () => {
+  const audit = runScanner(framePage(`
+    <style>.icon:hover{transition:color .2s;}</style>
+    <main><span class="icon">i</span></main>
+  `));
+  assert.equal(motionFindings(audit).length, 0, 'transition:color is never motion-bearing, even when reachable');
+  assert.equal(motionCategory(audit).state, 'not-applicable');
+});
+
+test('motion: @keyframes translate on a reachable selector, no reduced-motion handling, fires a review finding', () => {
+  const audit = runScanner(framePage(`
+    <style>@keyframes spin{from{transform:translateX(0)}to{transform:translateX(100px)}}
+    .spinner{animation:spin 2s linear infinite;}</style>
+    <main><div class="spinner"></div></main>
+  `));
+  const hits = motionFindings(audit);
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].check, 'review', 'must be review, never a scored fail');
+  assert.equal(hits[0].level, 'AAA');
+  const cat = motionCategory(audit);
+  assert.equal(cat.state, 'not-machine-checkable', 'review-only evidence returns motion to not-machine-checkable');
+  assert.equal(cat.score, null);
+});
+
+test('motion: the same @keyframes case WITH prefers-reduced-motion handling still emits a review note (not a scored pass)', () => {
+  const audit = runScanner(framePage(`
+    <style>@keyframes spin{from{transform:translateX(0)}to{transform:translateX(100px)}}
+    .spinner{animation:spin 2s linear infinite;}
+    @media (prefers-reduced-motion: reduce){.spinner{animation:none;}}</style>
+    <main><div class="spinner"></div></main>
+  `));
+  const hits = motionFindings(audit);
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].check, 'review');
+  const cat = motionCategory(audit);
+  assert.equal(cat.state, 'not-machine-checkable', 'handled motion is still review-only, not a scored pass');
+  assert.equal(cat.pass, 0);
+});
+
+test('motion: overall score and legal_risk never include the AAA 2.3.3 criterion, fires or not', () => {
+  const withMotion = runScanner(framePage(`
+    <style>@keyframes spin{from{transform:translateX(0)}to{transform:translateX(100px)}}
+    .spinner{animation:spin 2s linear infinite;}</style>
+    <main><div class="spinner"></div></main>
+  `));
+  assert.ok(!withMotion.legal_risk.mapped_criteria.includes('2.3.3'), 'AAA criterion must never enter legal_risk.mapped_criteria');
+  for (const j of withMotion.legal_risk.jurisdictions) {
+    assert.ok(!j.criteria.includes('2.3.3'), `${j.name} criteria must not include the AAA-only 2.3.3`);
+  }
+});
+
+test('motion: a hover-gated micro-transition still fires (review), noted as weaker evidence in the description, not suppressed', () => {
+  const audit = runScanner(framePage(`
+    <style>.icon:hover{transform:scale(1.1);transition:transform .2s;}</style>
+    <main><span class="icon">i</span></main>
+  `));
+  const hits = motionFindings(audit);
+  assert.equal(hits.length, 1);
+  assert.match(hits[0].description, /:hover/);
+});
+
+test('motion: an inline style="transition:transform" is always reachable (it IS the element)', () => {
+  const audit = runScanner(framePage('<main><div style="transition:transform .2s;">x</div></main>'));
+  assert.equal(motionFindings(audit).length, 1);
+});
+
+test('motion: linked external stylesheet + no visible motion evidence notes the capture gap only when motion evidence exists', () => {
+  const noEvidence = runScanner(framePage('<link rel="stylesheet" href="/site.css"><main><p>text</p></main>'));
+  assert.equal(motionFindings(noEvidence).length, 0, 'no motion evidence at all -> no finding, capture-gap note is irrelevant here');
+});
+
+test('motion: a linked external stylesheet alongside real motion evidence notes the capture gap in the description', () => {
+  const audit = runScanner(framePage(`
+    <link rel="stylesheet" href="/site.css">
+    <style>@keyframes spin{from{transform:translateX(0)}to{transform:translateX(100px)}}
+    .spinner{animation:spin 2s linear infinite;}</style>
+    <main><div class="spinner"></div></main>
+  `));
+  const hits = motionFindings(audit);
+  assert.equal(hits.length, 1);
+  assert.match(hits[0].description, /external stylesheet/i);
+});
+
+// hakuso round 1 (2026-08): the `animation` shorthand is order-independent and the old
+// code only checked the FIRST token, missing "1s spin" and "1s ease-in spin" entirely.
+test('motion: animation shorthand with the name NOT first ("1s spin") is still recognized', () => {
+  const audit = runScanner(framePage(`
+    <style>@keyframes spin{from{transform:translateX(0)}to{transform:translateX(100px)}}
+    .spinner{animation:1s spin;}</style>
+    <main><div class="spinner"></div></main>
+  `));
+  assert.equal(motionFindings(audit).length, 1);
+});
+
+test('motion: animation shorthand with the name buried mid-token-list ("1s ease-in spin") is still recognized', () => {
+  const audit = runScanner(framePage(`
+    <style>@keyframes spin{from{transform:translateX(0)}to{transform:translateX(100px)}}
+    .spinner{animation:1s ease-in spin;}</style>
+    <main><div class="spinner"></div></main>
+  `));
+  assert.equal(motionFindings(audit).length, 1);
+});
+
+test('motion: transition:all is motion-bearing, matching inspect.md\'s manual checklist', () => {
+  const audit = runScanner(framePage(`
+    <style>.icon{transition:all .2s;}</style>
+    <main><span class="icon">i</span></main>
+  `));
+  assert.equal(motionFindings(audit).length, 1);
 });

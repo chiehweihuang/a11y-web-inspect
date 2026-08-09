@@ -82,7 +82,7 @@ const SEV_REPEAT_CAP = 3;
 // => identical machine layer". Bump DETECTOR_VERSION when detection/scoring LOGIC changes;
 // the ruleset hash auto-changes when the scoring CONTRACT (weights/matrix/formula) changes.
 // External engine provenance is carried separately in audit.axe / audit.tier2.
-const DETECTOR_VERSION = 'beacon-static-audit@17';
+const DETECTOR_VERSION = 'beacon-static-audit@18';
 
 // A category with 1-2 total machine checks is a coin-flip denominator (a single fail
 // reads identically to a six-check 100) — too thin to trust alone, but no longer a reason
@@ -174,6 +174,30 @@ function lineOf(text, index) {
   return text.slice(0, Math.max(index, 0)).split('\n').length;
 }
 
+// Decodes character references to their real characters instead of blanking them —
+// an anchor whose entire text is entity-only (pagination/close controls: "&gt;&gt;",
+// "&raquo;", "&hellip;" ...) has real content and must not read as nameless (2026-08
+// hunt round 2, id 104362). Whitespace entities (&nbsp; and friends) still map to a
+// plain space in the table below, so "A&nbsp;B" keeps its word separator and an
+// entity-only label of just "&nbsp;" still trims to ''. Common table, not the full
+// WHATWG set — an unrecognised named entity falls through unchanged, which is still
+// non-empty text, not a false "nameless" reading.
+const NAMED_ENTITY_CHARS = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", raquo: '»', laquo: '«',
+  times: '×', hellip: '…', rarr: '→', larr: '←', mdash: '—',
+  ndash: '–', nbsp: ' ', ensp: ' ', emsp: ' ', thinsp: ' ',
+};
+function safeFromCodePoint(n) {
+  try { return Number.isFinite(n) && n >= 0 && n <= 0x10FFFF ? String.fromCodePoint(n) : ''; }
+  catch { return ''; }
+}
+function decodeCommonEntities(s) {
+  return String(s)
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => safeFromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => safeFromCodePoint(parseInt(d, 10)))
+    .replace(/&([a-zA-Z]+);/g, (m, name) => NAMED_ENTITY_CHARS[name.toLowerCase()] ?? m);
+}
+
 // Evidence excerpts are for human/report display only (never scoring), but an
 // unbounded one still breaks reports: a single-line minified <style> block turns
 // the normal 3-line context into the whole stylesheet. matchLen (when the caller
@@ -232,10 +256,15 @@ function stripAtMedia(css) {
 // Linear tag walk with an open-element stack; forgiving about malformed nesting.
 const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 
+// Quote-aware: a bare regex over the raw attrs blob reads "hidden" inside a quoted
+// VALUE (style="overflow: hidden overlay;", class="btn hidden md:block") as the boolean
+// hidden ATTRIBUTE, opening a phantom hidden range to EOF that blacks out whole documents
+// (2026-08 hunt round 2, id 100594 / youku). parseStartTag tokenizes by attribute NAME.
 function isHiddenAttrs(attrs) {
-  return /style\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs) ||
-    /\saria-hidden\s*=\s*["']true["']/i.test(attrs) ||
-    /\shidden(?=[\s=/]|$)/i.test(attrs);
+  const parsed = parseStartTag(`<x ${attrs}>`);
+  if (parsed.has('hidden')) return true;
+  if ((parsed.get('aria-hidden') || '').toLowerCase() === 'true') return true;
+  return /display\s*:\s*none|visibility\s*:\s*hidden/i.test(parsed.get('style') || '');
 }
 
 // `maskedRanges` (script/style bodies + HTML comments; see scanFile) hides tag tokens
@@ -343,6 +372,9 @@ function computeLabelRanges(text, maskedRanges = []) {
 // static large-text (18pt/14pt-bold) carve-out; that needs the same certain-literal treatment
 // for font-size/weight and isn't asked for here.
 const STATIC_CONTRAST_MIN = 4.5;
+// WCAG 1.4.11 Non-text Contrast — applies to a PUA-glyph icon node instead of 1.4.3's
+// 4.5:1 (see the PUA-detection branch below).
+const NON_TEXT_CONTRAST_MIN = 3;
 const TAG_ATTRS_RE = /<(\/?)([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
 
 function attrValue(attrs, name) {
@@ -419,6 +451,106 @@ function extractSameFileStyleRules(text) {
     }
   }
   return { colorRules, bgRules };
+}
+
+// Motion-bearing CSS properties only — never color/background/border-color/box-shadow/
+// opacity alone (2026-08 hunt round 2, id 100635: 16x transition:color and 2x
+// transition:opacity on that page were the whole "motion" signal, none of it visible
+// motion). "transform" covers translate/rotate/scale/skew as a property, not just the
+// two named in the verdict — a CSS transform IS movement by definition.
+// 'all' counts as motion-bearing too (hakuso round 1, 2026-08): inspect.md's manual
+// checklist already flags `transition: all` as a motion/reduced-motion concern, so the
+// automated detector must be consistent with that, not stricter.
+const MOTION_PROP_NAMES = new Set(['transform', 'top', 'left', 'right', 'bottom', 'margin', 'margin-top', 'margin-left', 'margin-right', 'margin-bottom', 'all']);
+// For a real property DECLARATION (`transform: translateX(0)` inside a @keyframes step) —
+// property name followed by its own colon. NOT for `transition: transform 0.2s`, where
+// "transform" is a bare VALUE token naming the transitioned property, not itself declared.
+const MOTION_DECL_RE = /\b(transform|top|left|right|bottom|margin(?:-top|-left|-right|-bottom)?)\s*:/i;
+// For a `transition`/`transition-property` VALUE list (comma-separated property names).
+function transitionValueIsMotion(value) {
+  return String(value).split(',').some((entry) => MOTION_PROP_NAMES.has(entry.trim().split(/\s+/)[0]?.toLowerCase()));
+}
+
+// Cheap reachability check (2026-08 hunt round 2, id 100571's own spec): tokenize the
+// selector's RIGHTMOST compound only (tag + class + attribute names) and require each
+// token to appear somewhere in the body markup. ponytail: rightmost-compound-only is a
+// known ceiling — it does not verify the full ancestor chain (`details summary x` only
+// checks `x`, not that a real `<details>` ancestor exists) — upgrade to a real selector
+// engine if that gap starts producing wrong verdicts on real pages.
+function motionSelectorReachable(selector, bodyText) {
+  const normalized = String(selector).trim().replace(/\s*[>+~]\s*/g, ' ');
+  const rightmost = normalized.split(/\s+/).filter(Boolean).pop() || '';
+  const clean = rightmost.replace(/:[\w-]+(?:\([^)]*\))?/g, ''); // strip :hover, :nth-child(), etc.
+  const tag = clean.match(/^[a-zA-Z][\w-]*/)?.[0];
+  const classes = [...clean.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
+  const attrs = [...clean.matchAll(/\[([\w-]+)/g)].map((m) => m[1]);
+  if (tag && tag !== '*' && !new RegExp(`<${tag}\\b`, 'i').test(bodyText)) return false;
+  for (const c of classes) if (!new RegExp(`\\bclass\\s*=\\s*["'][^"']*\\b${c}\\b`, 'i').test(bodyText)) return false;
+  for (const a of attrs) if (!new RegExp(`[\\s<]${a}\\s*[=\\]]`, 'i').test(bodyText)) return false;
+  return true;
+}
+
+// Replaces the old property-blind, reachability-blind /(animation|transition)\s*:/ scan
+// (2026-08 hunt round 2, ids 100571 + 100635, both four-defect verdicts). Returns:
+//   fires: motion-bearing evidence found on a markup-reachable selector, AND no
+//          prefers-reduced-motion handling anywhere in the file
+//   evidence: motion-bearing evidence found (fires OR handled) -- vs. no motion at all
+//   hoverGatedOnly: every counted rule is :hover/:active-scoped (weaker evidence, note
+//                   in the description rather than suppress -- it's review now)
+//   captureGap: an external <link rel=stylesheet> exists that this static scan never
+//               fetched, so an absent reduced-motion rule here is not a confirmed absence
+function detectMotionEvidence(text) {
+  const hasReducedMotionHandling = /prefers-reduced-motion/i.test(text);
+  const captureGap = /<link\b[^>]*\srel\s*=\s*["']stylesheet["']/i.test(text);
+  let evidence = false, hoverGatedOnly = true;
+
+  // @keyframes bodies are real property DECLARATIONS ("transform: translateX(0)") --
+  // built once, file-wide, so both inline `style=""` animation references and same-file
+  // <style> block rules can resolve an `animation: name` against it.
+  const motionKeyframes = new Set();
+  for (const styleMatch of text.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+    for (const kf of styleMatch[1].matchAll(/@keyframes\s+([\w-]+)\s*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/gi)) {
+      if (MOTION_DECL_RE.test(kf[2])) motionKeyframes.add(kf[1]);
+    }
+  }
+  // A `transition`/`animation` block is motion-bearing when either its `transition`
+  // VALUE names a motion property ("transition: transform .2s" -- transform is a bare
+  // value token here, never followed by its own colon) or its `animation` references a
+  // motion-bearing keyframe.
+  function isMotionBearing(body) {
+    const transVal = body.match(/(?:^|;)\s*transition(?:-property)?\s*:\s*([^;]+)/i)?.[1];
+    if (transVal && transitionValueIsMotion(transVal)) return true;
+    const animVal = body.match(/(?:^|;)\s*animation(?:-name)?\s*:\s*([^;]+)/i)?.[1];
+    if (!animVal) return false;
+    // The `animation` shorthand is order-independent (duration/easing/delay/iteration/
+    // direction/fill-mode/play-state/name can appear in any order: "1s spin" and
+    // "1s ease-in spin" both name "spin"), and comma-separates multiple animations
+    // (hakuso round 1, 2026-08: only the FIRST token was checked, missing both shapes).
+    const tokens = animVal.split(',').flatMap((entry) => entry.trim().split(/\s+/));
+    return tokens.some((t) => motionKeyframes.has(t));
+  }
+
+  // Inline style="" transitions/animations: the element IS the selector, always reachable.
+  for (const m of text.matchAll(/\sstyle\s*=\s*["']([^"']*)["']/gi)) {
+    if (isMotionBearing(m[1])) { evidence = true; hoverGatedOnly = false; } // inline is never :hover-scoped
+  }
+
+  // Same-file <style> block rules.
+  for (const styleMatch of text.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+    for (const ruleMatch of styleMatch[1].matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const [, prelude, body] = ruleMatch;
+      if (/@keyframes/i.test(prelude)) continue; // handled above
+      if (!isMotionBearing(body)) continue;
+
+      const selectors = prelude.split(',').map((s) => s.trim()).filter(Boolean);
+      if (!selectors.some((s) => motionSelectorReachable(s, text))) continue;
+
+      evidence = true;
+      if (!/:hover|:active/i.test(prelude)) hoverGatedOnly = false;
+    }
+  }
+
+  return { fires: evidence && !hasReducedMotionHandling, evidence, hoverGatedOnly: evidence && hoverGatedOnly, captureGap };
 }
 
 // id specificity always beats class (fixed by spec, not source-order-dependent -> safe to
@@ -501,7 +633,15 @@ function computeStaticContrastFindings(text, rel, hiddenRanges, maskedRanges, st
     const textStart = m.index + full.length;
     const nextLt = text.indexOf('<', textStart);
     const directText = text.slice(textStart, nextLt === -1 ? text.length : nextLt);
-    if (isVoid || !directText.trim()) continue;
+    const trimmedDirectText = directText.trim();
+    if (isVoid || !trimmedDirectText) continue;
+    // A node whose entire trimmed content is Private-Use-Area codepoints is an icon
+    // glyph (e.g. Material Symbols), not human-language text — WCAG defines "text" as
+    // characters expressing something in a language, and PUA codepoints have no
+    // assigned meaning. Governed by 1.4.11 Non-text Contrast (3:1), not 1.4.3 (4.5:1)
+    // (2026-08 hunt round 2, id 102783). Font-family icon-list matching (rule (b) in
+    // the verdict) is left out — optional, and no font-family resolver exists yet.
+    const isPuaGlyph = /^[\u{E000}-\u{F8FF}\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]+$/u.test(trimmedDirectText);
 
     const fg = certainOpaque(resolveElementProp(id, classNames, style, 'color', styleRules.colorRules));
     if (!fg) continue; // no certain fg on this element -> not a candidate pair
@@ -525,9 +665,22 @@ function computeStaticContrastFindings(text, rel, hiddenRanges, maskedRanges, st
 
     resolved += 1;
     const ratio = contrastRatio(fg, bg);
-    if (ratio >= STATIC_CONTRAST_MIN) continue;
+    const minRatio = isPuaGlyph ? NON_TEXT_CONTRAST_MIN : STATIC_CONTRAST_MIN;
+    if (ratio >= minRatio) continue;
     subThreshold += 1;
-    addFinding(findings, stats, {
+    addFinding(findings, stats, isPuaGlyph ? {
+      key: 'non-text-contrast-sub-threshold',
+      category: 'contrast',
+      severity: 'warning',
+      check: 'review',
+      wcag: 'WCAG 2.2: 1.4.11 Non-text Contrast',
+      title: `Statically-resolvable icon contrast ${ratio.toFixed(2)}:1 is below 3:1`,
+      affected_users: 'Low-vision users and users in high ambient light',
+      location: `${rel}:${lineOf(text, m.index)}`,
+      description: `Literal foreground rgb(${fg.r}, ${fg.g}, ${fg.b}) against literal background rgb(${bg.r}, ${bg.g}, ${bg.b}) yields ${ratio.toFixed(2)}:1, below the 3:1 minimum for a non-text (icon-font) glyph. Statically certain (inline/same-file styles only) — confirm in a real browser or with the tier-2 harness before treating as final.`,
+      fix: 'Increase the icon/background contrast, or verify in a real browser — this pair was resolved from static markup only.',
+      computed: { fg, bg, ratio: Number(ratio.toFixed(3)) },
+    } : {
       key: 'static-contrast-sub-threshold',
       category: 'contrast',
       severity: 'warning',
@@ -1057,7 +1210,7 @@ function scanFile(file, root, stats, findings) {
         /\s(?:aria-label|aria-labelledby|title)\s*=\s*["'][^"']/.test(attrs) ||
         /\s(?:aria-label|aria-labelledby|title)\s*=\s*["'][^"']/.test(body) ||
         (!!svgTitle && svgTitle[1].trim().length > 0) ||
-        body.replace(/<[^>]*>/g, '').replace(/&[a-z#0-9]+;/gi, ' ').trim().length > 0;
+        decodeCommonEntities(body.replace(/<[^>]*>/g, '')).trim().length > 0;
       if (named) { addCheck(stats, 'screenreader', 'pass'); continue; }
       // Wrapped images follow alt semantics: a NON-EMPTY alt names the link (pass); an
       // image with NO alt attribute stays deferred to the image-alt check; images that
@@ -1132,28 +1285,65 @@ function scanFile(file, root, stats, findings) {
     const labelRanges = computeLabelRanges(text, masked);
     const inLabel = (i) => labelRanges.some(([s, e]) => i >= s && i < e);
     const INPUT_SKIP_TYPES = new Set(['submit', 'hidden', 'button', 'image', 'reset']);
-    // attr-scan replaces the old `\sid=` / `\stype=...` substring lookaheads — same bug
-    // class as data-reactid containing id=: exact tokenized attribute names, any quoting,
-    // order irrelevant (wild-precision round 1, P=0.417, already fixed the quote gap; this
-    // is the durable version of that fix).
+    // HTML-AAM accessible-name fallback chain (2026-08 hunt round 2, ids 100545/103280/
+    // 104362, three agents converged): aria-labelledby(resolving) -> aria-label ->
+    // label[for=id]/wrapping <label> -> title -> placeholder. A bare `id` is no longer
+    // "labelled" by itself — it must have a MATCHING `<label for="that id">` in the file.
+    // The old id-presence exemption was both a false positive (an id with no real label
+    // still passed) and its false-negative twin (VALIDATION.md:603 — an id WITH a
+    // differently-targeted `for=` was never caught either); a single matching-for= check
+    // fixes both. `for=` targets and element ids are collected once per file, not per
+    // input.
+    const labelForIds = new Set([...text.matchAll(/<label\b[^>]*\sfor\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]));
+    const elementIds = new Set([...text.matchAll(/\sid\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]));
     for (const m of text.matchAll(/<input\b[^>]*>/gi)) {
       if (!visible(m.index || 0)) continue;
       const attrs = parseStartTag(m[0]);
       const typeValue = attrs.has('type') ? attrs.get('type').toLowerCase() : null;
-      const hasLabelHook = attrs.has('id') || attrs.has('aria-label') || attrs.has('aria-labelledby');
-      // Positive evidence: id/aria-label/aria-labelledby carrying a REAL (non-empty) value
-      // is a verified pass, independent of the fail-side skip below — no double count,
-      // since hasNonEmptyHook implies hasLabelHook, which always hits `continue` below.
-      const hasNonEmptyHook = !!attrs.get('id') || !!attrs.get('aria-label') || !!attrs.get('aria-labelledby');
-      if (typeValue !== 'hidden' && hasNonEmptyHook) labelledInputs += 1;
-      if (hasLabelHook || (typeValue && INPUT_SKIP_TYPES.has(typeValue))) continue;
-      if (inLabel(m.index || 0)) { wrappedInputs += 1; continue; }
+      if (typeValue && INPUT_SKIP_TYPES.has(typeValue)) continue;
+
+      const labelledbyIds = (attrs.get('aria-labelledby') || '').trim().split(/\s+/).filter(Boolean);
+      const ariaLabelledbyResolves = labelledbyIds.some((id) => elementIds.has(id));
+      const ariaLabelNonEmpty = !!attrs.get('aria-label');
+      const inputId = attrs.get('id');
+      const hasMatchingForLabel = !!inputId && labelForIds.has(inputId);
+      const isWrapped = inLabel(m.index || 0);
+      const titleNonEmpty = !!attrs.get('title');
+      const placeholderNonEmpty = !!attrs.get('placeholder');
+      const strongName = ariaLabelledbyResolves || ariaLabelNonEmpty || hasMatchingForLabel || isWrapped;
+
+      if (strongName) {
+        if (isWrapped && !ariaLabelledbyResolves && !ariaLabelNonEmpty && !hasMatchingForLabel) wrappedInputs += 1;
+        else labelledInputs += 1;
+        continue;
+      }
+      if (titleNonEmpty || placeholderNonEmpty) {
+        // Satisfies 4.1.2 name computation (axe's label-title-only / non-empty-placeholder
+        // precedent) but not 3.3.2's instructive-label intent — placeholder text disappears
+        // on input, title is not a visible persistent label. review, not a critical fail.
+        addFinding(findings, stats, {
+          key: 'input-label-weak',
+          category: 'forms',
+          check: 'review',
+          severity: 'warning',
+          wcag: 'WCAG 2.2: 3.3.2 Labels or Instructions',
+          level: 'A',
+          title: 'Input is named only by title or placeholder, not a persistent visible label',
+          affected_users: 'Screen-reader, voice-control, and cognitive disability users',
+          location: `${rel}:${lineOf(text, m.index || 0)}`,
+          description: 'The input has an accessible name (title or placeholder), so it is not nameless, but neither is a visible label that persists once the field has content.',
+          fix: 'Add a visible <label for="..."> (or wrap the input in one) so the label persists once the user starts typing.',
+          code_before: snippetAt(text, m.index || 0, m[0].length),
+        });
+        continue;
+      }
       unlabelledInputs += 1;
       addFinding(findings, stats, {
         key: 'input-label-missing',
         category: 'forms',
         severity: 'warning',
         wcag: 'WCAG 2.2: 3.3.2 Labels or Instructions',
+        level: 'A',
         title: 'Input may be missing an accessible label',
         affected_users: 'Screen-reader, voice-control, and cognitive disability users',
         location: `${rel}:${lineOf(text, m.index || 0)}`,
@@ -1162,8 +1352,8 @@ function scanFile(file, root, stats, findings) {
         code_before: snippetAt(text, m.index || 0, m[0].length),
       });
     }
-    // A wrapping <label> is positive evidence too (same gradient-restoration philosophy as
-    // labelledInputs below); disjoint from it by construction (see hasNonEmptyHook above).
+    // A wrapping <label> with no OTHER strong name source is counted separately
+    // (wrappedInputs); disjoint from labelledInputs by construction above.
     for (let i = 0; i < wrappedInputs; i++) addCheck(stats, 'forms', 'pass');
     for (let i = 0; i < labelledInputs; i++) addCheck(stats, 'forms', 'pass');
 
@@ -1194,6 +1384,10 @@ function scanFile(file, root, stats, findings) {
     // axe checks these EXIST, not whether they are meaningful. All REVIEW (the
     // meaningful-vs-present judgment that needs an LLM is the gated 3b follow-up).
     for (const sig of detectQualityFlags(text)) {
+      // detectQualityFlags is a pure regex scan of raw text with no DOM/ancestor
+      // knowledge by design; every other loop in this file gates on visible(), this one
+      // didn't (2026-08 hunt round 2, id 104733: 9 findings inside an aria-hidden modal).
+      if (!visible(sig.index || 0)) continue;
       addFinding(findings, stats, {
         key: sig.key,
         category: 'screenreader',
@@ -1413,19 +1607,34 @@ function scanFile(file, root, stats, findings) {
       }
     }
 
-    if (/(animation|transition)\s*:/.test(text) && !/prefers-reduced-motion/.test(text)) {
+    // Demoted out of AA scoring/legal mapping entirely (2026-08 hunt round 2, ids
+    // 100571 + 100635, user ruling): 2.3.3 is AAA, this run's own standard is "WCAG 2.2
+    // AA static baseline", and the old property/reachability-blind trigger fired on
+    // dead CSS and color-only transitions. check:'review' -> motion never scores (an
+    // evidence-only category returns to not-machine-checkable, same as contrast/touch/
+    // cognitive/media); level:'AAA' -> criteriaFromFindings excludes it from
+    // legal_risk.mapped_criteria and all six jurisdiction arrays (same array reference).
+    const motion = detectMotionEvidence(text);
+    if (motion.evidence) {
+      const notes = [];
+      if (motion.hoverGatedOnly) notes.push('The motion found is gated behind :hover/:active interaction, which is weaker evidence than an unconditional animation.');
+      if (motion.captureGap) notes.push('This page links external stylesheets that a static single-file scan never fetches, so an absent reduced-motion rule here is not a confirmed absence — it may exist in CSS this scan could not see.');
       addFinding(findings, stats, {
         key: 'motion-reduced-motion-missing',
         category: 'motion',
         severity: 'warning',
+        check: 'review', // always review — motion never scores under this ruling, fires or not
         wcag: 'WCAG 2.2: 2.3.3 Animation from Interactions',
-        title: 'Motion exists without reduced-motion handling',
+        level: 'AAA',
+        title: motion.fires ? 'Motion exists without reduced-motion handling' : 'Motion with reduced-motion handling present',
         affected_users: 'Vestibular disorder, migraine, and attention-sensitive users',
         location: rel,
-        description: 'Animation or transitions were detected, but no prefers-reduced-motion handling was found in this file.',
-        fix: 'Add @media (prefers-reduced-motion: reduce) to disable or shorten non-essential motion.',
+        description: (motion.fires
+          ? 'Motion-bearing CSS (transform, position offset, or a motion @keyframes animation) was found on a markup-reachable selector, with no prefers-reduced-motion handling anywhere in the file.'
+          : 'Motion-bearing CSS was found on a markup-reachable selector, and prefers-reduced-motion handling is also present.') + (notes.length ? ' ' + notes.join(' ') : ''),
+        fix: motion.fires ? 'Add @media (prefers-reduced-motion: reduce) to disable or shorten non-essential motion.' : 'No action needed.',
       });
-    } else if (/(animation|transition)\s*:/.test(text)) addCheck(stats, 'motion', 'pass');
+    }
 
     // Boundary-anchored so the `width:` tail of max-width:/min-width: is not
     // matched: max-width is an upper bound (shrinks fine, never counts); min-width
@@ -1604,6 +1813,11 @@ function priorityFor(severity) {
 function criteriaFromFindings(findings) {
   const criteria = new Set();
   for (const f of findings) {
+    // AAA is never the legal baseline in any of the six mapped jurisdictions (all
+    // reference WCAG AA) — keep AAA-level findings (e.g. motion-reduced-motion-missing's
+    // 2.3.3) out of mapped_criteria and every jurisdiction's criteria array, which are
+    // the same array reference (2026-08 hunt round 2, user ruling).
+    if (f.level === 'AAA') continue;
     for (const m of String(f.wcag || '').matchAll(/\b([1-4]\.\d\.\d{1,2})\b/g)) {
       criteria.add(m[1]);
     }

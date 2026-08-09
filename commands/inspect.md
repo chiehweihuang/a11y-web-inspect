@@ -383,7 +383,12 @@ For each check item, record a structured finding (pass/fail/review-needed) with:
 - Auto-playing media can be paused/stopped
 - No content flashes > 3 times/second (LIFE-SAFETY)
 
-**3f. Motion & Animation** (id: `motion`)
+**3f. Motion & Animation** (id: `motion`) — the automated `motion-reduced-motion-missing`
+check is Level AAA (WCAG 2.2 SC 2.3.3), so it is `check:'review'` only: it never scores,
+never enters the weighted average, and never enters `legal_risk.mapped_criteria` or any
+jurisdiction's criteria array (none of the six mapped jurisdictions treat AAA as a legal
+baseline). The category reports `not-machine-checkable` whenever it has any evidence at
+all, fires or handled.
 - `prefers-reduced-motion` respected
 - `prefers-reduced-transparency` respected
 - Time limits adjustable or removable
@@ -503,7 +508,7 @@ Severity classification rules:
 - **Warning** = WCAG Level AA violation, or Level A violation that is likely but not 100% confirmed
 - **Tip** = Best practice, WCAG 3.0 direction, or enhancement beyond AA
 
-`prefers-reduced-motion` absence: classify as **warning** (not critical) unless content actively flashes > 3 times/second (that is LIFE-SAFETY critical).
+`prefers-reduced-motion` absence (`motion-reduced-motion-missing`, WCAG 2.2 SC 2.3.3, Level AAA) is **always `check:'review'`, regardless of severity** — it never enters the severity-penalty formula above and the `motion` category never scores, since AAA is not part of this run's own "WCAG 2.2 AA static baseline". This is unrelated to actual flashing content: content that flashes > 3 times/second is a separate, LIFE-SAFETY critical finding (2.3.1, Level A), unaffected by this rule.
 
 **SEVERITY MATRIX — overrides the general rules above for these specific criteria. When a finding maps to a row in this table, use the assigned severity EXACTLY. Do not upgrade or downgrade based on your own confidence assessment.**
 

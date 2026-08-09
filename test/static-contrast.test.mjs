@@ -309,3 +309,39 @@ test('engine_fingerprint reports a beacon-static-audit@N+ruleset hash (version-a
   const audit = runScanner(page('<p>plain</p>'));
   assert.match(audit.metadata.engine_fingerprint, /^beacon-static-audit@\d+\+ruleset\./);
 });
+
+// --- PUA-glyph icon classification: 1.4.11 (3:1), not 1.4.3 (4.5:1) --------------------
+// 2026-08 hunt round 2, id 102783 (Material Symbols heart icon at 4.00:1 — cleared 3:1,
+// failed only the wrongly-applied 4.5:1). #888888/#ffffff = 3.545:1: below 4.5, above 3 —
+// the exact band where the two thresholds disagree.
+const PUA_GLYPH = '';
+
+test('a node whose entire content is a PUA codepoint is judged at 1.4.11 (3:1), not 1.4.3 (4.5:1)', () => {
+  const audit = runScanner(page(`<span style="color:#888888;background:#ffffff;">${PUA_GLYPH}</span>`));
+  assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 0, 'must NOT be judged as text at the 4.5:1 bar');
+  assert.equal(contrastFindings(audit, 'non-text-contrast-sub-threshold').length, 0, '3.545:1 clears the 3:1 non-text bar too');
+});
+
+test('a PUA-glyph icon below 3:1 is flagged as non-text-contrast-sub-threshold, not static-contrast-sub-threshold', () => {
+  const audit = runScanner(page(`<span style="color:#a0a0a0;background:#ffffff;">${PUA_GLYPH}</span>`));
+  assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 0);
+  const hits = contrastFindings(audit, 'non-text-contrast-sub-threshold');
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].wcag, 'WCAG 2.2: 1.4.11 Non-text Contrast');
+  assert.ok(hits[0].computed.ratio < 3);
+});
+
+test('ordinary text at the same 3.545:1 ratio is still judged at 4.5:1 (regression: normal text unaffected)', () => {
+  const audit = runScanner(page('<span style="color:#888888;background:#ffffff;">Real text</span>'));
+  assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 1, 'normal text below 4.5:1 must still flag at the 1.4.3 bar');
+  assert.equal(contrastFindings(audit, 'non-text-contrast-sub-threshold').length, 0);
+});
+
+test('a mix of a PUA icon and real text on the same page classifies each independently', () => {
+  const audit = runScanner(page(`
+    <span style="color:#a0a0a0;background:#ffffff;">${PUA_GLYPH}</span>
+    <span style="color:#a0a0a0;background:#ffffff;">Real label</span>
+  `));
+  assert.equal(contrastFindings(audit, 'non-text-contrast-sub-threshold').length, 1, 'only the PUA node goes to 1.4.11');
+  assert.equal(contrastFindings(audit, 'static-contrast-sub-threshold').length, 1, 'the real-text node stays at 1.4.3');
+});

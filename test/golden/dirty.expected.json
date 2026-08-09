@@ -13,7 +13,7 @@
     ],
     "platform": "Web",
     "tool_version": "beacon codex static baseline",
-    "engine_fingerprint": "beacon-static-audit@17+ruleset.bde99ddc0571",
+    "engine_fingerprint": "beacon-static-audit@18+ruleset.bde99ddc0571",
     "confidence_level": "medium",
     "requires_live_audit": true,
     "audit_tier": "Tier 1 (static file scan only)",
@@ -41,11 +41,11 @@
         "id": "fail"
       }
     ],
-    "total_findings": 18,
+    "total_findings": 19,
     "critical": 13,
-    "warnings": 1,
+    "warnings": 2,
     "tips": 4,
-    "unverifiable": 5,
+    "unverifiable": 6,
     "categories": [
       {
         "id": "contrast",
@@ -82,7 +82,7 @@
         "name": "Forms",
         "pass": 0,
         "fail": 1,
-        "review": 0,
+        "review": 1,
         "state": "scored",
         "score": 0,
         "thin": true
@@ -247,10 +247,10 @@
       "wcag": "WCAG 2.2: 4.1.2 Name, Role, Value",
       "title": "Frame is missing a title",
       "affected_users": "Screen-reader users navigating between frames",
-      "location": "test/golden/dirty.html:12",
+      "location": "test/golden/dirty.html:13",
       "description": "An <iframe> without a title gives screen-reader users no way to know what the frame contains before entering it.",
       "fix": "Add title=\"...\" describing the frame content.",
-      "code_before": "<input type=\"text\" name=\"q\" placeholder=\"Search\">\n<iframe src=\"/widget.html\"></iframe>\n<ul><div>not a list item</div></ul>",
+      "code_before": "<input type=\"text\" name=\"r\">\n<iframe src=\"/widget.html\"></iframe>\n<ul><div>not a list item</div></ul>",
       "check": "fail"
     },
     {
@@ -262,7 +262,7 @@
       "wcag": "WCAG 2.2: 1.3.1 Info and Relationships",
       "title": "List contains a non-list-item child",
       "affected_users": "Screen-reader users navigating by list semantics",
-      "location": "test/golden/dirty.html:13",
+      "location": "test/golden/dirty.html:14",
       "description": "A <ul>/<ol> has a direct child that is not <li>, <script>, or <template> (found <div>). Screen readers may not announce the list or its item count correctly.",
       "fix": "Make <li> the only structural child; move wrapper elements inside an <li>, or use role=\"list\"/role=\"listitem\" if a non-standard structure is unavoidable.",
       "code_before": "<iframe src=\"/widget.html\"></iframe>\n<ul><div>not a list item</div></ul>\n<span onclick=\"go()\">Go</span>",
@@ -322,14 +322,29 @@
       "wcag": "WCAG 2.2: 2.1.1 Keyboard",
       "title": "Clickable non-button element",
       "affected_users": "Keyboard-only, switch-control, screen-reader, and voice-control users",
-      "location": "test/golden/dirty.html:14",
+      "location": "test/golden/dirty.html:15",
       "description": "Clickable <div> or <span> elements are not keyboard-operable by default.",
       "fix": "Use <button> for actions. If custom semantics are unavoidable, add role, tabindex, and Enter/Space handling.",
       "code_before": "<ul><div>not a list item</div></ul>\n<span onclick=\"go()\">Go</span>\n<div style=\"display:none\"><img src=\"hidden-pixel.gif\"><iframe src=\"/tracker.html\"></iframe></div>",
       "check": "fail"
     },
     {
-      "level": "AA",
+      "level": "A",
+      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "key": "input-label-weak",
+      "category": "forms",
+      "severity": "warning",
+      "wcag": "WCAG 2.2: 3.3.2 Labels or Instructions",
+      "title": "Input is named only by title or placeholder, not a persistent visible label",
+      "affected_users": "Screen-reader, voice-control, and cognitive disability users",
+      "location": "test/golden/dirty.html:11",
+      "description": "The input has an accessible name (title or placeholder), so it is not nameless, but neither is a visible label that persists once the field has content.",
+      "fix": "Add a visible <label for=\"...\"> (or wrap the input in one) so the label persists once the user starts typing.",
+      "code_before": "<button></button>\n<input type=\"text\" name=\"q\" placeholder=\"Search\">\n<input type=\"text\" name=\"r\">",
+      "check": "review"
+    },
+    {
+      "level": "A",
       "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
       "key": "input-label-missing",
       "category": "forms",
@@ -337,10 +352,10 @@
       "wcag": "WCAG 2.2: 3.3.2 Labels or Instructions",
       "title": "Input may be missing an accessible label",
       "affected_users": "Screen-reader, voice-control, and cognitive disability users",
-      "location": "test/golden/dirty.html:11",
+      "location": "test/golden/dirty.html:12",
       "description": "The input has no obvious id or ARIA label in static markup.",
       "fix": "Pair it with a <label for=\"...\"> or use aria-labelledby when a visible label already exists.",
-      "code_before": "<button></button>\n<input type=\"text\" name=\"q\" placeholder=\"Search\">\n<iframe src=\"/widget.html\"></iframe>",
+      "code_before": "<input type=\"text\" name=\"q\" placeholder=\"Search\">\n<input type=\"text\" name=\"r\">\n<iframe src=\"/widget.html\"></iframe>",
       "check": "fail"
     },
     {
@@ -581,7 +596,7 @@
       "priority": "P0",
       "key": "frame-title-missing",
       "title": "Frame is missing a title",
-      "location": "test/golden/dirty.html:12",
+      "location": "test/golden/dirty.html:13",
       "wcag": "WCAG 2.2: 4.1.2 Name, Role, Value",
       "fix": "Add title=\"...\" describing the frame content."
     },
@@ -589,7 +604,7 @@
       "priority": "P0",
       "key": "list-non-li-child",
       "title": "List contains a non-list-item child",
-      "location": "test/golden/dirty.html:13",
+      "location": "test/golden/dirty.html:14",
       "wcag": "WCAG 2.2: 1.3.1 Info and Relationships",
       "fix": "Make <li> the only structural child; move wrapper elements inside an <li>, or use role=\"list\"/role=\"listitem\" if a non-standard structure is unavoidable."
     },
@@ -621,7 +636,7 @@
       "priority": "P0",
       "key": "clickable-non-button",
       "title": "Clickable non-button element",
-      "location": "test/golden/dirty.html:14",
+      "location": "test/golden/dirty.html:15",
       "wcag": "WCAG 2.2: 2.1.1 Keyboard",
       "fix": "Use <button> for actions. If custom semantics are unavoidable, add role, tabindex, and Enter/Space handling."
     },
@@ -629,7 +644,7 @@
       "priority": "P0",
       "key": "input-label-missing",
       "title": "Input may be missing an accessible label",
-      "location": "test/golden/dirty.html:11",
+      "location": "test/golden/dirty.html:12",
       "wcag": "WCAG 2.2: 3.3.2 Labels or Instructions",
       "fix": "Pair it with a <label for=\"...\"> or use aria-labelledby when a visible label already exists."
     },

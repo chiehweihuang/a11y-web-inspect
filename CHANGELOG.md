@@ -1,5 +1,65 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Six FP-class fixes from hunt round 2** (`beacon-static-audit@17` → `@18`, source:
+  `beacon-benchmark-100/hunt-round-2/verdicts.json`): (1) `isHiddenAttrs` read the word
+  "hidden" inside a quoted attribute VALUE (`style="overflow: hidden overlay;"`,
+  `class="hidden md:block"`) as the boolean `hidden` ATTRIBUTE, opening a phantom hidden
+  range that blacked out the rest of the document — now parses the tag with the existing
+  quote-aware `attr-scan.mjs` instead of a bare regex over the raw attrs blob. (2) The
+  `quality-flags` loop (generic alt / link text / role-echo) was the only detector loop
+  in the file not gated on `visible()`, so it reported signals inside hidden subtrees.
+  (3) Link accessible-name replaced HTML character references with a space before
+  trimming, so an entity-only label (`&gt;&gt;` pagination arrows, `&raquo;`, `&hellip;`)
+  collapsed to `''` and read as nameless — a new `decodeCommonEntities` decodes named +
+  numeric references to their real characters instead. (4) Static contrast applied
+  WCAG 1.4.3's 4.5:1 to every resolvable text node unconditionally; a node whose entire
+  content is a Private-Use-Area codepoint (an icon-font glyph) is non-text and is now
+  judged at 1.4.11's 3:1 instead, under a new `non-text-contrast-sub-threshold` key.
+  (5) `input-label-missing` now implements the full HTML-AAM accessible-name fallback
+  chain (aria-labelledby-resolving → aria-label → label[for]/wrapping label → title →
+  placeholder); a bare `id` no longer exempts an input by itself, it must have a
+  matching `<label for>` (fixing both the false positive AND its false-negative twin,
+  three independent agents converged on this one); title/placeholder-only names emit a
+  new `input-label-weak` review finding instead of a critical fail; 3.3.2 is now
+  correctly labelled Level A. (6) `motion-reduced-motion-missing` is demoted to
+  `check:'review'`, tagged `level:'AAA'`, and excluded from `legal_risk.mapped_criteria`
+  and all six jurisdiction arrays (2.3.3 is Level AAA, never a legal baseline in any
+  mapped jurisdiction) — motion returns to `not-machine-checkable` whenever it has any
+  evidence, fires or handled, and never scores again. Its trigger was rewritten from a
+  file-wide `/(animation|transition):/` presence check to require a motion-bearing
+  property (transform, a position offset, or a `@keyframes` animation using one — never
+  color/background/border-color/box-shadow/opacity, and `transition: all` counts too)
+  on a selector verified reachable in the static markup; hover/active-gated
+  micro-transitions are noted as weaker evidence in the finding description rather than
+  suppressed, and an unfetchable external stylesheet is called out as a capture gap
+  rather than a confirmed absence.
+- **hakuso round-1 follow-up on item 6**: the `animation` shorthand is
+  order-independent (`animation: 1s spin` and `animation: 1s ease-in spin` both name the
+  keyframe "spin"), but only the first token was checked — fixed to test every token.
+
+### Measured
+
+- **Wild-corpus movement, `test/wild-corpus/` (40 real captured pages)**: 31/40 sites
+  moved end to end (`@17` → `@18`), verified against the committed `@17` engine run side
+  by side, not inferred. The five non-motion fixes moved 19/40
+  (`benchmark/2026-08-10-at18-fpclass-movement.md`); the motion demote + rewrite moved a
+  further 30/40 on top of that (`benchmark/2026-08-10-at18-item6-motion-movement.md`,
+  includes the hakuso animation-token-scan fix, +1/40 more with no score change since
+  motion was already out of scoring by then). No finding key was lost or gained outside
+  the two new keys (`non-text-contrast-sub-threshold`, `input-label-weak`); every other
+  key change is a count movement of an existing key. Golden vectors:
+  `clean.expected.json` coverage 66%→61% (motion `scored`/100→`not-machine-checkable` —
+  it leaves the scored set, which is why coverage drops; confidence stays `medium`,
+  overall score unaffected); `dirty.expected.json` coverage/confidence/
+  score unchanged (61%/`medium`/9) — the fixture gained a second, genuinely nameless
+  `<input>` so `input-label-missing` stays exercised alongside the new
+  `input-label-weak` case. No fresh Spearman/GT rerun for `@18` — findings outside the
+  six fixes are unaffected, same not-yet-empirically-reverified status as `@17`.
+
 ## [3.3.1] — 2026-08-08
 
 ### Measured
