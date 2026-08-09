@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.3.2] — 2026-08-09
+
+### Bug Fixes
+
+- six FP classes from wild adjudication; motion demoted to review/AAA (engine @18) (412fdac)
+
+### Documentation
+
+- merge the duplicate 3.3.1 sections into one curated entry (e6ad117)
+
 ## Unreleased
 
 ### Fixed
