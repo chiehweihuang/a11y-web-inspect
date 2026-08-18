@@ -78,6 +78,43 @@ if (!outputPath) {
   outputPath = resolve(dirname(auditPath), `${parts.join('-')}.html`);
 }
 
+const DEFAULT_CATEGORY_WEIGHTS = {
+  screenreader: 18, keyboard: 13, contrast: 13, forms: 13,
+  responsive: 12, touch: 8, cognitive: 8, motion: 5, media: 5, agent: 5,
+};
+
+function reportCoverage(audit) {
+  const summary = audit.summary || {};
+  const categories = Array.isArray(summary.categories) ? summary.categories : [];
+  const weights = summary.category_weights && typeof summary.category_weights === 'object'
+    ? summary.category_weights
+    : DEFAULT_CATEGORY_WEIGHTS;
+  const weightOf = (cat) => Number(weights[cat.id]) || 0;
+  const totalWeight = Number.isFinite(summary.scope_weight)
+    ? summary.scope_weight
+    : Object.values(weights).reduce((sum, weight) => sum + (Number(weight) || 0), 0);
+  const scoredWeight = Number.isFinite(summary.scored_weight)
+    ? summary.scored_weight
+    : categories.filter(cat => cat.state === 'scored').reduce((sum, cat) => sum + weightOf(cat), 0);
+  const applicableWeight = Number.isFinite(summary.applicable_weight)
+    ? summary.applicable_weight
+    : categories.filter(cat => cat.state !== 'not-applicable').reduce((sum, cat) => sum + weightOf(cat), 0);
+  const notApplicableWeight = Math.max(0, totalWeight - applicableWeight);
+  const coveragePercent = Number.isFinite(summary.coverage_percent)
+    ? summary.coverage_percent
+    : Math.round((scoredWeight / totalWeight) * 100);
+  return {
+    categoryCount: Object.keys(weights).length,
+    totalWeight,
+    applicablePercent: Number.isFinite(summary.applicable_weight_percent)
+      ? summary.applicable_weight_percent
+      : Math.round((applicableWeight / totalWeight) * 100),
+    evidencePercent: coveragePercent,
+    unverifiedPercent: Math.round((Math.max(0, applicableWeight - scoredWeight) / totalWeight) * 100),
+    notApplicablePercent: Math.round((notApplicableWeight / totalWeight) * 100),
+  };
+}
+
 /**
  * I18N: centralized translation table.
  * Both languages render inline in the HTML; CSS hides the inactive one
@@ -121,8 +158,12 @@ const I18N = {
     category_detail_manual: '靜態掃描已完成；這類檢查需要瀏覽器、輔助科技或人工操作，因此不製造分數。實際數值（如對比度、觸控目標尺寸等）需透過瀏覽器層或人工檢測（tier 2）取得。',
     category_detail_na: '靜態掃描已完成；本次範圍沒有偵測到此分類可檢查的內容。',
     score_qual_thin: '證據薄弱',
-    coverage_line: '機測權重涵蓋',
-    coverage_note: '其餘部分需人工或即時審查',
+    coverage_line: '已取得機器證據',
+    coverage_note: '依固定機器檢查範圍計算',
+    scope_line: '固定機器檢查範圍',
+    applicable_line: '本頁適用範圍',
+    unverified_line: '適用但尚未驗證',
+    not_applicable_line: '本頁不適用',
     score_na: '—',
     // Meta line
     meta_date: '日期',
@@ -132,7 +173,7 @@ const I18N = {
     meta_auditor: '審查者',
     // Verdict (suggestion-toned, not judgmental)
     verdict_pass: '達到基準',
-    verdict_pass_thin: '達到基準（證據涵蓋率低）',
+    verdict_pass_thin: '已檢查範圍未發現確認問題，不能判定整體達標',
     verdict_needs_work: '建議考慮改進',
     verdict_fail: '建議優先檢視',
     verdict_issues_found: '個發現項目',
@@ -227,8 +268,12 @@ const I18N = {
     category_detail_manual: 'The static scan completed. This category needs browser, assistive-technology, or human interaction evidence, so no score is invented. Real measurements (contrast ratio, touch-target size, etc.) require browser-level or human testing (tier 2).',
     category_detail_na: 'The static scan completed. No applicable content for this category was detected in the audited scope.',
     score_qual_thin: 'thin evidence',
-    coverage_line: 'Machine-measured weight coverage',
-    coverage_note: 'the rest needs human or live review',
+    coverage_line: 'Machine evidence obtained',
+    coverage_note: 'calculated against the fixed machine-check scope',
+    scope_line: 'Fixed machine-check scope',
+    applicable_line: 'Applicable to this page',
+    unverified_line: 'Applicable but not verified',
+    not_applicable_line: 'Not applicable here',
     score_na: 'n/a',
     meta_date: 'Date',
     meta_scope: 'Scope',
@@ -236,7 +281,7 @@ const I18N = {
     meta_standard: 'Standard',
     meta_auditor: 'Auditor',
     verdict_pass: 'Meets baseline',
-    verdict_pass_thin: 'Meets baseline (low coverage)',
+    verdict_pass_thin: 'No confirmed issues in the checked scope; overall status not determined',
     verdict_needs_work: 'Consider improving',
     verdict_fail: 'Priority review recommended',
     verdict_issues_found: 'observations',
@@ -822,6 +867,22 @@ function buildReportFindings(audit) {
   return [...axeFindings, ...supplemental];
 }
 
+const A11Y_DESIGN_EXPERIENCES = [
+  { match: /touch-target|target-size/, label: '目標尺寸體驗 · Target-size experience' },
+  { match: /input-label|label-title|label-content-name-mismatch/, label: '表單 label 體驗 · Form-label experience' },
+  { match: /focus|keyboard|clickable-non-button/, label: '鍵盤與焦點體驗 · Keyboard and focus experience' },
+  { match: /motion|marquee|blink/, label: '動態效果體驗 · Motion experience' },
+  { match: /contrast|color-contrast|color-only/, label: '色彩與對比體驗 · Color and contrast experience' },
+  { match: /caption|video|audio/, label: '字幕與聽覺體驗 · Captions and hearing experience' },
+  { match: /image-alt|button-name|link-name|aria-|landmark|heading/, label: '螢幕閱讀器體驗 · Screen-reader experience' },
+];
+
+function a11yDesignExperience(f) {
+  const id = [f?.key, f?.axe_rule_id, f?.axe_rule, f?.id].filter(Boolean).join(' ');
+  const experience = A11Y_DESIGN_EXPERIENCES.find(({ match }) => match.test(id));
+  return experience ? { href: 'https://chiehweihuang.github.io/a11y-design/#empathy', label: experience.label } : null;
+}
+
 function learnMoreLinks(f) {
   const links = [];
   if (f?.helpUrl) links.push({ href: f.helpUrl, label: f.axe_rule_id ? `axe: ${f.axe_rule_id}` : 'axe rule' });
@@ -829,6 +890,8 @@ function learnMoreLinks(f) {
     const known = WCAG_CRITERIA[id];
     if (known?.url) links.push({ href: known.url, label: `WCAG ${id}` });
   }
+  const experience = a11yDesignExperience(f);
+  if (experience) links.push(experience);
   const seen = new Set();
   return links.filter(link => {
     if (seen.has(link.href)) return false;
@@ -1233,13 +1296,15 @@ function buildFixcardHTML(g, rank) {
 
 function buildHeroHTML(audit, previous, groups) {
   const overall = audit.summary.overall_score;
-  const tone = overall != null ? bandTone(overall) : 'review';
-  const ringColor = overall != null ? `var(--${tone})` : 'var(--review)';
-  const circumference = 2 * Math.PI * 56;
-  const offset = overall != null ? circumference * (1 - overall / 100) : circumference;
-  const coverage = audit.summary.coverage_percent ?? 0;
+  const scoreTone = overall != null ? bandTone(overall) : 'review';
+  const scope = reportCoverage(audit);
+  const coverage = scope.evidencePercent;
+  const decisionTone = overall != null && bandOf(overall).id === 'pass' && coverage < LOW_COVERAGE_CONCLUSION_MAX
+    ? 'review'
+    : scoreTone;
   const bandLabel = scoreLabel(overall, coverage);
-  const reviewCount = audit.summary.categories.filter(c => c.state === 'not-machine-checkable' || c.state === 'not-applicable').length;
+  const manualCount = audit.summary.categories.filter(c => c.state === 'not-machine-checkable').length;
+  const notApplicableCount = audit.summary.categories.filter(c => c.state === 'not-applicable').length;
   const thinCount = audit.summary.categories.filter(c => c.thin === true).length;
   const prevLine = previous?.summary?.overall_score != null
     ? `<p class="coverage" style="margin-top:.3rem">${t('cmp_previous')}: ${previous.summary.overall_score} ${deltaArrow(overall, previous.summary.overall_score)}</p>`
@@ -1266,22 +1331,29 @@ function buildHeroHTML(audit, previous, groups) {
 
         <div class="verdict">
           <div class="overall">
-            <div class="ring-wrap">
-              <div class="ring" role="img" aria-label="overall score ${overall ?? 'n/a'} of 100">
-                <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
-                  <circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
-                  <circle cx="66" cy="66" r="56" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
-                </svg>
-                <div class="val"><b>${overall ?? '—'}</b><span>/ 100</span></div>
+            <div class="metric-pair" role="group" aria-label="機測分數與機器證據 / Machine-checked score and machine evidence">
+              <div class="metric score-metric">
+                <span class="metric-label">${bi('機測分數', 'Machine-checked score')}</span>
+                <p class="metric-value s-${scoreTone}"><b>${overall ?? '—'}</b><span>/ 100</span></p>
+                <p class="metric-note">${bi('只計算有證據的檢查', 'Evidence-backed checks only')}</p>
               </div>
-              <p class="ring-caption">${bi('機測部分', 'machine-checked portion')}</p>
+              <div class="metric coverage-metric">
+                <span class="metric-label">${bi('已取得機器證據', 'Machine evidence obtained')}</span>
+                <p class="metric-value"><b>${coverage}%</b></p>
+                <div class="coverage-track" role="progressbar" aria-label="已取得機器證據 / Machine evidence obtained" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${coverage}"><span style="width:${coverage}%"></span></div>
+                <p class="metric-note">${bi('依固定機器檢查範圍計算', 'Against the fixed machine-check scope')}</p>
+              </div>
             </div>
-            <div>
-              <span class="band" style="background:var(--${tone}-bg);color:var(--${tone});border-color:var(--${tone}-line)">${bandLabel}</span>
-              <p class="coverage">${bi(`此分數僅代表可機測的 <b>${coverage}%</b> 權重`, `This score covers only the <b>${coverage}%</b> of weight that is machine-checkable.`)}<br>
+            <div class="scope-summary" aria-label="檢查範圍摘要 / Check-scope summary">
+              <p><b>${t('scope_line')}：</b>${bi(`${scope.categoryCount} 類 · ${scope.totalWeight}%`, `${scope.categoryCount} categories · ${scope.totalWeight}%`)}</p>
+              <p><b>${t('applicable_line')}：</b>${scope.applicablePercent}% · <b>${t('unverified_line')}：</b>${scope.unverifiedPercent}% · <b>${t('not_applicable_line')}：</b>${scope.notApplicablePercent}%</p>
+            </div>
+            <div class="verdict-detail">
+              <span class="band" style="background:var(--${decisionTone}-bg);color:var(--${decisionTone});border-color:var(--${decisionTone}-line)">${bandLabel}</span>
+              <p class="coverage">${bi(`機測分數只代表固定範圍中已取得的 <b>${coverage}%</b> 證據，不是整體無障礙分數。`, `The machine-checked score represents evidence from <b>${coverage}%</b> of the fixed scope; it is not an overall accessibility score.`)}<br>
                 <span style="font-size:.85rem;color:var(--ink-soft)">${bi(
-                  `${reviewCount} 個分類僅供人工複審、${thinCount} 個分類已計分但證據薄弱`,
-                  `${reviewCount} review-only, ${thinCount} scored on thin evidence`
+                  `${manualCount} 個分類適用但需人工複審、${notApplicableCount} 個分類本頁不適用、${thinCount} 個分類已計分但證據薄弱`,
+                  `${manualCount} applicable but human-review-only, ${notApplicableCount} not applicable here, ${thinCount} scored on thin evidence`
                 )}</span>${audit.summary.life_safety_flag ? '' : `<br>
                 <span style="font-size:.85rem;color:var(--pass);font-weight:600">${bi(
                   '生命安全檢查（閃爍/癲癇風險）：未觸發',
@@ -1994,7 +2066,7 @@ const html = `<!DOCTYPE html>
      no Ming/Mincho serif is ever reachable (esp. Japanese on Windows). */
   --sans:Arial,"Segoe UI",system-ui,-apple-system,"Noto Sans TC","Noto Sans JP",
          "Yu Gothic UI","Yu Gothic",Meiryo,"Hiragino Sans","Microsoft JhengHei",sans-serif;
-  /* mono Latin for code; CJK inside code falls to CJK SANS (never PMingLiU)
+  /* mono Latin for code; CJK inside code falls to an explicit CJK sans
      before the final monospace keyword. */
   --mono:ui-monospace,"Cascadia Code",Consolas,"SFMono-Regular","Noto Sans Mono",
          "Noto Sans TC","Yu Gothic UI",Meiryo,"Microsoft JhengHei",monospace;
@@ -2121,17 +2193,17 @@ body{
   line-height:1.6;
   color:var(--ink);
   background:var(--bg);
-  overflow-x:hidden;
 }
 img{max-width:100%;height:auto}
 /* UA sets pre/code to bare monospace, defeating .diff's var(--mono); force the
    explicit stack so CJK in code never reaches a legacy font. */
 pre,code,kbd,samp{font-family:var(--mono)}
 a{color:var(--beacon);text-underline-offset:2px}
+p,a,li,td,th,h1,h2,h3{overflow-wrap:anywhere;word-break:break-word}
 a:hover{text-decoration-thickness:2px}
 :focus-visible{outline:3px solid var(--beacon);outline-offset:2px;border-radius:4px}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
-h1,h2,h3{line-height:1.25;letter-spacing:-.01em}
+h1,h2,h3{line-height:1.25;letter-spacing:0}
 code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-size:.9em}
 .skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--bg);
   padding:10px 16px;border-radius:0 0 8px 0;z-index:100}
@@ -2171,29 +2243,30 @@ code{background:var(--surface-2);padding:.1rem .35rem;border-radius:4px;font-siz
 .jump a:hover{background:var(--surface-2);color:var(--ink)}
 
 /* =========================== 01 DECISION / HERO =========================== */
-.hero{padding:2.4rem 0 2rem;position:relative;overflow:hidden}
-.hero::before{content:"";position:absolute;inset:-40% -10% auto auto;width:70vw;height:70vw;
-  max-width:640px;max-height:640px;pointer-events:none;
-  background:radial-gradient(closest-side,var(--beacon-soft),transparent 70%);
-  opacity:.9;z-index:0}
+.hero{padding:2.4rem 0 2rem;position:relative}
 .hero .wrap{position:relative;z-index:1}
 .verdict{display:grid;grid-template-columns:1fr;gap:1.6rem;align-items:start}
 /* two-col only when both fit at a readable measure: left capped so a long
    coverage line can't balloon it; right floored so CJK never collapses. */
 @media(min-width:820px){.verdict{grid-template-columns:minmax(auto,26rem) minmax(20rem,1fr)}}
-.overall{display:flex;align-items:center;gap:1.1rem}
-.ring-wrap{display:flex;flex-direction:column;align-items:center;gap:.35rem;flex:0 0 auto;width:132px}
-.overall .ring{position:relative;width:132px;height:132px;flex:0 0 auto}
-.overall svg{transform:rotate(-90deg)}
-.overall .val{position:absolute;inset:0;display:flex;flex-direction:column;
-  align-items:center;justify-content:center}
-.overall .val b{font-size:2.6rem;font-weight:800;font-variant-numeric:tabular-nums;
-  line-height:1;letter-spacing:-.03em}
-.overall .val span{font-size:.78rem;color:var(--ink-muted);letter-spacing:.08em}
-/* caption lives BELOW the ring, never inside it — the en string
-   "machine-checked portion" is longer than the circle can hold. */
-.ring-caption{width:132px;margin:0;font-size:.78rem;line-height:1.3;text-align:center;
-  color:var(--ink-soft)}
+.overall{display:grid;gap:1rem;min-width:0}
+.metric-pair{display:grid;grid-template-columns:repeat(2,minmax(9rem,1fr));gap:.75rem}
+.metric{min-width:0;padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.metric-label{display:block;font-size:.82rem;font-weight:700;color:var(--ink-soft)}
+.metric-value{display:flex;align-items:baseline;gap:.25rem;margin:.35rem 0 0;font-variant-numeric:tabular-nums}
+.metric-value b{font-size:2.25rem;line-height:1;font-weight:800;color:var(--ink)}
+.metric-value span{font-size:.78rem;color:var(--ink-muted)}
+.metric-value.s-crit b{color:var(--crit)}
+.metric-value.s-warn b{color:var(--warn)}
+.metric-value.s-pass b{color:var(--pass)}
+.metric-note{margin:.45rem 0 0;font-size:.78rem;line-height:1.35;color:var(--ink-muted)}
+.coverage-track{height:.45rem;margin-top:.55rem;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.coverage-track span{display:block;height:100%;background:var(--accent)}
+.scope-summary{margin-top:.65rem;padding-top:.55rem;border-top:1px solid var(--border);font-size:.78rem;line-height:1.45;color:var(--ink-muted)}
+.scope-summary p{margin:.15rem 0}
+.scope-summary b{color:var(--ink-soft)}
+.verdict-detail{min-width:0}
+@media(max-width:430px){.metric-pair{grid-template-columns:minmax(0,1fr)}}
 .band{display:inline-flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:999px;
   font-size:.84rem;font-weight:700;border:1px solid transparent}
 .coverage{margin-top:.55rem;font-size:.92rem;color:var(--ink-soft)}
@@ -2248,7 +2321,7 @@ section{padding:2.2rem 0}
 .cat-name{font-weight:700;font-size:1.02rem;line-height:1.3}
 .score-badge{flex:0 0 auto;text-align:center;min-width:52px}
 .score-badge b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;
-  line-height:1;letter-spacing:-.02em}
+  line-height:1;letter-spacing:0}
 .score-badge b.s-crit{color:var(--crit)}
 .score-badge b.s-warn{color:var(--warn)}
 .score-badge b.s-pass{color:var(--pass)}
@@ -2318,9 +2391,9 @@ section{padding:2.2rem 0}
 
 /* =========================== 04 CLIENT / EXEC SUMMARY =========================== */
 .exec{border:1px solid var(--border-strong);border-radius:var(--radius);
-  background:var(--bg);box-shadow:var(--shadow);overflow:hidden}
+  background:var(--bg);box-shadow:var(--shadow)}
 .exec-head{padding:1.1rem 1.3rem;background:var(--surface-2);border-bottom:1px solid var(--border)}
-.exec-head h3{margin:0;font-size:1.35rem}
+.exec-head h3{margin:0;font-size:1.35rem;min-width:0}
 .exec-head p{margin:.3rem 0 0;color:var(--ink-soft);font-size:.9rem}
 .exec-body{padding:1.3rem}
 .exec-body h3{font-size:1.02rem;margin:1.3rem 0 .5rem}
@@ -2407,7 +2480,7 @@ footer a{font-weight:600}
   :root{--bg:#fff!important;--ink:#000!important;--surface:#fff!important;--surface-2:#fff!important}
   body{font-size:12pt;color:#000}
   .jump,.masthead .engine-tag,.filters,.beacon-mark,.report-toolbar{display:none!important}
-  .hero::before,.honesty,.fixnext{box-shadow:none}
+  .honesty,.fixnext{box-shadow:none}
   .lang-zh,.lang-en{color:#333}
   a{color:#000;text-decoration:underline}
   section{padding:.6rem 0;break-inside:avoid}
@@ -2510,5 +2583,5 @@ ${buildFooterHTML(audit)}
 </html>`;
 
 mkdirSync(dirname(outputPath), { recursive: true });
-writeFileSync(outputPath, html, 'utf8');
+writeFileSync(outputPath, html.replace(/[ \t]+$/gm, ''), 'utf8');
 console.log(`Report written to: ${outputPath}`);

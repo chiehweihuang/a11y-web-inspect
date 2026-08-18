@@ -28,25 +28,25 @@ also has an undocumented compat path that reads Claude Code's
 `.claude-plugin/` manifests directly; the native manifests above are the
 supported path this repo now ships, not a reliance on that compat path.
 
-The Claude Code layout at the repo root is the **canonical** source for shared
-knowledge content during Phase B. The Codex adapter is canonical for
-Codex-specific framing (goal/skill invocation, CLI helpers). Where the two
-disagree on shared content, CC wins unless this file records otherwise.
+`core/` is the canonical source for shared knowledge, references, patterns, and
+scripts. `build.mjs` generates both runtime surfaces from it. The Codex adapter
+remains canonical only for Codex-specific framing (skill invocation and CLI helpers).
 
-## What is shared (Phase A core candidates)
+## What is shared (generated from core)
 
-These exist in both surfaces as hand-maintained copies. They are identical or
-near-identical and should collapse into a single `core/` in Phase A.
+These appear in both installed surfaces but are generated from one source under
+`core/`; generated copies must not be edited by hand.
 
 | Content | CC location | Codex location | Status |
 |---|---|---|---|
-| WCAG criteria reference | `references/wcag-quick.md` | `adapters/codex/references/wcag-quick.md` | shared, keep in sync by hand |
+| WCAG criteria reference | `references/wcag-quick.md` | `adapters/codex/references/wcag-quick.md` | generated from `core/references/` |
 | Component patterns | `references/patterns.md` | `adapters/codex/references/patterns.md` | shared |
 | Legal brief (6 jurisdictions) | `references/legal-brief.md` | `adapters/codex/references/legal-brief.md` | shared |
 | Disability categories | `references/disabilities.md` | `adapters/codex/references/disabilities.md` | shared |
 | Case studies | `references/cases.md` | `adapters/codex/references/cases.md` | shared |
 | Document a11y | `references/documents.md` | `adapters/codex/references/documents.md` | shared |
 | Report generator | `scripts/generate-report.mjs` | `adapters/codex/scripts/generate-report.mjs` | **identical after CRLF normalization** — pure line-ending diff, not content drift |
+| Design QA gate | `scripts/design-qa.mjs` | `adapters/codex/scripts/design-qa.mjs` | generated from `core/scripts/design-qa.mjs`; same JSON ledger and exit-code contract |
 | Inspect process prose | `commands/inspect.md` | `adapters/codex/references/beacon-inspect.md` | near-identical (codex port restructured commands → references) |
 | Guide process prose | `commands/guide.md` | `adapters/codex/references/beacon-guide.md` | near-identical |
 | Advisor process prose | `commands/advisor.md` | `adapters/codex/references/beacon-advisor.md` | near-identical |
@@ -76,7 +76,7 @@ Decisions about content that drifted and was pulled back across surfaces.
 - **Decision:** backport to CC as a shared core capability. A deterministic Tier 1 baseline benefits CC too — it gives the inspect skill a reproducible starting point the agent can run, then enrich with judgment. It also serves as a reference implementation of the `audit-results.json` schema (which ROADMAP notes is otherwise undocumented).
 - **Landed:** `scripts/static-audit.mjs` (this branch). Verified: `static-audit.mjs → generate-report.mjs` chain produces a valid 134 KB report on a known-bad fixture (score 36, 19 findings).
 - **Known duplication:** `static-audit.mjs` now exists in BOTH `scripts/` (CC) and `adapters/codex/scripts/` (Codex self-contained copy). This duplication is inherent to Phase B — the Codex adapter must be self-contained because it deploys to `~/.codex/skills/beacon/` where it cannot reach the repo's `scripts/`. **Historical deployment note:** that path was replaced in v3.3.0 by native marketplace installation (`codex plugin marketplace add chiehweihuang/beacon`, then `codex plugin add beacon@beacon`). Phase A's `build.mjs` resolves the duplication: `static-audit.mjs` lives once in `core/scripts/` and is copied into each built adapter.
-- **Not yet wired:** `scripts/static-audit.mjs` is present but not yet referenced from `commands/inspect.md`'s flow. Wiring it into Step 2 / Step 2a is a deliberate follow-up, sequenced AFTER PR #6 (`feat/inspect-step2-default-on`) merges, to avoid a conflicting edit to the same Step 2 region. Until wired, it is invocable manually: `node scripts/static-audit.mjs --scope "..." --output audit-results.json <paths>`.
+- **Resolved:** the inspect flow now uses `static-audit.mjs` as its repeatable baseline; Claude and Codex receive generated copies from the same `core/scripts/` source.
 - **Calibration note (non-blocking):** the deterministic script and agent-judgment Tier 1 can disagree on the same fixture (script found 19 findings / score 36 vs an agent's hand-audit of 13 findings / score 18 on bad-ecommerce). This agent-vs-script divergence is itself useful signal and is exactly what the `a11y-skill-workspace` pipeline is built to surface. Not reconciled here.
 
 ## Phase A — implemented (structure A2)
@@ -102,7 +102,7 @@ beacon/
   core/
     content/      guide.md, inspect.md, advisor.md (neutral prose, @cc/@codex markers)
     references/   wcag-quick, patterns, legal-brief, disabilities, cases, documents
-    scripts/      static-audit.mjs, generate-report.mjs
+    scripts/      static-audit.mjs, tier2-audit.mjs, design-qa.mjs, generate-report.mjs
   build.mjs       core -> every adapter, via an explicit GENERATED manifest
   extract.mjs     one-time bootstrap: committed variants -> marked core (LCS)
 

@@ -29,6 +29,8 @@ Beacon's Codex package does not install a PostToolUse hook. Apply advisor mode e
    - Screenshot checks at desktop and 320px mobile width.
 5. Report findings as user-impact first, criterion second.
 
+For substantial rendered UI work, run the bundled `design-qa.mjs` gate. It records the seven-width light/dark screenshot matrix, horizontal overflow, crushed primary text columns, forbidden font fallbacks, and browser errors in machine-readable JSON. Its machine pass is not human visual approval; actual 200% browser zoom, dead space, supported locales/states, and visual quality remain explicit manual checks.
+
 ## Categories
 
 - Contrast
@@ -103,6 +105,14 @@ Then generate the HTML report:
 ```text
 node "<beacon-plugin-root>/scripts/generate-report.mjs" reports/a11y/audit-results.json --output reports/a11y/a11y-report.html
 ```
+
+For rendered layout evidence, Codex may run:
+
+```text
+node "<beacon-plugin-root>/scripts/design-qa.mjs" --url <url-or-file> --output reports/design-qa/design-qa.json
+```
+
+Exit `2` means a blocking machine check failed. Exit `3` means capture was incomplete. Within an authorized UI task, fix the smallest root cause and rerun, for at most three correction rounds. Stop earlier if the same blocker repeats without new evidence. Do not change the Experience Contract, product scope, content, or design direction to make the gate pass; surface that choice instead.
 
 These commands are not the required user interface. They exist so the skill can repeat the same checks consistently instead of relying only on free-form review. If Node.js is unavailable, continue with manual review and state that the automated baseline was not run.
 

@@ -2,9 +2,9 @@
 
 [English](./README.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md) · [简体中文](./README.zh-Hans.md) · [繁體中文](./README.zh-Hant.md) · [Bahasa Indonesia](./README.id.md) · [Tiếng Việt](./README.vi.md) · [ไทย](./README.th.md) · [हिन्दी](./README.hi.md)
 
-Accessibility + AEO inspection plugin for Claude Code.
+Private-beta accessibility + AEO inspection plugin for Claude Code and Codex.
 
-**Landing page & live sample reports**: [chiehweihuang.github.io/beacon](https://chiehweihuang.github.io/beacon/) ([繁體中文](https://chiehweihuang.github.io/beacon/zh-Hant.html)) — the page is styled freely and audited by its own engine (100/100, static tier, coverage stated in the report).
+**Landing page & live sample reports**: [chiehweihuang.github.io/beacon](https://chiehweihuang.github.io/beacon/) ([繁體中文](https://chiehweihuang.github.io/beacon/zh-Hant.html)) — the page is styled freely and audited by its own engine, with the machine-checked score and evidence coverage shown as separate values.
 
 Beacon is a fast accessibility baseline for agent-assisted UI work: static heuristics first, live audit support when available, and report language that explains what to fix and why. It is useful in the same part of the workflow where teams use Lighthouse, axe, Pa11y, or WAVE, but Beacon is tuned for agent coding sessions, jurisdiction-aware WCAG context, Answer Engine Optimization, and human-centered explanations.
 
@@ -20,9 +20,11 @@ Beacon provides three Claude Code commands:
 
 | Command | Use it when | What you get |
 |---|---|---|
-| `beacon:inspect` | You have a page, component, HTML file, or UI change to review. | A 0-100 baseline score, 10 category scores, findings, jurisdiction context notes, remediation order, and an interactive HTML report — plus an optional Performance Signals section (Lighthouse performance/best-practices/SEO) when a browser is available. |
+| `beacon:inspect` | You have a page, component, HTML file, or UI change to review. | An evidence-backed baseline score, category states (and scores only where measured), findings, jurisdiction context notes, remediation order, and an interactive HTML report — plus an optional Performance Signals section (Lighthouse performance/best-practices/SEO) when a browser is available. |
 | `beacon:guide` | You are about to design or code UI. | Accessible patterns, component guidance, WCAG reminders, and design tradeoffs before code is written. |
 | `beacon:advisor` | You are editing HTML, CSS, JSX, TSX, Vue, or Svelte. | Contextual accessibility prompts while you work. It also runs through the Claude Code PostToolUse hook for UI file edits. |
+
+For substantial rendered UI work, `beacon:inspect` can also run `scripts/design-qa.mjs`: a seven-width light/dark screenshot and layout gate with a machine-readable ledger. It can block horizontal overflow, crushed primary text columns, forbidden MingLiU fallbacks, and page errors. A machine pass is not visual approval; actual 200% browser zoom, dead space, supported locales/states, and human visual quality remain explicit manual checks.
 
 Typical usage in Claude Code:
 
@@ -52,6 +54,8 @@ Beacon uses a three-tier model.
 | Tier 3: human testing | Manual walkthroughs and tests with disabled users. | Required for cognitive load, task completion, real assistive technology behavior, and usability. | Takes planning and cannot be replaced by AI. |
 
 Tier 1 is a fast baseline, not the authority. If Tier 1 and Tier 2 disagree, prefer the live browser evidence (Beacon's Tier-2 harness, plus axe if you ran it). Static checks intentionally err on the side of surfacing review items, so dense real-world pages can have false positives, especially around hidden links, list structure, and anything that depends on CSS visibility.
+
+The Design QA gate complements these accessibility tiers. Within an authorized coding task, an agent may fix a blocking root cause and rerun it for at most three rounds. It must stop earlier when the same blocker repeats without new evidence, and it must not rewrite product intent or design direction merely to make the gate pass.
 
 ## Installation
 
@@ -111,6 +115,8 @@ If a report says `requires_live_audit: true`, Beacon found signals that static e
 How these numbers are kept honest — reliability, detector validity, score-semantics
 properties, external benchmarks, and fairness invariants — is specified and executable
 in [VALIDATION.md](VALIDATION.md); the measured data lives under [benchmark/](benchmark/).
+Result stability across patch, minor, and major versions, plus the review-only lifecycle
+for new detectors, is governed by [RELEASE-POLICY.md](RELEASE-POLICY.md).
 
 Detector precision is measured on pages nobody hand-picked, not assumed. Against a
 survey of real captured sites, six of the highest-volume detectors were sampled across
@@ -122,6 +128,13 @@ and every per-instance call ship with the data in
 dominant cause of false positives is markup hidden by a stylesheet class rather than an
 inline style, which a tier that never loads CSS cannot see; that limit is now measured
 rather than merely disclosed.
+
+The underlying engine-`@18` survey now contains **3,700 unique real-world sites** with
+matched rendered snapshots and audit artifacts; 3,625 are in the current active analysis
+cohort after artifact/status exclusions. This is the mother cohort for stratified
+precision samples, false-positive discovery, release movement, and regression selection
+— not 3,700 manually adjudicated audits. See the
+[cohort definition and permitted claims](benchmark/2026-08-13-survey-3700.md).
 
 Automated tools are often estimated to cover ~30-40% of WCAG criteria industry-wide.
 Beacon measured its own coverage: of WCAG 2.2's 55 A+AA criteria, 14 have any coverage
@@ -205,6 +218,7 @@ The Codex adapter carries the same accessibility and AEO knowledge without the C
 
 See [CHANGELOG.md](./CHANGELOG.md) for the full history. Recent highlights:
 
+- **3.3.2** — Six measured false-positive-class fixes, including quote-aware hidden-state parsing, accessible-name corrections, entity decoding, icon contrast classification, and demotion of the AAA motion heuristic out of scoring; 31/40 wild pages changed under engine `@18`, with the missing same-generation GT/P/R rerun disclosed.
 - **3.3.0** — Native Tier-2 browser measurement harness (contrast 1.4.3, touch-target size 2.5.8; findings-only, scoring deferred), a static contrast reference value for certain literal pairs (review-severity, score-neutral), and axe-core optionalization with a code-backed contrast gate.
 - **3.2.0** — New `insufficient-evidence` category state (fewer than 3 machine checks reports a state instead of a coin-flip number) and a report information-architecture redesign (decision hero, evidence-density category cards, findings grouped by fix action).
 - **3.0.0** — Validated scoring semantics: unmeasured categories now report states instead of invented scores, every overall score carries measured-weight coverage, life-safety findings cap the score, and the committed validation suite covers reliability, detector validity, score properties, external benchmarks, fairness, and interpretation.

@@ -328,6 +328,16 @@ Carry these caveats into the report (the extractor already embeds them):
 
 ### Step 3: Manual Review
 
+Before the category review, run the rendered Design QA gate when a page or local HTML artifact is available:
+
+```bash
+node scripts/design-qa.mjs --url <url-or-file> --output reports/design-qa/design-qa-round-1.json
+```
+
+The gate captures light/dark screenshots at 320/768/1024/1280/1440/1742/1920 and records document/element horizontal overflow, crushed primary text columns, forbidden MingLiU fallbacks, page errors, and console errors. Exit `2` is blocking evidence; exit `3` means incomplete capture. Exit `0` is only a machine pass. Actual 200% browser zoom, viewport-level dead space, every supported locale/state, and human visual quality remain required manual checks; CSS zoom, DPR, device scale factor, or screenshots alone are not substitutes.
+
+Within an authorized implementation task, fix the smallest root cause and rerun, keeping each JSON round. Stop after three correction rounds, or earlier when the same blocker repeats without new evidence. Do not change product intent, user tasks, content, or design direction merely to make the gate pass; surface that choice.
+
 Check each category systematically. Read `../references/wcag-quick.md` for criterion details.
 
 For each check item, record a structured finding (pass/fail/review-needed) with:
@@ -818,7 +828,7 @@ Tell the user it is recorded locally for detector improvement, and offer the ups
 After delivering the report:
 - Offer to create GitHub issues / todo items for each finding
 - Suggest re-audit timeline based on severity
-- If critical findings exist, offer to fix the top 3 immediately
+- If the task authorizes code changes, fix blocking root causes and rerun the relevant Beacon gates within the three-round limit; otherwise offer to fix the top 3 immediately
 - If the user has a11y-design-guide skill, suggest using it for redesign work
 
 **Upstream false-positive report (explicit opt-in, never automatic).** If the user marked a finding as a false positive and wants to help improve the detectors, build a SANITIZED payload and walk the send-review flow:

@@ -2048,6 +2048,10 @@ function main() {
   // Step 4). An unmeasured category moves COVERAGE, never the score.
   const scoredCats = categories.filter(cat => cat.state === 'scored');
   const scoredWeight = scoredCats.reduce((sum, cat) => sum + (CATEGORY_WEIGHTS[cat.id] || 0), 0);
+  const applicableWeight = categories
+    .filter(cat => cat.state !== 'not-applicable')
+    .reduce((sum, cat) => sum + (CATEGORY_WEIGHTS[cat.id] || 0), 0);
+  const notApplicableWeight = WEIGHT_SUM - applicableWeight;
   const weightedScore = scoredWeight
     ? Math.round(scoredCats.reduce((sum, cat) => sum + cat.score * (CATEGORY_WEIGHTS[cat.id] || 0), 0) / scoredWeight)
     : null;
@@ -2089,6 +2093,12 @@ function main() {
     summary: {
       overall_score: overall,
       coverage_percent: coverage,
+      category_weights: CATEGORY_WEIGHTS,
+      scope_weight: WEIGHT_SUM,
+      applicable_weight: applicableWeight,
+      applicable_weight_percent: Math.round((applicableWeight / WEIGHT_SUM) * 100),
+      scored_weight: scoredWeight,
+      not_applicable_weight: notApplicableWeight,
       life_safety_flag: lifeSafety,
       score_bands: SCORE_BANDS,
       total_findings: findings.length,

@@ -59,6 +59,23 @@ node scripts/generate-report.mjs \
   --output reports/a11y/a11y-report.html
 ```
 
+## Rendered Design QA Gate
+
+For substantial rendered UI work:
+
+```bash
+node scripts/design-qa.mjs \
+  --url http://localhost:3000 \
+  --output reports/design-qa/design-qa-round-1.json \
+  --screenshots reports/design-qa/round-1
+```
+
+- Exit `0`: machine checks passed; required manual checks still remain.
+- Exit `2`: blocking overflow, text-width, font, or page-error evidence exists.
+- Exit `3`: one or more viewport captures failed; do not claim coverage.
+
+Patch only within the user's authorized scope. Rerun after each root-cause fix, keeping at most three round ledgers. Stop earlier when the same blocker repeats without new evidence. Actual 200% browser zoom, viewport-level dead space, supported locales/states, and human visual quality cannot be replaced by CSS zoom, DPR, screenshots alone, or this script.
+
 ## What This Catches Well
 
 - Missing HTML `lang` / title / viewport.
@@ -88,4 +105,5 @@ For UI changes, Codex should:
 1. Run `advisor.mjs` on touched UI files.
 2. Run project tests / build as usual.
 3. For substantial UI work, run `static-audit.mjs` and generate the HTML report.
-4. Report what was checked and what remains unverifiable.
+4. Run `design-qa.mjs` when a rendered page is available, then use the bounded correction loop above.
+5. Report what was checked and what remains unverifiable.

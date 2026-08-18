@@ -58,10 +58,9 @@ test('the standard statement renders in a generated report, before the fix line'
     const fixIdx = html.indexOf('fix-line');
     assert.ok(standardIdx > -1 && fixIdx > -1 && standardIdx < fixIdx, 'standard-line must render before fix-line');
 
-    // Ruling #3 (user ruling 2026-08-08): score 90 sits exactly on the pass-band boundary;
-    // coverage 40 is below the 50% gate, so the conclusion wording must still downgrade.
-    assert.match(html, /class="band"[\s\S]{0,120}達到基準（證據涵蓋率低）/, 'boundary score 90 at low coverage must use the downgraded zh wording');
-    assert.match(html, /class="band"[\s\S]{0,200}Meets baseline \(low coverage\)/, 'boundary score 90 at low coverage must use the downgraded en wording');
+    // Score 90 at 40% evidence is still conditional, not an overall pass.
+    assert.match(html, /class="band"[\s\S]{0,160}已檢查範圍未發現確認問題，不能判定整體達標/);
+    assert.match(html, /class="band"[\s\S]{0,240}No confirmed issues in the checked scope; overall status not determined/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -16,7 +16,7 @@ test('category cards expose completed states as text (never a painted score), an
     writeFileSync(audit, JSON.stringify({
       metadata: { date: '2026-01-01', scope: 'test', url: 'https://example.com/test?page=1&mode=audit', standard: 'WCAG 2.2 AA' },
       summary: {
-        overall_score: 100, coverage_percent: 10, total_findings: 1,
+        overall_score: 100, coverage_percent: 10, total_findings: 2,
         critical: 1, warnings: 0, tips: 0,
         categories: [
           { id: 'contrast', name: 'Color & Contrast', pass: 0, fail: 0, review: 1, state: 'not-machine-checkable', score: null, thin: false },
@@ -26,6 +26,7 @@ test('category cards expose completed states as text (never a painted score), an
       },
       findings: [
         { key: 'html-lang-missing', category: 'screenreader', severity: 'critical', wcag: 'WCAG 2.2: 3.1.1', title: 'Page language is missing', location: 'index.html:1', fix: 'Add lang.', check: 'fail' },
+        { key: 'input-label-missing', category: 'forms', severity: 'critical', wcag: 'WCAG 2.2: 1.3.1', title: 'Input label is missing', location: 'form.html:2', fix: 'Add a label.', check: 'fail' },
       ],
       legal_risk: {},
       testing_recommendations: [{ zh: '中文測試建議', en: 'English testing recommendation' }],
@@ -47,11 +48,20 @@ test('category cards expose completed states as text (never a painted score), an
     );
     assert.match(html, /data-category="responsive"[\s\S]{0,400}<b class="s-pass">100<\/b>/, 'the thin category still renders its actual score');
 
-    // Ruling #3 (user ruling 2026-08-08): a 90-100 overall score built on low weight
-    // coverage (here 10%) downgrades the band conclusion wording instead of an unqualified
-    // "Meets baseline" -- both languages.
-    assert.match(html, /class="band"[\s\S]{0,120}達到基準（證據涵蓋率低）/, 'low-coverage pass band must use the downgraded zh wording');
-    assert.match(html, /class="band"[\s\S]{0,200}Meets baseline \(low coverage\)/, 'low-coverage pass band must use the downgraded en wording');
+    // A low-coverage pass describes the checked scope, never the whole page.
+    assert.match(html, /class="band"[\s\S]{0,160}已檢查範圍未發現確認問題，不能判定整體達標/);
+    assert.match(html, /class="band"[\s\S]{0,240}No confirmed issues in the checked scope; overall status not determined/);
+    assert.match(html, /機測分數/);
+    assert.match(html, /Machine-checked score/);
+    assert.match(html, /已取得機器證據/);
+    assert.match(html, /Machine evidence obtained/);
+    assert.match(html, /固定機器檢查範圍/);
+    assert.match(html, /本頁適用範圍/);
+    assert.match(html, /適用但尚未驗證/);
+    assert.match(html, /本頁不適用/);
+    assert.match(html, /aria-valuenow="10"/, 'coverage must be exposed as its own semantic metric');
+    assert.match(html, /not an overall accessibility score/);
+    assert.doesNotMatch(html, /[ \t]+$/m, 'generated report must not contain trailing whitespace');
 
     // Masthead: page URL escaped, bilingual label present.
     assert.match(html, /受測網頁/);
@@ -61,6 +71,8 @@ test('category cards expose completed states as text (never a painted score), an
     // read the same content from a separate `remediation` array).
     assert.match(html, /index\.html:1/);
     assert.match(html, /加入正確的語言 attribute/);
+    assert.match(html, /https:\/\/chiehweihuang\.github\.io\/a11y-design\/#empathy/);
+    assert.match(html, /表單 label 體驗 · Form-label experience/);
 
     // Testing recommendations stay bilingual.
     assert.match(html, /中文測試建議/);

@@ -147,6 +147,10 @@ test('thin categories enter the weighted overall and coverage (engine @17), just
   // responsive now counts despite being thin (engine @17); the review-only categories are
   // still excluded either way.
   assert.equal(audit.summary.coverage_percent, 35);
+  assert.equal(audit.summary.scope_weight, 100);
+  assert.equal(audit.summary.scored_weight, 35);
+  assert.equal(audit.summary.applicable_weight + audit.summary.not_applicable_weight, 100);
+  assert.deepEqual(audit.summary.category_weights, WEIGHTS);
 });
 
 test('a page whose ONLY failing category is thin now correctly lowers the overall score (engine @17 fixes the old exclusion cliff)', () => {

@@ -12,7 +12,9 @@ Loop:
 2. After each UI file change, apply Beacon advisor mode.
 3. Fix blocking issues immediately.
 4. At the end, run a static baseline audit if the change is more than a tiny copy/style edit.
-5. Report what was checked, what improved, and what still needs live/browser/manual verification.
+5. For substantial rendered UI work, run `design-qa.mjs` and preserve each round's JSON ledger.
+6. Fix blocking root causes and rerun for at most three rounds; stop earlier when the same blocker repeats without new evidence.
+7. Report what was checked, what improved, and what still needs actual browser zoom, state/locale, or human visual verification.
 ```
 
 ## Review Goal

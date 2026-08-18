@@ -26,6 +26,23 @@
   "summary": {
     "overall_score": 100,
     "coverage_percent": 61,
+    "category_weights": {
+      "screenreader": 18,
+      "keyboard": 13,
+      "contrast": 13,
+      "forms": 13,
+      "responsive": 12,
+      "touch": 8,
+      "cognitive": 8,
+      "motion": 5,
+      "media": 5,
+      "agent": 5
+    },
+    "scope_weight": 100,
+    "applicable_weight": 100,
+    "applicable_weight_percent": 100,
+    "scored_weight": 61,
+    "not_applicable_weight": 0,
     "life_safety_flag": false,
     "score_bands": [
       {

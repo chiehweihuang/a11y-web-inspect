@@ -1,6 +1,6 @@
 # Beacon Roadmap
 
-Snapshot **2026-08-04**. Last released **v3.3.0**. Pattern Library v1.0 shipped in v2.2.0; v3.0.0 replaced placeholder scoring with measured category states, coverage-aware scores, and a committed validation charter; v3.3.0 added the native Tier-2 browser measurement harness.
+Snapshot **2026-08-13**. Last released **v3.3.2**. Pattern Library v1.0 shipped in v2.2.0; v3.0.0 replaced placeholder scoring with measured category states, coverage-aware scores, and a committed validation charter; v3.3.0 added the native Tier-2 browser measurement harness; v3.3.2 corrected six measured false-positive classes under engine `@18`.
 
 This file is the single place to see **where Beacon is, where it is heading, and how far the current work has got**. Glance here instead of watching individual commits. For internals see [ARCHITECTURE.md](./ARCHITECTURE.md); for skill behaviour see `commands/*.md`.
 
@@ -10,7 +10,7 @@ This file is the single place to see **where Beacon is, where it is heading, and
 
 **The thesis (direction · this rarely changes).** Beacon is a distributed *signal* each developer or agent carries, not a central scanner like Lighthouse. The payoff is collective: stop AI from regenerating the **same** accessibility mistakes. To get there, detectors stop being hardcoded copies and become shared, contributable **data**.
 
-**Current focus: measuring the engine against pages nobody hand-picked.** A survey tier now captures real sites nightly and re-audits them under one engine, which turned the old open question "how often is a finding wrong in the wild?" into a published per-detector number (`benchmark/2026-08-03-wild-precision/`). Three false-positive classes it surfaced are fixed; a 40-page wild regression corpus guards against page-wide regressions in CI.
+**Current focus: measuring the engine against pages nobody hand-picked.** A survey tier now captures real sites nightly and re-audits them under one engine, which turned the old open question "how often is a finding wrong in the wild?" into a published per-detector number (`benchmark/2026-08-03-wild-precision/`). Six measured false-positive classes are fixed in v3.3.2; a 40-page wild regression corpus guards against page-wide regressions in CI, while the same-generation `@18` GT/P/R rerun remains open.
 
 The three named gaps now carry evidence instead of adjectives:
 
@@ -40,18 +40,19 @@ Updated after each step. This is the live "how far have we got" line.
 
 ---
 
-## Current State (v2.0.8)
+## Current State (v3.3.2)
 
-### Stable & in-production
+### Implemented in the current private beta
 
 - **Three skill pipeline**: `/beacon:guide` (pre-code) · `/beacon:advisor` (during code) · `/beacon:inspect` (post-code)
 - **PostToolUse hook**: `scripts/a11y-advisor-hook.mjs` auto-triggers `/beacon:advisor` on edits to HTML/CSS/JSX/TSX/Vue/Svelte files
 - **Proactive triggering**: SessionStart + UserPromptSubmit hooks (see `scripts/beacon-session-start.mjs`, `scripts/beacon-prompt-gate.mjs`) widen the advisor's invocation surface
 - **Severity matrix**: rules-based classification with mandated severities for known WCAG criteria; reduces inter-auditor variance (`commands/inspect.md`)
 - **Audit tiers**: Tier 1 static / Tier 2 live browser (Playwright + axe-core) / Tier 3 manual testing
-- **Three-state verdict per check item**: `pass` / `fail` / `unverifiable` — prevents penalising CSR/SPA sites for things that genuinely cannot be confirmed from static HTML
-- **Confidence-level system**: HIGH / MEDIUM / LOW based on CSR detection; LOW caps overall score at 60 and flags `requires_live_audit: true`
+- **Evidence states**: scored categories carry a number; unmeasured categories report `not-machine-checkable` or `not-applicable`; 1–2 checks are explicitly marked `thin`
+- **Coverage-derived confidence**: every overall score carries measured-weight coverage; static-only confidence never exceeds medium and insufficient runtime evidence sets `requires_live_audit: true`
 - **Pedagogical demo detection**: deliberately-bad examples in educational pages excluded from scoring
+- **Design QA gate**: `scripts/design-qa.mjs` records light/dark screenshots at 320/768/1024/1280/1440/1742/1920, machine-checks layout blockers, and preserves the remaining manual checks instead of claiming visual approval
 
 ### Recently shipped (this iteration)
 

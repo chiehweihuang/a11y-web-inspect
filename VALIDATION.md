@@ -21,7 +21,7 @@ pages nobody hand-picked). This charter makes both kinds permanent.
 | L0 Reliability | same input → same output, any machine, any day | `test/golden-vectors.test.mjs` + `test/golden/`; byte-identical test in `test/static-audit-scoring.test.mjs`; CI matrix `.github/workflows/validation.yml` (3 OS × 2 Node); `tools/drift-compare.mjs` | `node --test` locally; matrix in CI | zero diffs; drift only from layer-2 capture, never from the engine |
 | L1 Detector validity | each detector's P/R is measured, not assumed | regression corpora in `test/*.test.mjs`; `tools/measure-detectors.mjs` (report-only characterization); `tools/measure-semantic.mjs` (hard gate) | see `.github/workflows/ci.yml` | semantic gate: precision 1.0, recall ≥ 0.4; new detectors ship with a wild-sample FP measurement (see protocol below) |
 | L2 Score semantics | the formula's promises | `test/scoring-properties.test.mjs` (monotonicity, injection dose-response, cross-stack fairness); state/renormalisation/gate/cap/ceiling tests in `test/static-audit-scoring.test.mjs` | `node --test` | all properties hold |
-| L3 External validity | the number tracks the world | `benchmark/2026-07-05/` (87-site paired benchmark + harness); `benchmark/2026-07-06-ground-truth/` (20-site P/R inventory + harness); `test/wild-corpus/` (40 real captured pages, per-key counts frozen) | see those READMEs; `node --test` for the corpus | Spearman not regressing; GT re-verify on detector changes: FP classes eliminated stay eliminated, TPs retained; wild-corpus diffs explained line by line |
+| L3 External validity | the number tracks the world | 3,700-site survey mother cohort ([snapshot](benchmark/2026-08-13-survey-3700.md)); `benchmark/2026-07-05/` (87-site paired benchmark + harness); `benchmark/2026-07-06-ground-truth/` (20-site P/R inventory + harness); `test/wild-corpus/` (40 real captured pages, per-key counts frozen) | see those READMEs; `node --test` for the corpus | survey drives stratified samples but never substitutes for adjudication; Spearman not regressing; GT re-verify on detector changes; wild-corpus diffs explained line by line |
 | L4 Fairness | same defect → same penalty, however the site is built | cross-stack test in `test/scoring-properties.test.mjs`; life-safety gate test; four-state (never score absence) tests | `node --test` | identical finding sets + scores across dialects; gate uncircumventable |
 | L5 Interpretation | the report cannot overclaim | coverage shown beside every score; `summary.score_bands` as single source; context banner | code review on report changes | see "forbidden claims" |
 
@@ -66,6 +66,10 @@ Open: a longer-window (7-day+) recapture and the two-machine same-hour experimen
 error bar.
 
 ## L1 — new-detector shipping protocol
+
+The lifecycle and SemVer boundary are normative in
+[RELEASE-POLICY.md](RELEASE-POLICY.md): new detectors begin as review-only evidence and
+can enter scoring only in a minor release after their predeclared evidence gate passes.
 
 A detector may not feed the score until it has BOTH:
 1. A regression corpus (positive + near-miss negative cases) in `test/`.
@@ -692,7 +696,7 @@ automation itself.
 | 3.2.4 | AA | NONE | No cross-page structural comparison | People who use screen readers, who rely on familiarity with a consistently-labeled function across pages, and people with cognitive limitations, for whom a control or icon whose identity (label, icon) changes across pages for the same function increases cognitive load |
 | 3.2.6 | A | NONE | No cross-page structural comparison | People with cognitive disabilities who rely on finding help (contact, chat, FAQ) in the same relative place on every page |
 | 3.3.1 | A | NONE | No form-submission/error-association check | Screen-reader users who submit a form and get no text-based indication of which field failed or why, and people with cognitive disabilities who can't tell what needs fixing |
-| 3.3.2 | A | PARTIAL | Only checks `<input>`, not `<select>`/`<textarea>`; exempts any input carrying an `id` without verifying a `<label for>` actually references it | Screen-reader and other AT users on an unlabeled `<select>` or `<textarea>`, or on any input this scan assumed was labeled purely because it has an `id`, with no `<label>` actually pointing at it |
+| 3.3.2 | A | PARTIAL | Only checks `<input>`, not `<select>`/`<textarea>`; title/placeholder-only names remain review evidence rather than confirmed labels | Screen-reader and other AT users on an unlabeled `<select>` or `<textarea>`, or users who lose the only instruction when placeholder text disappears after typing |
 | 3.3.7 | A | NONE | No multi-step-form field comparison | People with cognitive or motor disabilities forced to re-enter information (name, address) they already gave earlier in the same multi-step process |
 | 3.3.8 | AA | PARTIAL | Custom or non-branded CAPTCHA and hand-rolled cognitive-function-test implementations | People with cognitive disabilities blocked by an in-house puzzle or CAPTCHA that isn't one of the handful of branded services this scan recognizes by fingerprint |
 | 4.1.2 | A | PARTIAL | ARIA state/property correctness, invalid role values, custom-widget value exposure, form controls beyond buttons/links | AT users (screen readers, switch access, voice control) operating a custom widget whose ARIA is present but wrong, incomplete, or absent, so their AT announces a state that doesn't match reality or announces nothing useful |
@@ -808,12 +812,26 @@ The report and any prose about Beacon may never state:
 - narrative site-archetype bands (retired 2026-07-05; require a committed benchmark
   against the current formula before any revival).
 
+### 30-second report comprehension gate
+
+Before a report layout is released, a person unfamiliar with Beacon must be able to
+answer these questions from the report within 30 seconds:
+
+1. What is the measured state of this page, and how much evidence supports it?
+2. What should be fixed first?
+3. What still requires browser, assistive-technology, or human testing?
+
+The answer must come from the decision layer and its immediate next action, not from
+reading the methodology. A numeric score alone cannot answer question 1. Long rationale
+and teaching material belong in the methodology or external references, not ahead of
+the first remediation action.
+
 ---
 
 ## Release gate (run in order)
 
 ```
-node --test                                   # 385 tests, all green
+node --test                                   # 483 tests, all green as of v3.3.2
 node build.mjs --check                        # generated copies match core
 node tools/measure-detectors.mjs              # report-only characterization
 node tools/measure-semantic.mjs --min-precision 1.0 --min-recall 0.4

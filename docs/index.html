@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Beacon — accessibility + AEO inspection for AI coding agents</title>
-<meta name="description" content="Beacon is a Claude Code and Codex plugin that scores web accessibility (WCAG 2.2) and answer-engine readiness, anchors every finding to exact markup, and publishes the validation data behind its own numbers.">
+<title>Beacon — accessibility integration for AI coding agents</title>
+<meta name="description" content="Beacon helps Claude Code and Codex combine source inspection, axe-core, Lighthouse, browser evidence, and human testing into actionable accessibility work.">
 <link rel="canonical" href="https://chiehweihuang.github.io/beacon/">
 <link rel="alternate" hreflang="en" href="https://chiehweihuang.github.io/beacon/">
 <link rel="alternate" hreflang="zh-Hant" href="https://chiehweihuang.github.io/beacon/zh-Hant.html">
@@ -16,8 +16,8 @@
   "name": "Beacon",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
-  "softwareVersion": "3.3.0",
-  "description": "Accessibility (WCAG 2.2) and answer-engine-optimization inspection plugin for AI coding agents (Claude Code and Codex), with benchmark-validated scoring.",
+  "softwareVersion": "3.3.2",
+  "description": "Accessibility integration layer for AI coding agents, combining source inspection, browser evidence, established testing tools, and human review.",
   "license": "https://opensource.org/licenses/MIT",
   "url": "https://chiehweihuang.github.io/beacon/",
   "downloadUrl": "https://github.com/chiehweihuang/beacon"
@@ -36,6 +36,7 @@
     <nav class="site-nav" aria-label="Main">
       <ul>
         <li><a href="#commands">What it does</a></li>
+        <li><a href="#toolchain">Toolchain</a></li>
         <li><a href="#evidence">Evidence</a></li>
         <li><a href="#reports">Reports</a></li>
         <li><a href="#install">Install</a></li>
@@ -53,13 +54,28 @@
 
   <section class="hero" aria-labelledby="hero-h">
     <div class="wrap">
-      <h1 id="hero-h">Ship interfaces everyone can use — and prove it.</h1>
-      <p class="lede">Beacon is an accessibility + AEO inspection plugin for AI coding agents (Claude Code and Codex). It scores pages 0–100 across ten categories, anchors every finding to the exact markup that caused it, and publishes the benchmark data behind its own scoring.</p>
+      <h1 id="hero-h">Make established accessibility tools usable by every coding agent.</h1>
+      <p class="lede">Beacon is an accessibility integration layer for Claude Code and Codex. It combines source inspection, browser measurements, axe-core evidence, supplementary Lighthouse signals, and human testing guidance, then turns the evidence into prioritized fixes anchored to the code.</p>
       <p class="honesty">A high score means automated checks found fewer issues in the evidence available. It is a triage signal — not a compliance certificate, and never a substitute for testing with disabled users.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#install">Get started</a>
         <a class="btn btn-ghost" href="reports/landing-self-audit.html">See this page's own audit</a>
       </div>
+    </div>
+  </section>
+
+  <section id="toolchain" aria-labelledby="toolchain-h">
+    <div class="wrap">
+      <h2 id="toolchain-h">One workflow, evidence from the right tool</h2>
+      <p class="section-lede">Beacon does not replace mature testing engines. It records what each tool actually established, keeps uncertain results visible, avoids counting the same defect twice, and tells the agent what still needs a person.</p>
+      <div class="tool-grid">
+        <div class="tool-row"><h3>Beacon source inspection</h3><p>Works before deployment and without a browser. Finds code-level patterns, file locations, and agent-ready fixes.</p></div>
+        <div class="tool-row"><h3>axe-core</h3><p>Runs against rendered content. Passes, violations, incomplete results, affected nodes, rule links, engine version, and provenance remain intact.</p></div>
+        <div class="tool-row"><h3>Lighthouse</h3><p>Adds performance, best-practices, and SEO context. Its accessibility category is not treated as independent evidence because it is powered by axe-core.</p></div>
+        <div class="tool-row"><h3>WAVE / WebAIM</h3><p>Planned as an optional independent cross-check when the user supplies access; it is not part of the default workflow yet. Beacon will not bundle a paid API key or present WAVE results as its own.</p></div>
+        <div class="tool-row"><h3>Human and assistive-technology testing</h3><p>Covers keyboard task completion, NVDA and VoiceOver, cognitive clarity, motion, and real use. Automated scores never replace this layer.</p></div>
+      </div>
+      <p class="footnote">The normalized report keeps each source and version visible. Corroborating tools strengthen a finding; they do not create duplicate penalties.</p>
     </div>
   </section>
 
@@ -156,6 +172,15 @@
       </div>
 
       <p class="footnote">Publishing the weak rows is the point: n=15 ranks detectors and exposes error classes, it does not certify any single figure. The leading cause of false positives is markup hidden by a stylesheet class rather than an inline style, which a tier that never loads CSS cannot see. Every per-instance judgement — including the ones the reviewer overturned — ships with <a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark/2026-08-03-wild-precision">the published data</a>.</p>
+
+      <h3>3,700 real-site runs: a research cohort, not 3,700 endorsements</h3>
+      <p>The survey supplies diverse pages for finding detector weaknesses, selecting regression cases, measuring release movement, and drawing human-review samples. Site names and captured third-party pages are not published.</p>
+      <div class="stats">
+        <div class="stat"><span class="n">3,700</span> <span class="d">unique sites with a successful rendered snapshot and normalized audit artifact</span></div>
+        <div class="stat"><span class="n">3,625</span> <span class="d">active artifacts in the current aggregate-analysis cohort after status exclusions</span></div>
+        <div class="stat"><span class="n">0 named sites</span> <span class="d">public findings are aggregate measurements, not a public ranking of third parties</span></div>
+      </div>
+      <p class="footnote">The cohort does not prove 3,700 sites were manually audited, that every finding is correct, or that its score distribution measures the accessibility of the web. Read the <a href="https://github.com/chiehweihuang/beacon/blob/master/benchmark/2026-08-13-survey-3700.md">cohort definition and permitted claims</a>.</p>
     </div>
   </section>
 
@@ -185,16 +210,22 @@
           <a href="reports/landing-self-audit.html">Open the self-audit report</a>
         </div>
         <div class="shot">
-          <span class="score fail">0 · fails</span>
+          <span class="score fail">9 · fails</span>
           <h3>A deliberately broken page</h3>
-          <p>The same report on a fixture riddled with violations — 18 findings, a stack of criticals, and the fail band in action.</p>
+          <p>The same report on a fixture riddled with violations — 19 findings, a stack of criticals, and the fail band in action.</p>
           <a href="reports/broken-fixture.html">Open the broken-fixture report</a>
         </div>
         <div class="shot">
           <span class="score">Raw data</span>
           <h3>The validation studies</h3>
-          <p>An 87-site paired benchmark, a 20-site ground-truth study, and a CJK fairness measurement — committed, versioned, reproducible.</p>
+          <p>A 3,700-site research cohort, an 87-site paired benchmark, a 20-site ground-truth study, and detector-level human review.</p>
           <a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark">Browse the benchmark directory</a>
+        </div>
+        <div class="shot">
+          <span class="score">Human impact</span>
+          <h3>Experience the interface barriers</h3>
+          <p>Interactive examples connect target size, labels, keyboard traps, motion, color, captions, and screen-reader output to the people affected.</p>
+          <a href="https://chiehweihuang.github.io/a11y-design/#empathy">Open the accessibility design experiences</a>
         </div>
       </div>
     </div>
@@ -233,7 +264,7 @@ codex plugin add beacon@beacon</code></pre>
 
 <footer class="site">
   <div class="wrap">
-    <span>MIT · v3.3.0</span>
+    <span>MIT · v3.3.2</span>
     <a href="https://github.com/chiehweihuang/beacon">github.com/chiehweihuang/beacon</a>
     <a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md">Validation charter</a>
     <span>Built, styled, and audited with itself.</span>

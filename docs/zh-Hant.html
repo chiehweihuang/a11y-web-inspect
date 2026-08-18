@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Beacon——給 AI 編碼代理的無障礙＋答案引擎檢測</title>
-<meta name="description" content="Beacon 是 Claude Code 與 Codex 的檢測插件：依 WCAG 2.2 為網頁無障礙與答案引擎就緒度打分，每條問題都錨定到確切的原始碼，評分背後的驗證資料全部公開。">
+<title>Beacon——給 AI 編碼代理的無障礙整合層</title>
+<meta name="description" content="Beacon 協助 Claude Code 與 Codex 整合原始碼檢查、axe-core、Lighthouse、瀏覽器證據與人工測試，轉成可執行的無障礙改善。">
 <link rel="canonical" href="https://chiehweihuang.github.io/beacon/zh-Hant.html">
 <link rel="alternate" hreflang="en" href="https://chiehweihuang.github.io/beacon/">
 <link rel="alternate" hreflang="zh-Hant" href="https://chiehweihuang.github.io/beacon/zh-Hant.html">
@@ -16,9 +16,9 @@
   "name": "Beacon",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
-  "softwareVersion": "3.3.0",
+  "softwareVersion": "3.3.2",
   "inLanguage": "zh-Hant",
-  "description": "給 AI 編碼代理（Claude Code、Codex）的無障礙（WCAG 2.2）與答案引擎最佳化檢測插件，評分經基準驗證。",
+  "description": "給 AI 編碼代理的無障礙整合層，結合原始碼檢查、瀏覽器證據、成熟檢測工具與人工覆核。",
   "license": "https://opensource.org/licenses/MIT",
   "url": "https://chiehweihuang.github.io/beacon/zh-Hant.html",
   "downloadUrl": "https://github.com/chiehweihuang/beacon"
@@ -37,6 +37,7 @@
     <nav class="site-nav" aria-label="主導覽">
       <ul>
         <li><a href="#commands">它做什麼</a></li>
+        <li><a href="#toolchain">工具協作</a></li>
         <li><a href="#evidence">證據</a></li>
         <li><a href="#reports">報告</a></li>
         <li><a href="#install">安裝</a></li>
@@ -54,13 +55,28 @@
 
   <section class="hero" aria-labelledby="hero-h">
     <div class="wrap">
-      <h1 id="hero-h">做出每個人都能用的介面，而且拿得出證明。</h1>
-      <p class="lede">Beacon 是給 AI 編碼代理（Claude Code、Codex）的無障礙（accessibility）＋答案引擎最佳化（AEO，讓 AI 搜尋引擎能正確讀懂並引用你的內容）檢測插件。它把頁面按十個類別打 0 到 100 分，每條問題都錨定到造成它的確切原始碼，評分方法背後的基準資料全部公開在版本庫裡。</p>
+      <h1 id="hero-h">讓每一個編碼代理都能用對成熟的無障礙工具。</h1>
+      <p class="lede">Beacon 是 Claude Code 與 Codex 的無障礙整合層。它結合原始碼檢查、瀏覽器量測、axe-core 證據、Lighthouse 補充訊號與人工測試指引，再把證據整理成有優先序、能直接對照程式碼的修正工作。</p>
       <p class="honesty">高分的意思是：自動化檢查在現有證據裡找到的問題較少。它是分診信號，不是合規證書，更不能取代與身心障礙使用者的實際測試。</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#install">開始使用</a>
         <a class="btn btn-ghost" href="reports/landing-self-audit.html">看本頁自己的檢測報告</a>
       </div>
+    </div>
+  </section>
+
+  <section id="toolchain" aria-labelledby="toolchain-h">
+    <div class="wrap">
+      <h2 id="toolchain-h">同一個工作流程，讓適合的工具提供證據</h2>
+      <p class="section-lede">Beacon 不取代成熟的檢測引擎。它保留每個工具真正證明了什麼、把不確定結果留給人工覆核、避免同一問題重複扣分，並告訴代理接下來還需要誰來驗證。</p>
+      <div class="tool-grid">
+        <div class="tool-row"><h3>Beacon 原始碼檢查</h3><p>部署前、沒有瀏覽器時也能執行，找出程式碼模式、檔案位置與代理可直接採取的修法。</p></div>
+        <div class="tool-row"><h3>axe-core</h3><p>檢查實際渲染內容；通過、違規、待人工判定、不適用、受影響節點、規則連結、引擎版本與來源都完整保留。</p></div>
+        <div class="tool-row"><h3>Lighthouse</h3><p>補充效能、Best Practices 與 SEO。Accessibility 類別本身使用 axe-core，因此不當成另一份獨立證據重複計算。</p></div>
+        <div class="tool-row"><h3>WAVE / WebAIM</h3><p>規劃作為使用者自行提供存取權時的選配交叉檢查，目前尚未進入預設流程。Beacon 不會內附付費 API 金鑰，也不會把 WAVE 結果說成自己的發現。</p></div>
+        <div class="tool-row"><h3>人工與輔助科技測試</h3><p>涵蓋鍵盤任務、NVDA、VoiceOver、認知理解、動態效果與實際使用；任何自動分數都不能取代這一層。</p></div>
+      </div>
+      <p class="footnote">整合後的報告會保留每一份證據的來源與版本。不同工具互相印證時會加強可信度，不會重複處罰。</p>
     </div>
   </section>
 
@@ -157,6 +173,15 @@
       </div>
 
       <p class="footnote">把難看的那幾列一起公布出來，正是重點：n=15 足以排序偵測器、足以暴露錯誤類型，但不足以為任何單一數字背書。假警報的最大來源是「用樣式表 class 隱藏、而非行內樣式隱藏」的內容，靜態層從不載入 CSS，看不到這種隱藏。每一條逐條判定，包括被覆核者推翻的那些，都隨<a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark/2026-08-03-wild-precision">公開資料</a>一起發布。</p>
+
+      <h3>3,700 個真實網站執行結果：研究母體，不是 3,700 份背書</h3>
+      <p>這批資料用來找偵測器弱點、挑選回歸測試、衡量版本變動，以及抽樣給人逐條判定。網站名稱與擷取的第三方頁面不公開。</p>
+      <div class="stats">
+        <div class="stat"><span class="n">3,700</span> <span class="d">有成功渲染快照與正規化檢測產物的不重複網站</span></div>
+        <div class="stat"><span class="n">3,625</span> <span class="d">排除狀態不符資料後，目前進入彙總分析的有效產物</span></div>
+        <div class="stat"><span class="n">0 個具名網站</span> <span class="d">公開的是彙總量測，不是針對第三方網站的公開排名</span></div>
+      </div>
+      <p class="footnote">這批資料不代表 3,700 個網站都經過人工稽核、不代表每一條 finding 都正確，也不能把分數分布解讀成整個網路的無障礙品質。請讀<a href="https://github.com/chiehweihuang/beacon/blob/master/benchmark/2026-08-13-survey-3700.md">母體定義與允許主張</a>。</p>
     </div>
   </section>
 
@@ -186,16 +211,22 @@
           <a href="reports/landing-self-audit.html">打開自我檢測報告</a>
         </div>
         <div class="shot">
-          <span class="score fail">0 分 · 不通過</span>
+          <span class="score fail">9 分 · 不通過</span>
           <h3>一頁故意弄壞的網頁</h3>
-          <p>同一套報告跑在塞滿違規的測試頁上——18 條問題、成串的嚴重級違規、不及格分數帶實際的樣子。</p>
+          <p>同一套報告跑在塞滿違規的測試頁上——19 條問題、成串的嚴重級違規、不及格分數帶實際的樣子。</p>
           <a href="reports/broken-fixture.html">打開壞頁示範報告</a>
         </div>
         <div class="shot">
           <span class="score">原始資料</span>
           <h3>驗證研究</h3>
-          <p>87 站配對基準、20 站人工驗證清單、CJK 公平性量測——全部提交入庫、有版本、可重跑。</p>
+          <p>3,700 站研究母體、87 站配對基準、20 站人工驗證清單，以及逐偵測器人工判定。</p>
           <a href="https://github.com/chiehweihuang/beacon/tree/master/benchmark">瀏覽 benchmark 目錄</a>
+        </div>
+        <div class="shot">
+          <span class="score">人的影響</span>
+          <h3>親自操作介面障礙</h3>
+          <p>以互動案例連結目標尺寸、label、鍵盤陷阱、動態效果、只靠顏色、字幕與螢幕閱讀器輸出，理解它們會影響誰。</p>
+          <a href="https://chiehweihuang.github.io/a11y-design/#empathy">開啟無障礙設計體驗</a>
         </div>
       </div>
     </div>
@@ -233,7 +264,7 @@ codex plugin add beacon@beacon</code></pre>
 
 <footer class="site">
   <div class="wrap">
-    <span>MIT · v3.3.0</span>
+    <span>MIT · v3.3.2</span>
     <a href="https://github.com/chiehweihuang/beacon">github.com/chiehweihuang/beacon</a>
     <a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md">驗證章程</a>
     <span>用自己的藥，治自己的頁。</span>
