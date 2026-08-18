@@ -63,9 +63,9 @@ Before publishing any release:
 2. Compare golden vectors and the 40-page wild corpus with the previous release.
 3. Explain every changed finding key, category state, coverage value, and score.
 4. For a minor or major, rerun the relevant ground-truth and wild measurements.
-5. Freeze detector and scoring code for the final seven days before a public minor or
-   major release; only documentation, metadata, localization, and release-blocking
-   security fixes may enter during the freeze.
+5. When detector behavior or scoring semantics change, require passing golden vectors,
+   the 40-page wild corpus, relevant ground-truth measurements, an explanation of every
+   result change, and explicit release approval. A fixed waiting period is not required.
 
 This policy adapts the result-stability principles in axe-core's
 [release and support policy](https://github.com/dequelabs/axe-core/blob/develop/doc/release-and-support.md),
