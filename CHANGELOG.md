@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.4.0] — 2026-08-18
+
+### Features
+
+- add evidence-aware design QA workflow (742a570)
+
+### Documentation
+
+- replace fixed release freeze with evidence gate (b3189c2)
+- merge the duplicate 3.3.2 sections into one curated entry (e3c50cc)
+
 ## [3.3.2] — 2026-08-09
 
 ### Fixed
