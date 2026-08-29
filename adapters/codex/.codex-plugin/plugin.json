@@ -1,6 +1,6 @@
 {
   "name": "beacon",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "Accessibility + AEO inspection for Codex. Lighthouse-style 0-100 scoring across 10 categories, interactive HTML reports, jurisdiction-aware WCAG context, framework-specific fixes, and repeat-testing CLI helpers for advisor/static-audit/report generation.",
   "author": {
     "name": "chiehweihuang",

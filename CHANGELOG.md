@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.6.0] — 2026-08-29
+
+### Features
+
+- jurisdiction mapping 6→23 with primary-source verification (specific-law/framework/no-law tiers) (0720446)
+- reader task audit module (WIP from parallel session) (94dfacb)
+
+### Documentation
+
+- merge the duplicate 3.5.0 sections into one curated entry (2945e33)
+
 ## [Unreleased]
 
 ### Added

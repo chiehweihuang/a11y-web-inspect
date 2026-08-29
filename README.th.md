@@ -47,7 +47,7 @@ Beacon ทำงานแบบ local; ไฟล์เว็บไซต์อ�
 }
 ```
 
-Plugin facts: `beacon`, version `3.5.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.6.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## ความหมายของคะแนน
 
