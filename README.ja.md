@@ -45,7 +45,7 @@ Claude Code config の `extraKnownMarketplaces` に追加します。
 }
 ```
 
-Plugin facts: `beacon`, version `3.4.0`, MIT, repository `chiehweihuang/beacon`.
+Plugin facts: `beacon`, version `3.5.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## スコアの解釈
 
