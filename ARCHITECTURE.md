@@ -49,6 +49,7 @@ beacon/
 │   └── hooks.json            # PostToolUse + SessionStart + UserPromptSubmit registrations
 ├── scripts/
 │   ├── generate-report.mjs   # HTML report generator (~1260 lines, the heart of inspect)
+│   ├── reader-task-audit.mjs # accessibility-tree + keyboard evidence, kept out of scoring
 │   ├── a11y-advisor-hook.mjs # PostToolUse hook output (~202 lines)
 │   ├── beacon-session-start.mjs    # SessionStart proactive trigger (~28 lines)
 │   └── beacon-prompt-gate.mjs      # UserPromptSubmit gate (~35 lines)
@@ -98,6 +99,7 @@ node generate-report.mjs <audit-json> [--previous <old-json>] [--output <path>]
   buildLegalRiskHTML()      -- per-jurisdiction risk cards
   buildContextBanner()      -- epistemic-honesty banner (bilingual)
   buildLimitationsHTML()    -- methodology & limits tab (bilingual)
+  buildReaderTaskEvidenceHTML() -- site intent, task outcomes, and non-visual surface
   buildScoreRing()           -- SVG score ring with optional delta
 
 [template literal]
@@ -279,6 +281,41 @@ type AuditResults = {
     seo_issues: Array<{ id: string; title: string; value: string }>;
     cross_cutting: Array<{ signal: string; title_zh: string; title_en: string; detail_zh: string; detail_en: string; affects: string[] }>;
   };
+  reader_evidence?: {          // browser/agent task evidence, NEVER in summary or score
+    metadata: {
+      date: string;
+      url?: string;
+      tool_version?: string;
+      engine_fingerprint?: string;
+      audit_tier?: string;
+      reproducible: boolean;
+      scored: false;
+    };
+    intent: {
+      purpose: string | { zh: string; en: string };
+      audience?: string | { zh: string; en: string };
+      source: 'owner' | 'page' | 'schema' | 'llms' | 'review' | 'inferred';
+      confidence: 'high' | 'medium' | 'low';
+      sources: Array<{ type: string; label: string | { zh: string; en: string }; url?: string }>;
+    };
+    tasks: Array<{
+      id: string;
+      goal: string | { zh: string; en: string };
+      success_criteria: Array<string | { zh: string; en: string }>;
+      max_tabs: number;
+      outcome: 'completed' | 'failed' | 'ambiguous' | 'blocked' | 'not-assessed';
+      interpretation?: string | { zh: string; en: string };
+      observations: Array<string | { zh: string; en: string }>;
+      evidence: Array<{ label: string; url?: string }>;
+    }>;
+    reader_surface: {
+      status: 'captured' | 'failed' | 'not-captured';
+      channel: string[];
+      snapshot?: { format: string; content: string; truncated: boolean };
+      keyboard?: { max_tabs: number; stop_count: number; stopped_reason?: string; stops: object[] };
+    };
+    assistive_technology: { nvda: object; voiceover: object; talkback: object };
+  };
 };
 ```
 
@@ -351,7 +388,8 @@ USER ASKS                           AGENT INVOKES                          OUTPU
 "I want to build a modal"     -->   /beacon:guide                     -->  scaffold + checklist
 [agent edits Modal.jsx]       -->   PostToolUse hook -> a11y-advisor  -->  inline checklist
 "audit this page"             -->   /beacon:inspect                   -->  audit-results.json
-                                       -> generate-report.mjs         -->  a11y-report-<slug>-<date>.html
+                                        -> generate-report.mjs         -->  a11y-report-<slug>-<date>.html
+[agent understands page intent] -->   reader-task-audit.mjs          -->  reader_evidence (not scored)
 [user reads report]           -->   sees score + limits banner        -->  next-action understanding
 ```
 
