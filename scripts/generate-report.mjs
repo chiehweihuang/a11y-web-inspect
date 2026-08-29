@@ -421,9 +421,12 @@ const FINDING_I18N = {
     zh: { title: 'Canonical link 缺失', description: '靜態 HTML 中沒有找到 canonical URL，crawler 可能需要自行推斷偏好的 URL。', fix: '為可索引公開頁加入 <link rel="canonical" href="https://example.com/preferred-url">。', standard: '這不是 WCAG 準則，而是 AEO 結構慣例：canonical link 讓搜尋引擎與 AI agent 判斷你偏好的網址版本，避免重複內容分散排名或引用機會。' },
     en: { title: 'Canonical link is missing', description: 'No canonical URL was found in the static HTML, so crawlers may have to infer the preferred URL.', fix: 'Add <link rel="canonical" href="https://example.com/preferred-url"> for indexable public pages.', standard: "This is not a WCAG criterion — it's an AEO (answer-engine optimization) structural convention: a canonical link tells search engines and AI agents which URL you prefer, so duplicate content doesn't split ranking or citation credit." },
   },
+  // hakuso medium-d (2026-08-29): six equally-weighted schema options with no default read
+  // as direct-fix-ready but forced a content/product decision an agent shouldn't make
+  // arbitrarily. Lead with one concrete pick for the common case, alternatives second.
   'jsonld-missing': {
-    zh: { title: 'JSON-LD structured data 缺失', description: '靜態 HTML 中沒有找到 JSON-LD structured data。', fix: '加入適合頁面的 Schema.org JSON-LD，例如 Organization、Article、FAQPage、Product、BreadcrumbList 或 WebSite。', standard: '這不是 WCAG 準則，而是 AEO 結構慣例：JSON-LD structured data 讓搜尋引擎與 AI agent 更準確理解頁面內容的類型與關係（例如文章、商品、組織），提高被正確引用的機會。' },
-    en: { title: 'JSON-LD structured data is missing', description: 'No JSON-LD structured data was found in the static HTML.', fix: 'Add page-appropriate Schema.org JSON-LD, such as Organization, Article, FAQPage, Product, BreadcrumbList, or WebSite.', standard: "This is not a WCAG criterion — it's an AEO structural convention: JSON-LD structured data helps search engines and AI agents understand what a page is (article, product, organization) and how its parts relate, improving the odds of being cited correctly." },
+    zh: { title: 'JSON-LD structured data 缺失', description: '靜態 HTML 中沒有找到 JSON-LD structured data。', fix: '加入 Schema.org JSON-LD。一般頁面預設用 WebSite（公司／品牌頁用 Organization）；只有在頁面明確屬於特定類型時，才改用 Article、FAQPage、Product 或 BreadcrumbList。', standard: '這不是 WCAG 準則，而是 AEO 結構慣例：JSON-LD structured data 讓搜尋引擎與 AI agent 更準確理解頁面內容的類型與關係（例如文章、商品、組織），提高被正確引用的機會。' },
+    en: { title: 'JSON-LD structured data is missing', description: 'No JSON-LD structured data was found in the static HTML.', fix: 'Add Schema.org JSON-LD. Default to WebSite for a general page (or Organization for a company/brand page); use a more specific type instead — Article, FAQPage, Product, or BreadcrumbList — only when the page is clearly that kind of content.', standard: "This is not a WCAG criterion — it's an AEO structural convention: JSON-LD structured data helps search engines and AI agents understand what a page is (article, product, organization) and how its parts relate, improving the odds of being cited correctly." },
   },
   'robots-txt-missing': {
     zh: { title: '掃描站點檔案中沒有 robots.txt', description: '掃描的目錄中沒有找到 robots.txt。Agent 與 crawler 對可存取範圍會缺少明確指引。', fix: '在 site root 加入 robots.txt。公開 AI-facing site 可考慮加入 sitemap 與符合政策的 Content-Signal directives。', standard: '這不是 WCAG 準則，而是 agent readiness 結構慣例：robots.txt 明確告知爬蟲與 AI agent 可存取的範圍；缺少時，crawler 對可存取內容缺乏明確依據。' },
@@ -453,9 +456,13 @@ const FINDING_I18N = {
     zh: { title: '偵測到大型固定寬度', description: '大型固定寬度可能在窄 viewport overflow。', fix: '使用 max-width、min()、clamp() 或 container-relative sizing。', standard: 'WCAG 1.4.10 要求內容在 320px 寬度下能正確回流；任何未受限的大型固定寬度元素，都可能在窄視窗造成水平捲動。' },
     en: { title: 'Large fixed width detected', description: 'Large fixed widths may overflow narrow viewports.', fix: 'Use max-width, min(), clamp(), or container-relative sizing.', standard: 'WCAG 1.4.10 requires content to reflow correctly at 320px width; any unconstrained large fixed-width element can force horizontal scroll on a narrow viewport.' },
   },
+  // hakuso CRITICAL 2026-08-29: this entry shadows the engine's own `description` field
+  // (findingText() prefers this table over the raw finding), so the mandatory verification
+  // caveat added at the detector (static-audit.mjs) rendered in NEITHER language until it
+  // was copied into both zh/en descriptions here too. Keep both in sync going forward.
   'click-handler-keyboard-missing': {
-    zh: { title: 'Click handler 附近缺少鍵盤處理', description: '偵測到 click listener，但同一段附近沒有鍵盤支援。', fix: '優先使用 native button，或加入 Enter/Space keyboard support 與 focus management。', standard: 'WCAG 2.1.1 要求所有功能都能單靠鍵盤操作；只綁定 click 事件、沒有對應鍵盤處理的元件，等同對鍵盤使用者不存在。' },
-    en: { title: 'Click handler lacks nearby keyboard handling', description: 'A click listener was found without nearby keyboard support in the same snippet.', fix: 'Prefer a native button, or add Enter/Space keyboard support and focus management.', standard: "WCAG 2.1.1 requires all functionality to be operable by keyboard alone; a component wired only to a click handler, with no matching keyboard handling, is effectively invisible to keyboard users." },
+    zh: { title: 'Click handler 附近缺少鍵盤處理', description: '偵測到 click listener，但同一段附近沒有鍵盤支援。此為程式碼鄰近特徵的推測，無法看到元件語意：請先確認目標不是原生互動元素（例如 click 監聽器其實綁在 <button> 上），也不是被動的 analytics 監聽器，再視為已確認缺陷。', fix: '優先使用 native button，或加入 Enter/Space keyboard support 與 focus management。', standard: 'WCAG 2.1.1 要求所有功能都能單靠鍵盤操作；只綁定 click 事件、沒有對應鍵盤處理的元件，等同對鍵盤使用者不存在。' },
+    en: { title: 'Click handler lacks nearby keyboard handling', description: 'A click listener was found without nearby keyboard support in the same snippet. This heuristic cannot see element semantics: verify the target is not a native interactive element (e.g. a <button> the listener is bound to) or a passive/analytics listener before treating this as a confirmed defect.', fix: 'Prefer a native button, or add Enter/Space keyboard support and focus management.', standard: "WCAG 2.1.1 requires all functionality to be operable by keyboard alone; a component wired only to a click handler, with no matching keyboard handling, is effectively invisible to keyboard users." },
   },
   'frame-title-missing': {
     zh: { title: '框架缺少 title', description: '<iframe> 沒有 title，螢幕閱讀器使用者在進入前無法得知框架內容。', fix: '加入 title="..." 描述框架內容。', standard: 'WCAG 4.1.2 要求每個可互動元件（含框架）都要有可程式化辨識的名稱；<iframe> 沒有 title，螢幕閱讀器使用者在進入前無法得知框架內容。' },
@@ -920,12 +927,6 @@ function buildJurisdictions(legal) {
 const reportFindings = buildReportFindings(audit);
 const axeResults = getAxeResults(audit);
 const tier2Evidence = computeTier2EvidenceByCategory(audit);
-const reportCounts = {
-  total: reportFindings.length,
-  critical: reportFindings.filter(f => f.severity === 'critical').length,
-  warnings: reportFindings.filter(f => f.severity === 'warning').length,
-  tips: reportFindings.filter(f => f.severity === 'tip').length,
-};
 
 // Score bands come from the audit artifact (summary.score_bands — static-audit.mjs is
 // the single source); the fallback mirrors it for pre-@3 artifacts. A null score means
@@ -1027,6 +1028,7 @@ function buildFindingGroups(findings) {
         fix: f.fix,
         sample: f,
         locations: [],
+        codeVariants: [],
         count: 0,
       });
     }
@@ -1039,6 +1041,14 @@ function buildFindingGroups(findings) {
       if (f.location) g.locations.push(f.location);
     }
     if (!g.sample.code_before && f.code_before) g.sample = f;
+    // hakuso medium-d (2026-08-29): a group can merge instances whose underlying code
+    // SHAPE differs (e.g. one bound to a native <button>, one a document-level analytics
+    // listener) even though they share a fix action/key. One representative snippet hid
+    // that a reader applying the fix text to every location would misapply it to some.
+    // Keep every DISTINCT shape, not just the first.
+    if (f.code_before && !g.codeVariants.some(v => v.code === f.code_before)) {
+      g.codeVariants.push({ code: f.code_before, location: f.location });
+    }
   }
   // Severity first (critical > warning > tip), then instance count — the same
   // ordering "fix these next" uses to rank actions, so both views agree.
@@ -1181,12 +1191,97 @@ function catNameCompact(cat) {
 }
 
 // Severity chip: 'review'-check findings (uncertain, needs human confirmation)
-// get a review chip regardless of severity; severity words themselves stay raw
-// English tokens, matching this file's existing convention for WCAG level/tag text.
+// get a review chip regardless of severity. C8 (2026-08-29): 'critical'/'tip' used to
+// render English-only while the neighboring 'review' chip carried a zh pairing — the
+// exact label a zh-reading reader looks at first to judge severity was the one label
+// that broke the page's own bilingual convention. All three now pair the same way.
+const SEVERITY_CHIP_LABEL = { critical: '嚴重 · critical', warning: '警示 · warning', tip: '建議 · tip' };
 function severityChipHTML(g) {
   const cls = g.sample.check === 'review' ? 'review' : ({ critical: 'crit', warning: 'warn', tip: 'review' }[g.severity] || 'review');
-  const text = g.sample.check === 'review' ? '待複審 · review' : escapeHtml(g.severity || 'tip');
+  const text = g.sample.check === 'review' ? '待複審 · review' : (SEVERITY_CHIP_LABEL[g.severity] || escapeHtml(g.severity || 'tip'));
   return `<span class="chip ${cls}">${text}</span>`;
+}
+
+// C7 (2026-08-29 judgment-precision spec): a fixed-grammar verdict per finding card, in
+// one of the four canonical verbs, instead of leaving the reader to infer pass/fail from
+// a severity chip + a pass/fail count that lives in a different section (§02 Evidence).
+// '看不到' is reserved for detectors that name their own inability to resolve a value
+// (key ends '-unresolvable') — everything else that needs a human sits under '需人工'.
+function verdictOf(g) {
+  const check = g.sample.check;
+  if (check === 'fail') return ['不通過', 'Fail'];
+  if (check === 'pass') return ['通過', 'Pass'];
+  return /-unresolvable$/.test(g.key || '') ? ['看不到', "Can't tell"] : ['需人工', 'Needs human check'];
+}
+
+// Published wild-sample precision (VALIDATION.md "Measured wild precision" table,
+// benchmark/2026-08-03-wild-precision/README.md — engine @14, 15 instances per detector
+// drawn across distinct survey sites, adversarially re-judged). Detectors absent here
+// have never been measured on unselected real pages; that gap is disclosed, never
+// silently omitted (C7). `ci` is the published 95% CI — VALIDATION.md itself says to read
+// the interval, not the point estimate (n=15 ranks detectors, it doesn't publish a precise
+// per-detector number), so showing the point alone overstates precision.
+const WILD_PRECISION = {
+  'image-alt-missing': { precision: 1.000, n: 14, ci: '0.78–1.00', date: '2026-08-03', engine: '@14' },
+  'link-name-missing': { precision: 0.933, n: 15, ci: '0.70–0.99', date: '2026-08-03', engine: '@14' },
+  'heading-level-skipped': { precision: 0.867, n: 15, ci: '0.62–0.96', date: '2026-08-03', engine: '@14' },
+  'clickable-non-button': { precision: 0.615, n: 13, ci: '0.36–0.82', date: '2026-08-03', engine: '@14' },
+  'button-name-missing': { precision: 0.600, n: 15, ci: '0.36–0.80', date: '2026-08-03', engine: '@14' },
+  'input-label-missing': { precision: 0.417, n: 12, ci: '0.19–0.68', date: '2026-08-03', engine: '@14' },
+};
+
+// hakuso #5 (2026-08-29): a wild-precision number is only honest next to WHICH engine
+// produced it — read from the artifact's own fingerprint (never hardcoded) so this stays
+// correct across every future engine bump with no edit here. `audit` is the module-level
+// artifact (same convention several other render helpers in this file already use).
+function currentEngineTag() {
+  const m = String(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '').match(/beacon-static-audit@(\d+)/);
+  return m ? `@${m[1]}` : null;
+}
+
+function precisionHTML(key) {
+  const rec = WILD_PRECISION[key];
+  if (!rec) return bi('此類判定尚未量測誤報率', 'wild-sample precision for this detector has not been measured yet');
+  const current = currentEngineTag(audit);
+  const engineNoteZh = current && current !== rec.engine
+    ? `；量測於 ${rec.engine} 引擎，現行 ${current} 已含後續誤報修復，此數字尚未重新量測`
+    : `；量測於 ${rec.engine} 引擎`;
+  const engineNoteEn = current && current !== rec.engine
+    ? `; measured on engine ${rec.engine}, the current ${current} includes later false-positive fixes not yet re-measured`
+    : `; measured on engine ${rec.engine}`;
+  return bi(
+    `實測誤報率 precision ${rec.precision.toFixed(3)}（95% CI ${rec.ci}，n=${rec.n}）${engineNoteZh}`,
+    `measured wild precision ${rec.precision.toFixed(3)} (95% CI ${rec.ci}, n=${rec.n})${engineNoteEn}`
+  );
+}
+
+// hakuso medium-b (2026-08-29, lens-2 closure): an agent triaging report TEXT alone (not
+// the JSON `action` field) had no way to read a finding's authorization tier off the page
+// itself. Render it in plain words next to the verdict.
+const ACTION_LABEL = {
+  'direct-fix': ['直接修', 'direct-fix'],
+  'design-judgment': ['設計判斷', 'design-judgment'],
+  'human-verify': ['需人工驗證', 'human-verify'],
+};
+
+function verdictLineHTML(g) {
+  const [zh, en] = verdictOf(g);
+  const actionLabel = ACTION_LABEL[g.sample.action];
+  const actionHTML = actionLabel ? bi(`　行動：${actionLabel[0]}`, `　action: ${actionLabel[1]}`) : '';
+  const countLabel = g.count === 1
+    ? bi('　共 1 項', '　1 instance')
+    : bi(`　共 ${g.count} 項`, `　${g.count} instances`);
+  return `<p class="who-line verdict-line"><strong>${bi(zh, en)}</strong>${countLabel}${actionHTML}${bi('　', ' — ')}${precisionHTML(g.key)}</p>`;
+}
+
+// The blind-spot/limitation sentence: reuses the finding's own description text (the
+// slot no card currently rendered — description existed in data but nowhere in HTML)
+// rather than hand-authoring bespoke copy per detector. tier2-audit.mjs and most
+// FINDING_I18N entries already write exactly this kind of caveat.
+function blindSpotHTML(g) {
+  const hasContent = Boolean(g.sample.description) || Boolean(FINDING_I18N[g.key]?.zh?.description);
+  if (!hasContent) return '';
+  return `<p class="standard-line blindspot-line">${findingText(g.sample, 'description')}</p>`;
 }
 
 function buildLocationListHTML(locations) {
@@ -1213,6 +1308,20 @@ function tier2MeasuredHTML(g) {
   if (g.category === 'contrast' && c.ratio !== undefined) {
     zh = `對比 ${c.ratio}:1（前景 rgb(${c.fg.r}, ${c.fg.g}, ${c.fg.b}) 對背景 rgb(${c.bg.r}, ${c.bg.g}, ${c.bg.b})，門檻 ${c.required}:1）`;
     en = `${c.ratio}:1 — foreground rgb(${c.fg.r}, ${c.fg.g}, ${c.fg.b}) vs background rgb(${c.bg.r}, ${c.bg.g}, ${c.bg.b}), required ${c.required}:1`;
+  } else if (g.category === 'touch' && c.byViewport) {
+    // A3: one DOM element measured at every viewport, merged at --merge-findings time
+    // (core/scripts/static-audit.mjs groupTouchFindingsBySelector) — show the full
+    // range plus every viewport's own number, never a single instance's size standing
+    // in for the whole element the way a flat x14 list used to.
+    const fmtRange = (min, max) => (Math.round(min) === Math.round(max) ? `${Math.round(min)}` : `${Math.round(min)}–${Math.round(max)}`);
+    const rangeZh = `${fmtRange(c.width.min, c.width.max)}×${fmtRange(c.height.min, c.height.max)}px`;
+    // hakuso CRITICAL 2026-08-29: `viewport` is an untrusted string (--merge-findings
+    // takes external JSON); it must be escaped here like every other rendered field —
+    // sanitizeComputed only checked it WAS a string, never that its content was safe.
+    const vpListZh = c.byViewport.map(v => `${escapeHtml(v.viewport)}：${v.width.toFixed(0)}×${v.height.toFixed(0)}px`).join('、');
+    const vpListEn = c.byViewport.map(v => `${escapeHtml(v.viewport)}: ${v.width.toFixed(0)}×${v.height.toFixed(0)}px`).join(', ');
+    zh = `${rangeZh}（${c.byViewport.length} 個 viewport：${vpListZh}）`;
+    en = `${rangeZh} across ${c.byViewport.length} viewports (${vpListEn})`;
   } else if (g.category === 'touch' && c.width !== undefined) {
     const spacingNoteZh = c.spacingExceptionMet === false ? '，另一個可互動元件落在 24px 間距例外圓內，因此例外不成立' : '';
     const spacingNoteEn = c.spacingExceptionMet === false ? ', a neighboring interactive element falls inside the 24px spacing-exception circle, so the exception does not apply' : '';
@@ -1223,28 +1332,59 @@ function tier2MeasuredHTML(g) {
   }
   // MEDIUM-4 (2026-07-26 merge audit): the group's `computed` is only the FIRST instance's
   // measurement; when the group has more than one location, say so rather than presenting
-  // one instance's ratio/size as if it applied to the whole group.
+  // one instance's ratio/size as if it applied to the whole group. For a merged touch
+  // group, "instances" are unique ELEMENTS (already showing all of that one element's
+  // own viewports above), so the caveat names elements, not viewport-flattened items.
   if (g.count > 1) {
-    zh += `（${g.count} 項中的第 1 項）`;
-    en += ` (1 of ${g.count})`;
+    if (c.byViewport) {
+      zh += `（${g.count} 個元素中的第 1 個）`;
+      en += ` (element 1 of ${g.count})`;
+    } else {
+      zh += `（${g.count} 項中的第 1 項）`;
+      en += ` (1 of ${g.count})`;
+    }
   }
   return `<p class="standard-line tier2-measured"><strong>${bi('量測值', 'Measured')}:</strong> ${bi(zh, en)}</p>`;
 }
 
+// A3: a merged touch group's count is unique ELEMENTS, not flattened viewport rows —
+// say the viewport factor once, next to the count, everywhere the count is shown.
+function fgCountHTML(g) {
+  const byViewport = isTier2Finding(g.sample) && g.category === 'touch' ? g.sample.computed?.byViewport : null;
+  const vpNote = byViewport ? bi(`（每個 ${byViewport.length} 個 viewport）`, ` (${byViewport.length} viewports each)`) : '';
+  return `<span class="fg-count">&times;${g.count}${vpNote}</span>`;
+}
+
+// One snippet per DISTINCT code shape in the group (hakuso medium-d, 2026-08-29) — a
+// single-variant group renders exactly as before; a multi-variant group (different
+// underlying code triggered the same key) labels each snippet with its own location so
+// a reader can tell the fix text may not apply identically to every one.
+function diffBlocksHTML(g) {
+  if (!g.codeVariants.length) return '';
+  if (g.codeVariants.length === 1) {
+    return `<div class="diff" aria-label="code snippet / 程式碼片段"><pre class="before"><span class="tag">&minus;</span>${capSnippet(g.codeVariants[0].code)}</pre></div>`;
+  }
+  return g.codeVariants.map(v => `
+    <div class="diff" aria-label="code snippet / 程式碼片段">
+      ${v.location ? `<p class="rule-id">${escapeHtml(v.location)}</p>` : ''}
+      <pre class="before"><span class="tag">&minus;</span>${capSnippet(v.code)}</pre>
+    </div>`).join('');
+}
+
 function buildFindingGroupHTML(g) {
   const anchor = `fg-${slugify(g.key)}`;
-  const diffHtml = g.sample.code_before
-    ? `<div class="diff" aria-label="code snippet / 程式碼片段"><pre class="before"><span class="tag">&minus;</span>${capSnippet(g.sample.code_before)}</pre></div>`
-    : '';
+  const diffHtml = diffBlocksHTML(g);
   return `
     <article class="fgroup" id="${anchor}" data-category="${escapeHtml(g.category || 'other')}">
       <div class="fg-head">
         <div class="fg-title">${findingText(g.sample, 'title')}</div>
-        <span class="fg-count">&times;${g.count}</span>
+        ${fgCountHTML(g)}
         <div class="meta-row">${severityChipHTML(g)}${g.wcag ? `<span class="chip wcag">${escapeHtml(g.wcag)}</span>` : ''}</div>
       </div>
       <div class="fg-body">
+        ${verdictLineHTML(g)}
         <p class="who-line"><span class="who-badge">${t('finding_affected')}:</span> ${escapeHtml(g.affected_users || 'N/A')}</p>
+        ${blindSpotHTML(g)}
         ${diffHtml}
         ${buildLocationListHTML(g.locations)}
         ${FINDING_I18N[g.key]?.zh?.standard ? `<p class="standard-line"><strong>${t('finding_standard')}:</strong> ${findingText(g.sample, 'standard')}</p>` : ''}
@@ -1294,6 +1434,171 @@ function buildFixcardHTML(g, rank) {
     </div>`;
 }
 
+// ============================================================================
+// B4/B5/B6/C8 (2026-08-29 judgment-precision spec): decision-layer calibration.
+// ============================================================================
+
+// Confirmed (check:'fail') vs needs-human-check (check:'review') — the two counts a
+// 30-second reader actually needs. A raw "N findings, M critical" count conflates
+// confirmed defects with unconfirmed heuristics and non-normative advisories.
+function confirmedVsReviewCounts(findings) {
+  return {
+    confirmed: findings.filter(f => f.check === 'fail').length,
+    needsHuman: findings.filter(f => f.check === 'review').length,
+  };
+}
+
+// Category-level review evidence (e.g. the once-per-scanned-file cognitive/media/
+// contrast baseline signal) that never became an itemized finding — real evidence, but
+// nothing to click into or fix. B5: "count them" instead of silently asserting the
+// itemized findings are 100% of everything found.
+function nonItemizedReviewCount(audit, findings) {
+  const itemizedByCat = new Map();
+  for (const f of findings) {
+    if (f.check === 'review') itemizedByCat.set(f.category, (itemizedByCat.get(f.category) || 0) + 1);
+  }
+  let extra = 0;
+  for (const cat of audit.summary.categories || []) {
+    extra += Math.max(0, (cat.review || 0) - (itemizedByCat.get(cat.id) || 0));
+  }
+  return extra;
+}
+
+function headlineSentenceHTML(confirmed, needsHuman) {
+  const zh = confirmed === 0 && needsHuman === 0
+    ? '這次掃描沒有找到已確認的問題，也沒有待人工複審的項目。'
+    : `目前有 <b>${confirmed}</b> 個已確認問題，另有 <b>${needsHuman}</b> 項需要人工複審後才能判定。`;
+  const en = confirmed === 0 && needsHuman === 0
+    ? 'This scan found no confirmed problems and nothing pending human review.'
+    : `<b>${confirmed}</b> confirmed problem${confirmed === 1 ? '' : 's'}, and <b>${needsHuman}</b> item${needsHuman === 1 ? '' : 's'} pending human review before they count as a problem.`;
+  return `<p class="exec-lead headline-sentence">${bi(zh, en)}</p>`;
+}
+
+// IA lens: the decision layer is framed entirely around gaps; the largest verified pass
+// set in the whole audit never surfaced there. One positive line, next to the headline.
+function largestPassCategoryHTML(audit) {
+  const scored = (audit.summary.categories || []).filter(c => c.state === 'scored' && c.pass > 0);
+  if (!scored.length) return '';
+  const top = scored.reduce((a, b) => (b.pass > a.pass ? b : a));
+  const nameZh = I18N.zh[`cat_${top.id}`] || top.name;
+  const nameEn = I18N.en[`cat_${top.id}`] || top.name;
+  const allPassed = top.fail === 0;
+  // hakuso #3 + round-2 micro-fix-2 (2026-08-29): a browser-measured sample that resolved
+  // cleanly (no fail, no unresolvable finding) never gets its own "pass" finding object, so
+  // static-audit.mjs infers it from a decided-sample count and reports exactly how many of
+  // `pass` were derived this way (`derived_pass`). Say "all" only when the real fraction is
+  // 100% — claiming "mostly" when it's actually all of them is the same kind of overstated
+  // precision this whole spec exists to remove.
+  const derivedPass = top.derived_pass || 0;
+  const derivedNote = derivedPass === 0
+    ? { zh: '', en: '' }
+    : derivedPass >= top.pass
+      ? { zh: '（全數為瀏覽器量測後推算之乾淨對比，非逐項列出）', en: ' (all derived from decided browser-measured samples, not itemized individually)' }
+      : { zh: '（多數為瀏覽器量測後推算之乾淨對比，非逐項列出）', en: ' (mostly derived from decided browser-measured samples, not itemized individually)' };
+  const zh = (allPassed
+    ? `本次最大量測集合：${nameZh} ${top.pass} 次檢查全數通過。`
+    : `本次最大量測集合：${nameZh} ${top.pass}/${top.pass + top.fail} 次檢查通過。`) + derivedNote.zh;
+  const en = (allPassed
+    ? `Largest measured set: all ${top.pass} ${nameEn} checks passed.`
+    : `Largest measured set: ${top.pass}/${top.pass + top.fail} ${nameEn} checks passed.`) + derivedNote.en;
+  return `<p class="coverage pass-evidence-line">${bi(zh, en)}</p>`;
+}
+
+// C8: one sentence reconciling the band colour with the confirmed-critical count — the
+// report's two severity vocabularies (amber/red band vs. a red "critical" chip) never
+// explained why they can disagree.
+function bandBridgeHTML(bandId, confirmedCritical, needsHuman) {
+  if (confirmedCritical > 0) {
+    return bi(
+      `此帶狀反映 <b>${confirmedCritical}</b> 個已確認的嚴重問題；請先處理這些，再重新解讀分數與帶狀。`,
+      `This band reflects <b>${confirmedCritical}</b> confirmed critical issue${confirmedCritical === 1 ? '' : 's'}; address these first, then re-read the score and band.`
+    );
+  }
+  if (bandId === 'pass') {
+    return needsHuman > 0
+      ? bi(
+          `帶狀是綠色，因為目前沒有已確認的嚴重問題；仍有 <b>${needsHuman}</b> 項待人工複審，不代表已全數驗證完成。`,
+          `This band is green because there are no confirmed critical issues; <b>${needsHuman}</b> item${needsHuman === 1 ? '' : 's'} still need${needsHuman === 1 ? 's' : ''} a human check and are not yet fully verified.`
+        )
+      : bi('帶狀是綠色，且沒有已確認的嚴重問題或待複審項目。', 'This band is green, with no confirmed critical issues or items pending review.');
+  }
+  return bi(
+    `帶狀不是綠色，但目前沒有已確認的嚴重問題；分數受限主要來自證據覆蓋率與 <b>${needsHuman}</b> 項待複審，而非已確認的缺陷。`,
+    `This band is not green, but there are no confirmed critical issues right now; the score is limited mainly by evidence coverage and <b>${needsHuman}</b> item${needsHuman === 1 ? '' : 's'} pending review, not confirmed defects.`
+  );
+}
+
+// B6: duplicate the human-test checklist into the decision layer — it previously
+// surfaced only after the entire methodology wall, ~700 lines down.
+function decisionTestingChecklistHTML(audit) {
+  const recs = asArray(audit.testing_recommendations);
+  if (!recs.length) return '';
+  return `
+    <div class="decision-testing" aria-labelledby="h-decision-testing">
+      <h2 id="h-decision-testing" style="font-size:1.05rem;margin:1.4rem 0 .5rem">${bi('上線前建議人工測試', 'Suggested manual tests before launch')}</h2>
+      <ul>${recs.map(r => `<li>${localizedText(r)}</li>`).join('')}</ul>
+    </div>`;
+}
+
+// B5: two tiers, never one ranked list mixing a confirmed defect with a design-judgment
+// review item — no cross-tier ranking, and each tier's coverage line is truthful about
+// what it actually covers (including evidence that never became an itemized finding).
+function buildFixNextHTML(groups, audit, findings) {
+  const confirmedGroups = groups.filter(g => g.sample.check === 'fail');
+  const reviewGroups = groups.filter(g => g.sample.check !== 'fail');
+  if (!confirmedGroups.length && !reviewGroups.length) {
+    return `<p class="clear-line">${bi('這次靜態掃描沒有發現需要優先處理的問題。', 'This static scan found nothing that needs priority attention.')}</p>`;
+  }
+
+  const topConfirmed = confirmedGroups.slice(0, 3);
+  const confirmedTotal = confirmedGroups.reduce((s, g) => s + g.count, 0);
+  const confirmedBlock = `
+    <h3 class="fix-tier-h">${bi('確認可修', 'Confirmed to fix')}</h3>
+    ${topConfirmed.length
+      ? `<p class="clear-line">${bi(
+          `以下 ${topConfirmed.length} 項涵蓋全部 <b>${confirmedTotal}</b> 個已確認問題。`,
+          `${topConfirmed.length === 1 ? 'This 1 covers' : `These ${topConfirmed.length} cover`} all <b>${confirmedTotal}</b> confirmed problem${confirmedTotal === 1 ? '' : 's'}.`
+        )}</p>
+         <div class="fixlist">${topConfirmed.map((g, i) => buildFixcardHTML(g, i + 1)).join('')}</div>`
+      : `<p class="clear-line">${bi('這次掃描沒有已確認的失敗項目。', 'This scan found no confirmed failures.')}</p>`}`;
+
+  const topReview = reviewGroups.slice(0, 3);
+  const reviewTotal = reviewGroups.reduce((s, g) => s + g.count, 0);
+  const extra = nonItemizedReviewCount(audit, findings);
+  const extraZh = extra > 0 ? `；另有 ${extra} 項只在類別統計中出現，未逐項列出` : '';
+  const extraEn = extra > 0 ? `; ${extra} more exist only as category-level evidence, not itemized here` : '';
+  const reviewBlock = topReview.length
+    ? `
+    <h3 class="fix-tier-h">${bi('需判斷／需驗證', 'Needs judgment or verification')}</h3>
+    <p class="clear-line">${bi(
+      `以下 ${topReview.length} 組涵蓋 ${reviewTotal} 項需人工複審或設計判斷的發現${extraZh}。`,
+      `${topReview.length === 1 ? 'This 1 covers' : `These ${topReview.length} cover`} ${reviewTotal} item${reviewTotal === 1 ? '' : 's'} needing human review or design judgment${extraEn}.`
+    )}</p>
+    <div class="fixlist">${topReview.map((g, i) => buildFixcardHTML(g, i + 1)).join('')}</div>`
+    : '';
+
+  return `${confirmedBlock}${reviewBlock}`;
+}
+
+// B4: the fixed-scope percentages and the industry-coverage comparison used to compete
+// with the single decision-layer headline for the same viewport (four-lens lens 1) —
+// keep only score + coverage as first-screen numbers; this detail moves one section
+// down, next to the methodology explanation it belongs with.
+function buildScopeDetailHTML(audit) {
+  const scope = reportCoverage(audit);
+  return `
+    <div class="scope-summary" aria-label="檢查範圍摘要 / Check-scope summary">
+      <p><b>${t('scope_line')}：</b>${bi(`${scope.categoryCount} 類 · ${scope.totalWeight}%`, `${scope.categoryCount} categories · ${scope.totalWeight}%`)}</p>
+      <p><b>${t('applicable_line')}：</b>${scope.applicablePercent}% · <b>${t('unverified_line')}：</b>${scope.unverifiedPercent}% · <b>${t('not_applicable_line')}：</b>${scope.notApplicablePercent}%</p>
+    </div>
+    <div class="honesty">${bi(
+      '業界普遍認為自動化工具約涵蓋 WCAG 的 <b>30&ndash;40%</b>。Beacon 實測自己：WCAG 2.2 A+AA 的 55 條準則中，<b>14 條有覆蓋（25.5%）</b>，其中 <b>2 條在自動化可及範圍內完整決定（3.6%）</b>。<strong>高分不代表網站完全可達。</strong>',
+      'Industry estimates put automated WCAG coverage at ~<b>30&ndash;40%</b>. Beacon measured itself: of WCAG 2.2\'s 55 A+AA criteria, <b>14 have any coverage (25.5%)</b>, and <b>2 are fully decided within automation\'s reach (3.6%)</b>. A high score does not mean fully accessible.'
+    )}
+      <p style="margin-top:.2rem"><a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage">${bi('逐條對照表與重算方式 &rarr;', 'Row-by-row table &amp; how to re-derive it &rarr;')}</a></p>
+    </div>`;
+}
+
 function buildHeroHTML(audit, previous, groups) {
   const overall = audit.summary.overall_score;
   const scoreTone = overall != null ? bandTone(overall) : 'review';
@@ -1310,17 +1615,12 @@ function buildHeroHTML(audit, previous, groups) {
     ? `<p class="coverage" style="margin-top:.3rem">${t('cmp_previous')}: ${previous.summary.overall_score} ${deltaArrow(overall, previous.summary.overall_score)}</p>`
     : '';
 
-  const top3 = groups.slice(0, 3);
-  const covered = top3.reduce((s, g) => s + g.count, 0);
-  const pct = reportCounts.total ? Math.round((covered / reportCounts.total) * 100) : 0;
-
-  const fixNextInner = top3.length
-    ? `<p class="clear-line">${bi(
-        `完成前 ${top3.length} 項修正，可涵蓋 <b>${covered}</b> 個發現項（占全站發現的 ${pct}%）。`,
-        `These ${top3.length} action${top3.length === 1 ? '' : 's'} cover <b>${covered}</b> finding${covered === 1 ? '' : 's'} — ${pct}% of everything found.`
-      )}</p>
-      <div class="fixlist">${top3.map((g, i) => buildFixcardHTML(g, i + 1)).join('')}</div>`
-    : `<p class="clear-line">${bi('這次靜態掃描沒有發現需要優先處理的問題。', 'This static scan found nothing that needs priority attention.')}</p>`;
+  const { confirmed, needsHuman } = confirmedVsReviewCounts(reportFindings);
+  // The band-bridge sentence talks specifically about CRITICAL issues, not every
+  // confirmed (check:'fail') finding regardless of severity — conflating the two
+  // would call a confirmed 'tip' (e.g. jsonld-missing) a "confirmed critical issue".
+  const confirmedCritical = reportFindings.filter(f => f.check === 'fail' && f.severity === 'critical').length;
+  const bandId = overall != null ? bandOf(overall).id : null;
 
   return `
     <section class="hero" id="layer-decision" aria-labelledby="h-decision">
@@ -1328,6 +1628,8 @@ function buildHeroHTML(audit, previous, groups) {
         <p class="eyebrow"><span class="num">01</span> ${bi('決策層', 'Decision')}</p>
         <h1 class="layer-h" id="h-decision">${bi('一眼看懂結論，一步知道下一步做什麼', 'The whole verdict, and what to do next, on one screen')}</h1>
         ${audit.summary.life_safety_flag ? buildLifeSafetyBanner() : ''}
+        ${headlineSentenceHTML(confirmed, needsHuman)}
+        ${largestPassCategoryHTML(audit)}
 
         <div class="verdict">
           <div class="overall">
@@ -1344,12 +1646,9 @@ function buildHeroHTML(audit, previous, groups) {
                 <p class="metric-note">${bi('依固定機器檢查範圍計算', 'Against the fixed machine-check scope')}</p>
               </div>
             </div>
-            <div class="scope-summary" aria-label="檢查範圍摘要 / Check-scope summary">
-              <p><b>${t('scope_line')}：</b>${bi(`${scope.categoryCount} 類 · ${scope.totalWeight}%`, `${scope.categoryCount} categories · ${scope.totalWeight}%`)}</p>
-              <p><b>${t('applicable_line')}：</b>${scope.applicablePercent}% · <b>${t('unverified_line')}：</b>${scope.unverifiedPercent}% · <b>${t('not_applicable_line')}：</b>${scope.notApplicablePercent}%</p>
-            </div>
             <div class="verdict-detail">
               <span class="band" style="background:var(--${decisionTone}-bg);color:var(--${decisionTone});border-color:var(--${decisionTone}-line)">${bandLabel}</span>
+              <p class="coverage">${bandBridgeHTML(bandId, confirmedCritical, needsHuman)}</p>
               <p class="coverage">${bi(`機測分數只代表固定範圍中已取得的 <b>${coverage}%</b> 證據，不是整體無障礙分數。`, `The machine-checked score represents evidence from <b>${coverage}%</b> of the fixed scope; it is not an overall accessibility score.`)}<br>
                 <span style="font-size:.85rem;color:var(--ink-soft)">${bi(
                   `${manualCount} 個分類適用但需人工複審、${notApplicableCount} 個分類本頁不適用、${thinCount} 個分類已計分但證據薄弱`,
@@ -1359,25 +1658,18 @@ function buildHeroHTML(audit, previous, groups) {
                   '生命安全檢查（閃爍/癲癇風險）：未觸發',
                   'Life-safety check (flashing/seizure risk): not triggered'
                 )}</span>`}</p>
+              <p style="margin-top:.4rem"><a href="#layer-methodology">${bi('查看完整檢查範圍、方法論與限制 &rarr;', 'See the full check scope, methodology &amp; limits &rarr;')}</a></p>
               ${prevLine}
-            </div>
-          </div>
-
-          <div>
-            <div class="honesty">${bi(
-              '業界普遍認為自動化工具約涵蓋 WCAG 的 <b>30&ndash;40%</b>。Beacon 實測自己：WCAG 2.2 A+AA 的 55 條準則中，<b>14 條有覆蓋（25.5%）</b>，其中 <b>2 條在自動化可及範圍內完整決定（3.6%）</b>。<strong>高分不代表網站完全可達。</strong>',
-              'Industry estimates put automated WCAG coverage at ~<b>30&ndash;40%</b>. Beacon measured itself: of WCAG 2.2\'s 55 A+AA criteria, <b>14 have any coverage (25.5%)</b>, and <b>2 are fully decided within automation\'s reach (3.6%)</b>. A high score does not mean fully accessible.'
-            )}
-              <p style="margin-top:.4rem"><a href="#layer-methodology">${bi('查看完整方法論與限制 &rarr;', 'See full methodology &amp; limits &rarr;')}</a></p>
-              <p style="margin-top:.2rem"><a href="https://github.com/chiehweihuang/beacon/blob/master/VALIDATION.md#wcag-criterion-coverage">${bi('逐條對照表與重算方式 &rarr;', 'Row-by-row table &amp; how to re-derive it &rarr;')}</a></p>
             </div>
           </div>
         </div>
 
         <div class="fixnext" aria-labelledby="h-fix">
-          <h2 id="h-fix">${bi('接下來先修這三項', 'Fix these next')}</h2>
-          ${fixNextInner}
+          <h2 id="h-fix">${bi('接下來怎麼做', 'What to do next')}</h2>
+          ${buildFixNextHTML(groups, audit, reportFindings)}
         </div>
+
+        ${decisionTestingChecklistHTML(audit)}
       </div>
     </section>`;
 }
@@ -1387,19 +1679,31 @@ function buildHeroHTML(audit, previous, groups) {
 // ============================================================================
 
 function buildExecSummaryHTML(audit, groups) {
-  const total = reportCounts.total;
-  const critical = reportCounts.critical;
-  const top3 = groups.slice(0, 3);
   const scopeRaw = audit.metadata?.url || audit.metadata?.scope || '';
   const scopeLabel = escapeHtml(scopeRaw);
 
-  const zhList = top3.map(g => `${escapeHtml(findingLangText(g.sample, 'title', 'zh'))}（${g.count}）`).join('、');
-  const enList = top3.map(g => `${escapeHtml(findingLangText(g.sample, 'title', 'en'))} (${g.count})`).join(', ');
+  // hakuso #4 (2026-08-29): this section used to assert "found N issues, M critical" and
+  // frame everything — including non-normative review items — as "batch-fixable patterns",
+  // the exact sentence the four-lens audit's most-cited defect names (D1, critical). One
+  // document, one framing: reuse the same confirmed/needs-review split §01 uses, instead
+  // of a second, disagreeing vocabulary for the reader most likely to act on this page alone.
+  const { confirmed, needsHuman } = confirmedVsReviewCounts(reportFindings);
+  const nothingFound = confirmed === 0 && needsHuman === 0;
+  const execLeadZh = `本次檢測在${scopeLabel || '受測頁面'}上，${nothingFound
+    ? '沒有找到已確認的問題，也沒有待人工複審的項目'
+    : `找到 <b>${confirmed}</b> 個已確認問題，另有 <b>${needsHuman}</b> 項需要人工複審後才能判定`}。`;
+  const execLeadEn = `On ${scopeLabel || 'the audited page'}, this audit found ${nothingFound
+    ? 'no confirmed problems and nothing pending human review'
+    : `<b>${confirmed}</b> confirmed problem${confirmed === 1 ? '' : 's'} and <b>${needsHuman}</b> item${needsHuman === 1 ? '' : 's'} pending human review`}.`;
 
-  const execLeadZh = `本次檢測在${scopeLabel || '受測頁面'}上發現 <b>${total} 個問題，其中 ${critical} 個為嚴重等級</b>。${top3.length ? `多數問題集中在可批次修正的模式 — ${zhList}。` : ''}`;
-  const execLeadEn = `This audit found <b>${total} issue${total === 1 ? '' : 's'}, ${critical} of them critical</b>, on ${scopeLabel || 'the audited page'}.${top3.length ? ` Most are batch-fixable patterns: ${enList}.` : ''}`;
-
-  const prioItems = top3.map(g => `<li>${findingText(g.sample, 'title')}${g.wcag ? ` (${escapeHtml(g.wcag)})` : ''}</li>`).join('');
+  // Two tiers, never one cross-ranked list mixing a confirmed defect with a design-judgment
+  // review item (same split as buildFixNextHTML) — no cross-tier ranking here either.
+  const confirmedGroups = groups.filter(g => g.sample.check === 'fail');
+  const reviewGroups = groups.filter(g => g.sample.check !== 'fail');
+  const prioListHTML = (list) => `<ol class="prio">${list.map(g => `<li>${findingText(g.sample, 'title')}${g.wcag ? ` (${escapeHtml(g.wcag)})` : ''}</li>`).join('')}</ol>`;
+  const prioSectionsHTML = `
+    ${confirmedGroups.length ? `<h3>${bi('確認可修', 'Confirmed to fix')}</h3>${prioListHTML(confirmedGroups)}` : ''}
+    ${reviewGroups.length ? `<h3>${bi('需判斷／需驗證', 'Needs judgment or verification')}</h3>${prioListHTML(reviewGroups)}` : ''}`;
 
   const jurisdictions = buildJurisdictions(audit.legal_risk);
   const jurisdictionChips = jurisdictions.map(j => `<span class="chip review">${escapeHtml(j.name)}</span>`).join('');
@@ -1423,7 +1727,7 @@ function buildExecSummaryHTML(audit, groups) {
           <div class="exec-body">
             <p class="exec-lead"><span class="lang-zh" lang="zh-Hant">${execLeadZh}</span><span class="lang-en" lang="en">${execLeadEn}</span></p>
 
-            ${top3.length ? `<h3>${bi('優先處理順序', 'Remediation priorities')}</h3><ol class="prio">${prioItems}</ol>` : ''}
+            ${prioSectionsHTML}
 
             <h3>${bi('法規範圍', 'Jurisdiction exposure')}</h3>
             <p style="font-size:.92rem;color:var(--ink-soft);margin:.2rem 0 .5rem">${bi('此靜態基線所示問題可能影響下列司法管轄區的無障礙要求（視實際部署情境而定）：', 'This static baseline may affect accessibility expectations in:')}</p>
@@ -1794,15 +2098,25 @@ function buildLimitationsHTML(audit) {
     </div>`;
 }
 
+// C8: methodology + legal together were ~38% of the document by character count,
+// rendered fully inline with no real folding (four-lens IA audit). The section
+// landmark + heading stay visible so the jump-nav still lands somewhere meaningful;
+// everything below is collapsed by default behind one <details>, reusing the same
+// bordered/accent-border look buildLimitationsHTML's own "methods applied" box already
+// uses (.methods-details) rather than inventing a second style for the same idea.
 function buildMethodologySectionHTML(audit) {
   return `
     <section id="layer-methodology" aria-labelledby="h-methodology">
       <div class="wrap">
         <p class="eyebrow"><span class="num">05</span> ${bi('方法論層', 'Methodology')}</p>
         <h2 class="layer-h" id="h-methodology">${bi('這份審查擅長什麼、不擅長什麼', 'What this audit is good at, and where it stops')}</h2>
-        ${buildLimitationsHTML(audit)}
-        <h3>${t('h2_testing_recommendations')}</h3>
-        ${audit.testing_recommendations?.length ? `<ul>${audit.testing_recommendations.map(rec => `<li>${localizedText(rec)}</li>`).join('')}</ul>` : `<p class="empty">${t('rem_empty')}</p>`}
+        <details class="methods-details layer-fold">
+          <summary>${bi('展開完整檢查範圍、方法論與限制', 'Expand full check scope, methodology & limits')}</summary>
+          ${buildScopeDetailHTML(audit)}
+          ${buildLimitationsHTML(audit)}
+          <h3>${t('h2_testing_recommendations')}</h3>
+          ${audit.testing_recommendations?.length ? `<ul>${audit.testing_recommendations.map(rec => `<li>${localizedText(rec)}</li>`).join('')}</ul>` : `<p class="empty">${t('rem_empty')}</p>`}
+        </details>
       </div>
     </section>`;
 }
@@ -1813,7 +2127,10 @@ function buildLegalSectionHTML(audit) {
       <div class="wrap">
         <p class="eyebrow"><span class="num">06</span> ${bi('法規層', 'Jurisdiction')}</p>
         <h2 class="layer-h" id="h-legal">${bi('完整法規對照與 WCAG 準則清單', 'Full jurisdiction mapping and WCAG criteria list')}</h2>
-        ${buildLegalRiskHTML(audit.legal_risk, reportFindings)}
+        <details class="methods-details layer-fold">
+          <summary>${bi('展開完整法規對照', 'Expand full jurisdiction mapping')}</summary>
+          ${buildLegalRiskHTML(audit.legal_risk, reportFindings)}
+        </details>
       </div>
     </section>`;
 }
@@ -1997,7 +2314,6 @@ function buildMastheadHTML(audit) {
           <span><b>${t('meta_standard')}</b> ${escapeHtml(audit.metadata?.standard || 'WCAG 2.2 AA')}</span>
           <span><b>${bi('層級', 'Tier')}</b> ${escapeHtml(audit.metadata?.audit_tier || 'Tier 1')}</span>
         </div>
-        <div class="engine-tag">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')}</div>
       </div>
     </header>`;
 }

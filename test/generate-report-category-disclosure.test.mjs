@@ -82,6 +82,43 @@ test('category cards expose completed states as text (never a painted score), an
   }
 });
 
+// hakuso round-2 micro-fix-2 (2026-08-29): "mostly derived" is a false claim when the
+// real fraction is 100% -- the wording must reflect derived_pass vs pass exactly, not a
+// hardcoded "mostly".
+function derivedPassAudit(derivedPass) {
+  return {
+    metadata: { date: '2026-01-01', scope: 't', standard: 'WCAG 2.2 AA' },
+    summary: {
+      overall_score: 90, coverage_percent: 40, total_findings: 0, critical: 0, warnings: 0, tips: 0,
+      categories: [{ id: 'contrast', name: 'Color & Contrast', pass: 10, fail: 0, review: 0, state: 'scored', score: 100, thin: false, derived_pass: derivedPass }],
+    },
+    findings: [], legal_risk: {},
+  };
+}
+
+test('derived-pass wording says "all" when derived_pass equals pass, "mostly" when it is only part', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-derived-pass-'));
+  try {
+    const allAudit = join(dir, 'all.json');
+    const partialAudit = join(dir, 'partial.json');
+    const allReport = join(dir, 'all.html');
+    const partialReport = join(dir, 'partial.html');
+    writeFileSync(allAudit, JSON.stringify(derivedPassAudit(10)));
+    writeFileSync(partialAudit, JSON.stringify(derivedPassAudit(4)));
+    execFileSync('node', [join(ROOT, 'core/scripts/generate-report.mjs'), allAudit, '--output', allReport]);
+    execFileSync('node', [join(ROOT, 'core/scripts/generate-report.mjs'), partialAudit, '--output', partialReport]);
+    const allHtml = readFileSync(allReport, 'utf8');
+    const partialHtml = readFileSync(partialReport, 'utf8');
+    assert.match(allHtml, /全數為瀏覽器量測後推算/, 'derived_pass === pass must say "all"');
+    assert.match(allHtml, /all derived from decided browser-measured samples/);
+    assert.doesNotMatch(allHtml, /多數為瀏覽器量測後推算/, 'must not say "mostly" when it is actually all');
+    assert.match(partialHtml, /多數為瀏覽器量測後推算/, 'derived_pass < pass must say "mostly"');
+    assert.match(partialHtml, /mostly derived from decided browser-measured samples/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // A nested --output path with no existing parent directory must not crash after the HTML
 // has already been built (hakuso HIGH-1, 2026-07-27 codex-adapter audit).
 test('--output to a not-yet-existing nested directory: parent dirs are created, exit 0', () => {

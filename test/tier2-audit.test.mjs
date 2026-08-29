@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import {
   parseColor, relLuminance, contrastRatio, compositeLayers, isLargeText,
-  analyzeContrastSamples, analyzeTouchTargets,
+  analyzeContrastSamples, analyzeTouchTargets, countDecidedContrastSamples,
   captureContrastSamples, captureTouchTargets, loadPlaywright, TIER2_VIEWPORTS,
   runTier2Audit,
 } from '../core/scripts/tier2-audit.mjs';
@@ -109,6 +109,24 @@ test('contrast: semi-transparent fg composites over the resolved bg before the r
 // no visible text to measure -- must never produce a finding (was a false 1.00:1 fail).
 test('contrast: fully-transparent foreground (invisible ink) produces no finding', () => {
   assert.deepEqual(analyzeContrastSamples([sample({ fgStr: 'rgba(0, 0, 0, 0)' })], 'v'), []);
+});
+
+// hakuso CRITICAL (2026-08-29): static-audit.mjs derives an implicit "clean pass" count
+// from the raw capture total; that total must exclude samples with no visible text to
+// measure, or invisible/transparent ink silently inflates the pass count (a charter
+// violation — absence/undecided must never read as pass). Fixture: a page with one
+// genuinely visible sample and one unmeasurable (invisible-ink) sample -> decided count
+// excludes the unmeasurable one.
+test('countDecidedContrastSamples: a page with unmeasurable text excludes it from the decided count', () => {
+  assert.equal(countDecidedContrastSamples([sample()]), 1, 'a resolvable, visible sample is decided');
+  assert.equal(countDecidedContrastSamples([sample({ fgStr: 'rgb(153, 153, 153)' })]), 1, 'a resolvable failing sample is decided');
+  assert.equal(countDecidedContrastSamples([sample({ bgUnresolved: true, bgLayerStrs: [] })]), 1, 'unresolvable is decided (never a pass, but decided)');
+  assert.equal(countDecidedContrastSamples([sample({ fgStr: 'rgba(0, 0, 0, 0)' })]), 0, 'invisible ink has nothing to measure -- excluded');
+  assert.equal(
+    countDecidedContrastSamples([sample(), sample({ fgStr: 'rgba(0, 0, 0, 0)' })]),
+    1,
+    'mixed page: the unmeasurable sample must not count toward the decided total'
+  );
 });
 
 // --- analyzeTouchTargets (synthetic) -----------------------------------------------------

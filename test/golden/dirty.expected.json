@@ -13,7 +13,7 @@
     ],
     "platform": "Web",
     "tool_version": "beacon codex static baseline",
-    "engine_fingerprint": "beacon-static-audit@18+ruleset.bde99ddc0571",
+    "engine_fingerprint": "beacon-static-audit@19+ruleset.bde99ddc0571",
     "confidence_level": "medium",
     "requires_live_audit": true,
     "audit_tier": "Tier 1 (static file scan only)",
@@ -72,7 +72,8 @@
         "review": 2,
         "state": "not-machine-checkable",
         "score": null,
-        "thin": false
+        "thin": false,
+        "derived_pass": 0
       },
       {
         "id": "keyboard",
@@ -82,7 +83,8 @@
         "review": 0,
         "state": "scored",
         "score": 0,
-        "thin": true
+        "thin": true,
+        "derived_pass": 0
       },
       {
         "id": "screenreader",
@@ -92,7 +94,8 @@
         "review": 0,
         "state": "scored",
         "score": 0,
-        "thin": false
+        "thin": false,
+        "derived_pass": 0
       },
       {
         "id": "forms",
@@ -102,7 +105,8 @@
         "review": 1,
         "state": "scored",
         "score": 0,
-        "thin": true
+        "thin": true,
+        "derived_pass": 0
       },
       {
         "id": "responsive",
@@ -112,7 +116,8 @@
         "review": 0,
         "state": "scored",
         "score": 45,
-        "thin": true
+        "thin": true,
+        "derived_pass": 0
       },
       {
         "id": "touch",
@@ -122,7 +127,8 @@
         "review": 1,
         "state": "not-machine-checkable",
         "score": null,
-        "thin": false
+        "thin": false,
+        "derived_pass": 0
       },
       {
         "id": "cognitive",
@@ -132,7 +138,8 @@
         "review": 1,
         "state": "not-machine-checkable",
         "score": null,
-        "thin": false
+        "thin": false,
+        "derived_pass": 0
       },
       {
         "id": "motion",
@@ -142,7 +149,8 @@
         "review": 0,
         "state": "not-applicable",
         "score": null,
-        "thin": false
+        "thin": false,
+        "derived_pass": 0
       },
       {
         "id": "media",
@@ -152,7 +160,8 @@
         "review": 1,
         "state": "not-machine-checkable",
         "score": null,
-        "thin": false
+        "thin": false,
+        "derived_pass": 0
       },
       {
         "id": "agent",
@@ -162,7 +171,8 @@
         "review": 0,
         "state": "scored",
         "score": 0,
-        "thin": false
+        "thin": false,
+        "derived_pass": 0
       }
     ]
   },
@@ -181,7 +191,8 @@
       "fix": "Add a language attribute such as <html lang=\"zh-Hant\"> or the correct document language.",
       "code_before": "<html>",
       "code_after": "<html lang=\"zh-Hant\">",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -195,7 +206,8 @@
       "location": "test/golden/dirty.html",
       "description": "A missing or empty title makes the page difficult to identify in browser and assistive technology contexts.",
       "fix": "Add a concise, unique <title>.",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -209,7 +221,8 @@
       "location": "test/golden/dirty.html",
       "description": "No <main> or role=\"main\" was found in this static file.",
       "fix": "Wrap primary page content in <main id=\"main-content\">.",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -223,7 +236,8 @@
       "location": "test/golden/dirty.html:5",
       "description": "Heading jumps from level 1 to level 4.",
       "fix": "Use a continuous heading hierarchy or adjust the visual style without changing semantic level.",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -238,7 +252,8 @@
       "description": "An image without alt text is silent or announced poorly by assistive technology.",
       "fix": "Add meaningful alt text, or alt=\"\" for purely decorative images.",
       "code_before": "<h4>Skipped levels</h4>\n<img src=\"hero.png\">\n<img src=\"chart.png\">",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -253,7 +268,8 @@
       "description": "An image without alt text is silent or announced poorly by assistive technology.",
       "fix": "Add meaningful alt text, or alt=\"\" for purely decorative images.",
       "code_before": "<img src=\"hero.png\">\n<img src=\"chart.png\">\n<a href=\"/dead\"></a>",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "A",
@@ -268,7 +284,8 @@
       "description": "An <iframe> without a title gives screen-reader users no way to know what the frame contains before entering it.",
       "fix": "Add title=\"...\" describing the frame content.",
       "code_before": "<input type=\"text\" name=\"r\">\n<iframe src=\"/widget.html\"></iframe>\n<ul><div>not a list item</div></ul>",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "A",
@@ -283,7 +300,8 @@
       "description": "A <ul>/<ol> has a direct child that is not <li>, <script>, or <template> (found <div>). Screen readers may not announce the list or its item count correctly.",
       "fix": "Make <li> the only structural child; move wrapper elements inside an <li>, or use role=\"list\"/role=\"listitem\" if a non-standard structure is unavoidable.",
       "code_before": "<iframe src=\"/widget.html\"></iframe>\n<ul><div>not a list item</div></ul>\n<span onclick=\"go()\">Go</span>",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -298,7 +316,8 @@
       "description": "A button with no visible text or accessible label is hard to understand or activate by name.",
       "fix": "Add visible text, aria-label, or aria-labelledby.",
       "code_before": "<a href=\"/icon\"><img alt=\"\" src=\"icon.png\"></a>\n<button></button>\n<input type=\"text\" name=\"q\" placeholder=\"Search\">",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "A",
@@ -313,7 +332,8 @@
       "description": "A link with no visible text, no aria-label/aria-labelledby/title (on it or a descendant), and no image alt or SVG title has no accessible name. Screen readers announce it as a bare \"link\".",
       "fix": "Add visible link text, an aria-label/aria-labelledby/title, give a wrapped <img> meaningful alt text, or add an <svg><title>.",
       "code_before": "<img src=\"chart.png\">\n<a href=\"/dead\"></a>\n<a href=\"/icon\"><img alt=\"\" src=\"icon.png\"></a>",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "A",
@@ -328,7 +348,8 @@
       "description": "A link with no visible text, no aria-label/aria-labelledby/title (on it or a descendant), and no image alt or SVG title has no accessible name. Screen readers announce it as a bare \"link\".",
       "fix": "Add visible link text, an aria-label/aria-labelledby/title, give a wrapped <img> meaningful alt text, or add an <svg><title>.",
       "code_before": "<a href=\"/dead\"></a>\n<a href=\"/icon\"><img alt=\"\" src=\"icon.png\"></a>\n<button></button>",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "A",
@@ -343,7 +364,8 @@
       "description": "Clickable <div> or <span> elements are not keyboard-operable by default.",
       "fix": "Use <button> for actions. If custom semantics are unavoidable, add role, tabindex, and Enter/Space handling.",
       "code_before": "<ul><div>not a list item</div></ul>\n<span onclick=\"go()\">Go</span>\n<div style=\"display:none\"><img src=\"hidden-pixel.gif\"><iframe src=\"/tracker.html\"></iframe></div>",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "A",
@@ -358,7 +380,8 @@
       "description": "The input has an accessible name (title or placeholder), so it is not nameless, but neither is a visible label that persists once the field has content.",
       "fix": "Add a visible <label for=\"...\"> (or wrap the input in one) so the label persists once the user starts typing.",
       "code_before": "<button></button>\n<input type=\"text\" name=\"q\" placeholder=\"Search\">\n<input type=\"text\" name=\"r\">",
-      "check": "review"
+      "check": "review",
+      "action": "human-verify"
     },
     {
       "level": "A",
@@ -373,7 +396,8 @@
       "description": "The input has no obvious id or ARIA label in static markup.",
       "fix": "Pair it with a <label for=\"...\"> or use aria-labelledby when a visible label already exists.",
       "code_before": "<input type=\"text\" name=\"q\" placeholder=\"Search\">\n<input type=\"text\" name=\"r\">\n<iframe src=\"/widget.html\"></iframe>",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -388,7 +412,8 @@
       "description": "The viewport meta tag prevents zoom (user-scalable=no), so users cannot enlarge text.",
       "fix": "Remove user-scalable=no and any maximum-scale below 5; use content=\"width=device-width, initial-scale=1\".",
       "code_before": "<!DOCTYPE html><html><head><title></title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no\">\n</head><body><div id=\"content\">",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "Review",
@@ -402,7 +427,8 @@
       "location": "test/golden/dirty.html",
       "description": "No meta description was found in the static HTML.",
       "fix": "Add a concise page-specific meta description.",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "Review",
@@ -416,7 +442,8 @@
       "location": "test/golden/dirty.html",
       "description": "No canonical URL was found in the static HTML, so crawlers may have to infer the preferred URL.",
       "fix": "Add <link rel=\"canonical\" href=\"https://example.com/preferred-url\"> for indexable public pages.",
-      "check": "fail"
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "Review",
@@ -429,8 +456,9 @@
       "affected_users": "Search and answer-engine users trying to identify the page entity and content type",
       "location": "test/golden/dirty.html",
       "description": "No JSON-LD structured data was found in the static HTML.",
-      "fix": "Add page-appropriate Schema.org JSON-LD, such as Organization, Article, FAQPage, Product, BreadcrumbList, or WebSite.",
-      "check": "fail"
+      "fix": "Add Schema.org JSON-LD. Default to WebSite for a general page (or Organization for a company/brand page); use a more specific type instead — Article, FAQPage, Product, or BreadcrumbList — only when the page is clearly that kind of content.",
+      "check": "fail",
+      "action": "direct-fix"
     },
     {
       "level": "AA",
@@ -444,7 +472,8 @@
       "location": "site-wide (static scan only)",
       "description": "This run only scanned static markup/CSS. No browser-rendered contrast evidence (Beacon-native tier2-audit.mjs or axe-core) was merged in, so real computed-style contrast was never exercised by a rendering engine.",
       "fix": "Run node scripts/tier2-audit.mjs (default) or an axe-core pass, then fold its findings in with --merge-findings for verified contrast coverage.",
-      "check": "review"
+      "check": "review",
+      "action": "human-verify"
     }
   ],
   "legal_risk": {
@@ -695,7 +724,7 @@
       "title": "JSON-LD structured data is missing",
       "location": "test/golden/dirty.html",
       "wcag": "AEO structural hygiene",
-      "fix": "Add page-appropriate Schema.org JSON-LD, such as Organization, Article, FAQPage, Product, BreadcrumbList, or WebSite."
+      "fix": "Add Schema.org JSON-LD. Default to WebSite for a general page (or Organization for a company/brand page); use a more specific type instead — Article, FAQPage, Product, or BreadcrumbList — only when the page is clearly that kind of content."
     }
   ],
   "testing_recommendations": [

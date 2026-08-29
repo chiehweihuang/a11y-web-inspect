@@ -1,5 +1,64 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Engine bumped `beacon-static-audit@18` → `@19`**: detection behavior changed
+  (click-handler demote, `action` field, touch-finding merge, decided-sample contrast
+  gate — see below), per repo convention that carries a bump.
+- **Report judgment-precision overhaul** (user ruling 2026-08-29, reproduced live on
+  chiehweihuang.github.io/zh.html): `click-handler-keyboard-missing` is a proximity
+  heuristic that cannot see element semantics (native `<button>` vs. a real keyboard trap,
+  or a passive/analytics listener) — it never emits `critical`/`fail` anymore, demoted to
+  `check:'review'` with a mandatory verification caveat in its description (both the raw
+  finding and the report's `FINDING_I18N` copy, which previously shadowed it and rendered
+  in neither language).
+- Every finding now carries an `action` field derived once in `addFinding()`:
+  `'direct-fix'` (`check:'fail'`), `'design-judgment'` (`check:'review'` and a key ending
+  `-advisory` — a non-normative best-practice suggestion, e.g. touch-target comfort
+  sizing), or `'human-verify'` (everything else under `check:'review'`). Rendered on every
+  finding card, not just in the JSON, so an agent triaging report text alone can read it.
+- Tier-2 touch findings are deduplicated by `(key, selector)` at `--merge-findings` time:
+  one DOM element measured at N viewports becomes one finding carrying a per-viewport
+  measurement list and a min/max range, instead of N flat instances (was reading "×14" for
+  7 unique elements × 2 viewports).
+- `--merge-findings`'s implicit "clean contrast pass" derivation now credits only
+  **decided** browser-measured samples (`tier2-audit.mjs`'s new
+  `countDecidedContrastSamples` / `contrast_samples_decided`), not the raw capture count —
+  a sample the analyzer skips as "nothing to measure" (invisible/transparent ink) is
+  neither a pass nor a fail and must never inflate the pass count. Older tier2 artifacts
+  without the new field fall back to the raw count, and now log which artifact triggered
+  the fallback. The report's "mostly derived" disclosure tracks the real fraction
+  (`derived_pass` vs. `pass`) instead of a hardcoded "mostly" — says "all" when it's all.
+- `mergeExternalFindings` now passes `affected_users` and `description` through for every
+  merged finding (previously dropped on the floor — the highest-visibility "who is
+  affected" line on a merged tier-2 finding rendered empty, and its limitation/blind-spot
+  text was silently lost even though `tier2-audit.mjs` authors both fields).
+- Report layout: one calibrated confirmed-problem / needs-human-check headline sentence
+  (decision layer and client summary now share one framing, instead of a second "N issues,
+  M critical... batch-fixable patterns" vocabulary in the client summary); "fix these next"
+  split into confirmed-to-fix vs. needs-judgment-or-verification tiers, independently
+  ranked, with truthful coverage math instead of a flat "100% of everything found"; every
+  finding card gets a verdict sentence (通過/不通過/需人工/看不到), its measured wild
+  precision with a 95% CI and the engine version it was measured on (or an explicit
+  "not yet measured" disclosure), and its blind-spot description; methodology + legal
+  sections collapsed behind closed `<details>` by default; engine fingerprint moved out of
+  the masthead into the footer only.
+
+### Fixed
+
+- **XSS**: a `--merge-findings` viewport label was interpolated into `report.html`
+  unescaped in the merged-touch measurement line; now escaped like every other untrusted
+  string field.
+- The JSON-LD-missing fix text listed six schema types with no default, forcing an
+  arbitrary content decision; now leads with one concrete pick (WebSite, or Organization
+  for a company/brand page) with the rest as alternatives.
+- A finding group merging instances with different underlying code shapes (e.g. a native
+  `<button>` and a document-level analytics listener sharing one detector key) rendered a
+  single representative code snippet; multi-shape groups now show one snippet per distinct
+  shape, each labelled with its own location.
+
 ## [3.4.0] — 2026-08-18
 
 ### Features

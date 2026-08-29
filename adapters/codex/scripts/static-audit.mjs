@@ -82,7 +82,7 @@ const SEV_REPEAT_CAP = 3;
 // => identical machine layer". Bump DETECTOR_VERSION when detection/scoring LOGIC changes;
 // the ruleset hash auto-changes when the scoring CONTRACT (weights/matrix/formula) changes.
 // External engine provenance is carried separately in audit.axe / audit.tier2.
-const DETECTOR_VERSION = 'beacon-static-audit@18';
+const DETECTOR_VERSION = 'beacon-static-audit@19';
 
 // A category with 1-2 total machine checks is a coin-flip denominator (a single fail
 // reads identically to a six-check 100) — too thin to trust alone, but no longer a reason
@@ -733,12 +733,26 @@ function addFinding(findings, stats, f) {
   // check:'fail'. An unverifiable (review) finding keeps its own softer severity — an
   // unconfirmed item must not be inflated to critical just because its criterion is.
   const severity = check === 'fail' ? mandatedSeverity(rest.wcag, rest.severity) : (rest.severity || 'warning');
+  // `action` — what a human or agent is authorized to do with this finding, derived
+  // here so every emitter (native detectors + --merge-findings) gets it for free
+  // (user ruling 2026-08-29, judgment-precision spec item A2):
+  //   'direct-fix'      check:'fail'   — a confirmed violation with a known remedy.
+  //   'design-judgment' check:'review' AND key ends '-advisory' — a non-normative
+  //                     best-practice suggestion (e.g. touch-target comfort sizing);
+  //                     not a violation, a designer's call, nothing to verify.
+  //   'human-verify'    check:'review', everything else — a heuristic or otherwise
+  //                     unconfirmed signal that needs a human (or a live browser) to
+  //                     confirm before it is treated as a real defect.
+  const action = check === 'fail'
+    ? 'direct-fix'
+    : (String(rest.key || '').endsWith('-advisory') ? 'design-judgment' : 'human-verify');
   findings.push({
     level: rest.level || 'AA',
     legal_exposure: rest.legal_exposure || 'May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.',
     ...rest,
     check,
     severity,
+    action,
   });
   if (rest.score_effect === 'corroborating') return;
   addCheck(stats, rest.category, check);
@@ -1504,7 +1518,10 @@ function scanFile(file, root, stats, findings) {
           affected_users: 'Search and answer-engine users trying to identify the page entity and content type',
           location: rel,
           description: 'No JSON-LD structured data was found in the static HTML.',
-          fix: 'Add page-appropriate Schema.org JSON-LD, such as Organization, Article, FAQPage, Product, BreadcrumbList, or WebSite.',
+          // hakuso medium-d (2026-08-29): six equally-weighted options with no default
+          // reads as direct-fix-ready but forces a content/product decision an agent
+          // shouldn't make arbitrarily. Lead with one concrete pick for the common case.
+          fix: 'Add Schema.org JSON-LD. Default to WebSite for a general page (or Organization for a company/brand page); use a more specific type instead — Article, FAQPage, Product, or BreadcrumbList — only when the page is clearly that kind of content.',
           legal_exposure: 'Not a legal issue; affects answer-engine and search clarity.',
         });
       } else addCheck(stats, 'agent', 'pass');
@@ -1688,16 +1705,23 @@ function scanFile(file, root, stats, findings) {
     for (const m of text.matchAll(/addEventListener\s*\(\s*['"]click['"]/g)) {
       const ctx = snippetAt(text, m.index || 0, m[0].length);
       if (!/keydown|keyup|<button|role\s*=\s*["']button["']/.test(ctx)) {
+        // User ruling 2026-08-29 (judgment-precision spec item A1): this proximity
+        // heuristic cannot see element semantics — it can't tell a native <button> a
+        // click is bound to, or a passive/analytics listener, from a real keyboard
+        // trap (reproduced live: 2/2 flags on this exact pattern were false positives
+        // on chiehweihuang.github.io, one of each case). It must never emit
+        // critical/fail; demote to review with a mandatory verification caveat.
         addFinding(findings, stats, {
           key: 'click-handler-keyboard-missing',
           category: 'keyboard',
-          severity: 'critical',
+          severity: 'warning',
+          check: 'review',
           wcag: 'WCAG 2.2: 2.1.1 Keyboard',
           level: 'A',
           title: 'Click handler lacks nearby keyboard handling',
           affected_users: 'Keyboard-only, switch-control, and screen-reader users',
           location: `${rel}:${lineOf(text, m.index || 0)}`,
-          description: 'A click listener was found without nearby keyboard support in the same snippet.',
+          description: 'A click listener was found without nearby keyboard support in the same snippet. This heuristic cannot see element semantics: verify the target is not a native interactive element (e.g. a <button> the listener is bound to) or a passive/analytics listener before treating this as a confirmed defect.',
           fix: 'Prefer a native button, or add Enter/Space keyboard support and focus management.',
           code_before: ctx,
         });
@@ -1828,7 +1852,10 @@ function criteriaFromFindings(findings) {
 function testingRecommendations(categories) {
   const byId = Object.fromEntries(categories.map(cat => [cat.id, cat]));
   const recommendations = [];
-  if (byId.keyboard?.fail) recommendations.push({
+  // `review` is included, not just `fail`: click-handler-keyboard-missing (a heuristic
+  // that can't confirm a real keyboard trap, 2026-08-29 demotion) now lands here, and
+  // it still genuinely needs a human keyboard walkthrough to resolve either way.
+  if (byId.keyboard?.fail || byId.keyboard?.review) recommendations.push({
     zh: '修復鍵盤發現項後，僅使用 Tab、Shift+Tab、Enter、Space 與方向鍵重跑主要流程。',
     en: 'After fixing the keyboard findings, rerun the primary flow using only Tab, Shift+Tab, Enter, Space, and arrow keys.',
   });
@@ -1885,7 +1912,83 @@ function sanitizeComputed(computed) {
     if (width === null || height === null) return undefined;
     return { width, height, spacingExceptionMet: computed.spacingExceptionMet === false ? false : undefined };
   }
+  // Merged multi-viewport touch measurement (judgment-precision spec item A3): one
+  // element measured at N viewports, carried as a per-viewport list plus the min/max
+  // range the report needs to show "37-40x44-46px across 2 viewports" instead of
+  // presenting one arbitrary instance's numbers as if they applied to all of them.
+  if (Array.isArray(computed.byViewport)) {
+    const rows = computed.byViewport
+      .map(v => {
+        const width = n(v?.width), height = n(v?.height);
+        if (width === null || height === null || typeof v?.viewport !== 'string') return null;
+        return { viewport: v.viewport, width, height };
+      })
+      .filter(Boolean);
+    if (!rows.length) return undefined;
+    const widths = rows.map(r => r.width), heights = rows.map(r => r.height);
+    return {
+      width: { min: Math.min(...widths), max: Math.max(...widths) },
+      height: { min: Math.min(...heights), max: Math.max(...heights) },
+      byViewport: rows,
+    };
+  }
   return undefined;
+}
+
+// Tier-2 touch findings measure ONE DOM element per configured viewport; left flat, the
+// same element becomes N separate "findings" (one per viewport) and the report ends up
+// treating a single sizing decision as N independent work items (user ruling 2026-08-29,
+// judgment-precision spec item A3 — reproduced live: 7 unique elements read as "x14"
+// across 2 viewports). Group by (key, selector) before the per-item merge loop; every
+// other finding type (contrast, non-touch, or a touch finding with no selector) is
+// returned untouched, in its original position, so ordering/behavior elsewhere is
+// unaffected. A selector that legitimately differs in `key` across viewports (e.g. it
+// clears the 24px floor at one width but not another) forms two separate groups rather
+// than one merged "worst case" finding — a known simplification, not yet seen in
+// practice; each still renders correctly, just as two entries instead of one.
+function groupTouchFindingsBySelector(list) {
+  const out = [];
+  const bySelector = new Map();
+  for (const f of list) {
+    // hakuso medium-a (2026-08-29): a touch finding with no `viewport` string can't be
+    // viewport-labeled once merged (sanitizeComputed's byViewport branch would drop the row
+    // entirely for failing the viewport-is-a-string check, silently losing its measurement).
+    // Leave it out of grouping so it renders through the original single-instance path.
+    const groupable = f && f.category === 'touch' && typeof f.selector === 'string' && f.selector
+      && typeof f.viewport === 'string' && f.viewport && f.computed;
+    if (!groupable) { out.push(f); continue; }
+    const groupKey = `${f.key || ''} ${f.selector}`;
+    const rec = bySelector.get(groupKey);
+    if (!rec) {
+      const merged = { ...f, byViewport: [{ viewport: f.viewport, width: f.computed?.width, height: f.computed?.height }] };
+      bySelector.set(groupKey, merged);
+      out.push(merged);
+    } else {
+      rec.byViewport.push({ viewport: f.viewport, width: f.computed?.width, height: f.computed?.height });
+    }
+  }
+  return out;
+}
+
+// Every tier-2 touch title follows "Touch target WxHpx <verdict phrase>" with the
+// verdict phrase fixed per detector key and only the numbers varying per instance —
+// reuse that phrase instead of hand-writing per-key text, so a merged multi-viewport
+// finding's title still matches whatever the detector actually said.
+function mergedTouchTitle(sampleTitle, byViewport) {
+  const range = (nums) => {
+    if (!nums.length) return '?';
+    const min = Math.min(...nums), max = Math.max(...nums);
+    return min === max ? `${Math.round(min)}` : `${Math.round(min)}–${Math.round(max)}`;
+  };
+  const wRange = range(byViewport.map(v => v.width).filter(Number.isFinite));
+  const hRange = range(byViewport.map(v => v.height).filter(Number.isFinite));
+  const tailMatch = String(sampleTitle || '').match(/^Touch target\s+[\d.]+×[\d.]+px\s+(.*)$/);
+  const tail = tailMatch ? tailMatch[1] : 'is outside the target-size baseline';
+  // hakuso medium-a (2026-08-29): a row with a missing/invalid width or height still
+  // occupied a raw array slot -- the "(N viewport)" count must reflect rows that actually
+  // carried a valid measurement (what sanitizeComputed keeps), not the raw input length.
+  const n = byViewport.filter(v => Number.isFinite(v.width) && Number.isFinite(v.height)).length;
+  return `Touch target ${wRange}×${hRange}px ${tail} (${n} viewport${n === 1 ? '' : 's'})`;
 }
 
 // P1: the SOLE channel for Tier-2/manual findings (axe contrast, focus, human review) to
@@ -1898,8 +2001,9 @@ function mergeExternalFindings(file, stats, findings) {
   catch (e) { console.error(`--merge-findings: cannot read/parse ${file}: ${e.message}`); process.exit(1); }
   const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.findings) ? raw.findings : null);
   if (!list) { console.error(`--merge-findings: ${file} must be a findings array or {"findings":[...]}`); process.exit(1); }
-  let merged = 0, skipped = 0;
-  for (const f of list) {
+  const grouped = groupTouchFindingsBySelector(list);
+  let merged = 0, skipped = 0, representedContrastSamples = 0;
+  for (const f of grouped) {
     if (!f || !CATEGORY_ORDER.includes(f.category)) {
       skipped += 1;
       console.error(`--merge-findings: skipped finding with invalid category: ${JSON.stringify(f).slice(0, 80)}`);
@@ -1913,6 +2017,7 @@ function mergeExternalFindings(file, stats, findings) {
       console.error(`--merge-findings: skipped finding with unknown check "${f.check}": ${JSON.stringify(f).slice(0, 80)}`);
       continue;
     }
+    if (f.category === 'contrast') representedContrastSamples += 1;
     if (check === 'pass') {
       // External verified passes are evidence, not findings — they raise the category
       // base (and weight coverage) without entering the findings list.
@@ -1921,21 +2026,70 @@ function mergeExternalFindings(file, stats, findings) {
       continue;
     }
     const severity = ['critical', 'warning', 'tip'].includes(f.severity) ? f.severity : undefined;
+    // A grouped multi-viewport touch finding: rewrite title/location/computed to
+    // describe the element across all its viewports instead of one arbitrary instance.
+    const isMergedTouch = Array.isArray(f.byViewport);
+    // hakuso medium-a (2026-08-29): only viewports that actually carried a valid
+    // measurement count/list here — a row with a missing/invalid width or height is
+    // dropped by sanitizeComputed and must not still be named in the location string.
+    const validRows = isMergedTouch ? f.byViewport.filter(v => Number.isFinite(v.width) && Number.isFinite(v.height)) : [];
+    const title = isMergedTouch ? mergedTouchTitle(f.title, f.byViewport) : (f.title || 'External finding');
+    const location = isMergedTouch
+      ? `${f.selector} (${validRows.length} viewport${validRows.length === 1 ? '' : 's'}: ${validRows.map(v => v.viewport).join(', ')})`
+      : (f.location || '');
+    const computed = isMergedTouch ? sanitizeComputed({ byViewport: f.byViewport }) : sanitizeComputed(f.computed);
     addFinding(findings, stats, {
       category: f.category,
       severity,
       wcag: f.wcag || '',
       key: f.key || 'external-finding',
-      title: f.title || 'External finding',
-      location: f.location || '',
+      title,
+      location,
+      // Previously dropped on the floor here (hakuso-visible bug, judgment-precision
+      // spec item C8): the "who is affected" line on a merged tier-2 finding rendered
+      // empty, and its blind-spot/limitation description was silently lost, even
+      // though tier2-audit.mjs authors both fields on every finding it emits.
+      affected_users: f.affected_users,
+      description: f.description,
       fix: f.fix,
       source: f.source || 'merged',
       check,
-      computed: sanitizeComputed(f.computed),
+      computed,
       selector: typeof f.selector === 'string' ? f.selector : undefined,
-      viewport: typeof f.viewport === 'string' ? f.viewport : undefined,
+      viewport: isMergedTouch ? undefined : (typeof f.viewport === 'string' ? f.viewport : undefined),
     });
     merged += 1;
+  }
+  const tier2Rows = typeof raw?.metadata?.engine_fingerprint === 'string'
+    && raw.metadata.engine_fingerprint.startsWith('beacon-tier2-audit')
+    && Array.isArray(raw?.summary?.by_viewport)
+    ? raw.summary.by_viewport
+    : null;
+  if (tier2Rows) {
+    // hakuso CRITICAL 2026-08-29: `contrast_samples` is the RAW capture count and includes
+    // samples tier2-audit.mjs's analyzer skips as "nothing to measure" (invisible/
+    // transparent ink) — neither a pass nor a fail. Using it here let those inflate this
+    // implicit "clean pass" count, violating the charter rule that absence/undecided never
+    // reads as pass. `contrast_samples_decided` (tier2-audit.mjs countDecidedContrastSamples)
+    // excludes them; fall back to the raw count only for older artifacts that predate the
+    // field (hand-built fixtures, pre-existing test data), never for a fresh real run.
+    const legacyRows = tier2Rows.filter(row => !Number.isFinite(row?.contrast_samples_decided) && Number.isFinite(row?.contrast_samples));
+    if (legacyRows.length > 0) {
+      console.error(`--merge-findings: ${file} has no contrast_samples_decided for ${legacyRows.length} viewport row(s) — falling back to raw contrast_samples (may overcount invisible/unmeasurable ink as passes)`);
+    }
+    const measuredContrastSamples = tier2Rows.reduce((sum, row) => {
+      const decided = Number.isFinite(row?.contrast_samples_decided) ? row.contrast_samples_decided : row?.contrast_samples;
+      return sum + (Number.isFinite(decided) ? Math.max(0, decided) : 0);
+    }, 0);
+    const implicitContrastPasses = Math.max(0, measuredContrastSamples - representedContrastSamples);
+    for (let i = 0; i < implicitContrastPasses; i += 1) addCheck(stats, 'contrast', 'pass');
+    if (implicitContrastPasses > 0) {
+      // Tracked separately (not just logged) so the report can state accurately whether
+      // the category's pass count is entirely derived or only partly (hakuso 2026-08-29
+      // round 2, micro-fix 2) — "mostly" is a false claim when the real fraction is 100%.
+      stats.contrast._derivedPass = (stats.contrast._derivedPass || 0) + implicitContrastPasses;
+      console.error(`--merge-findings: derived ${implicitContrastPasses} clean contrast pass(es) from Tier-2 samples`);
+    }
   }
   console.error(`--merge-findings: merged ${merged}, skipped ${skipped} from ${file}`);
   return raw;
@@ -2041,7 +2195,11 @@ function main() {
     const cat = stats[id];
     // `sev` is internal scoring state — keep it out of the emitted artifact.
     const { state, score, thin } = scoreCategory(cat);
-    return { id: cat.id, name: cat.name, pass: cat.pass, fail: cat.fail, review: cat.review, state, score, thin };
+    // derived_pass: how many of `pass` came from arithmetic derivation (currently only
+    // contrast's implicit Tier-2 "clean sample" credit) rather than an itemized pass
+    // finding — lets the report say "all derived" vs "mostly derived" accurately instead
+    // of guessing (hakuso 2026-08-29 round 2, micro-fix 2).
+    return { id: cat.id, name: cat.name, pass: cat.pass, fail: cat.fail, review: cat.review, state, score, thin, derived_pass: cat._derivedPass || 0 };
   });
 
   // Weighted average over SCORED categories only, weights renormalised (inspect.md

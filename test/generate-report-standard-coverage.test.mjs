@@ -65,3 +65,31 @@ test('the standard statement renders in a generated report, before the fix line'
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// hakuso CRITICAL (2026-08-29): FINDING_I18N['click-handler-keyboard-missing'] shadows the
+// engine's own `description` field (findingText() prefers the table), so the mandatory
+// verification caveat added to the raw finding rendered in NEITHER language until it was
+// copied into the table too. This asserts it actually renders, both languages.
+test('the click-handler-keyboard-missing verification caveat renders in both languages, not shadowed by FINDING_I18N', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-caveat-render-'));
+  try {
+    const audit = join(dir, 'audit.json');
+    const report = join(dir, 'report.html');
+    writeFileSync(audit, JSON.stringify({
+      metadata: { date: '2026-01-01', scope: 'test', standard: 'WCAG 2.2 AA' },
+      summary: {
+        overall_score: 90, coverage_percent: 40, total_findings: 1,
+        critical: 0, warnings: 1, tips: 0,
+        categories: [{ id: 'keyboard', name: 'Keyboard Navigation', pass: 0, fail: 0, review: 1, state: 'not-machine-checkable', score: null }],
+      },
+      findings: [{ key: 'click-handler-keyboard-missing', category: 'keyboard', severity: 'warning', check: 'review', wcag: 'WCAG 2.2: 2.1.1 Keyboard', title: 'Click handler lacks nearby keyboard handling', location: 'site.js:1', fix: 'Prefer a native button.', description: 'A click listener was found without nearby keyboard support in the same snippet.' }],
+      legal_risk: {},
+    }));
+    execFileSync('node', [resolve(ROOT, 'core/scripts/generate-report.mjs'), audit, '--output', report]);
+    const html = readFileSync(report, 'utf8');
+    assert.match(html, /verify the target is not a native interactive element/, 'the caveat must render in English');
+    assert.match(html, /請先確認目標不是原生互動元素/, 'the caveat must render in Chinese');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

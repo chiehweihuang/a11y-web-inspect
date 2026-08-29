@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCANNER = resolve(ROOT, 'core/scripts/static-audit.mjs');
@@ -446,6 +446,116 @@ test('a single merged pass is real evidence and scores, but stays thin below N=3
     assert.equal(contrast.thin, true, '1 check is below N=3 -> thin');
     assert.equal(contrast.pass, 1, 'the check itself is still recorded');
     assert.equal(contrast.score, 100);
+  } finally { cleanup(); }
+});
+
+test('clean tier-2 contrast samples become positive pass evidence', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-tier2-clean-'));
+  const file = join(dir, 'tier2.json');
+  writeFileSync(file, JSON.stringify({
+    metadata: { engine_fingerprint: 'beacon-tier2-audit@2' },
+    summary: {
+      by_viewport: [
+        { viewport: '320x720', contrast_samples: 2, touch_targets: 0, findings: 0 },
+        { viewport: '1280x900', contrast_samples: 2, touch_targets: 0, findings: 0 },
+      ],
+    },
+    findings: [],
+  }));
+  try {
+    const { audit } = run({ args: ['--date', '2020-01-01', '--merge-findings', file] });
+    const contrast = cat(audit, 'contrast');
+    assert.equal(contrast.pass, 4, 'every clean browser-measured sample is positive evidence');
+    assert.equal(contrast.fail, 0);
+    assert.equal(contrast.state, 'scored');
+    assert.equal(contrast.score, 100);
+    assert.equal(audit.findings.filter((f) => f.key === 'contrast-not-verified').length, 0,
+      'a clean Tier-2 run must satisfy the browser-verification gate');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// hakuso CRITICAL (2026-08-29): `contrast_samples` is the raw capture count and includes
+// samples tier2-audit.mjs's analyzer skips as "nothing to measure" (invisible/transparent
+// ink) -- using it inflated the implicit "clean pass" count with non-decided samples.
+// `contrast_samples_decided`, when present, must be used instead.
+test('contrast_samples_decided, when present, overrides the raw capture count for implicit-pass credit', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-tier2-decided-'));
+  const file = join(dir, 'tier2.json');
+  writeFileSync(file, JSON.stringify({
+    metadata: { engine_fingerprint: 'beacon-tier2-audit@2' },
+    summary: {
+      by_viewport: [
+        { viewport: '320x720', contrast_samples: 5, contrast_samples_decided: 2, touch_targets: 0, findings: 0 },
+      ],
+    },
+    findings: [],
+  }));
+  try {
+    const { audit } = run({ args: ['--date', '2020-01-01', '--merge-findings', file] });
+    assert.equal(cat(audit, 'contrast').pass, 2, 'must credit the decided count (2), not the raw capture count (5)');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// hakuso round-2 micro-fix-1 (2026-08-29): a tier2 artifact without contrast_samples_decided
+// silently falls back to the raw capture count -- that must be observable, naming which
+// artifact triggered it, not just a silent behavior difference.
+test('legacy fallback (no contrast_samples_decided) logs the artifact path and row count', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-tier2-legacy-'));
+  const file = join(dir, 'tier2-legacy.json');
+  writeFileSync(file, JSON.stringify({
+    metadata: { engine_fingerprint: 'beacon-tier2-audit@2' },
+    summary: { by_viewport: [{ viewport: '320x720', contrast_samples: 2, touch_targets: 0, findings: 0 }] },
+    findings: [],
+  }));
+  const fixture = join(dir, 'page.html');
+  const out = join(dir, 'audit-results.json');
+  writeFileSync(fixture, PAGE);
+  try {
+    const result = spawnSync('node', [SCANNER, '--scope', 'legacy-test', '--date', '2020-01-01', '--merge-findings', file, '--output', out, fixture], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /has no contrast_samples_decided for 1 viewport row\(s\) — falling back to raw contrast_samples/);
+    assert.ok(result.stderr.includes(file), 'the log must name the artifact path');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// hakuso medium-a (2026-08-29): the merged touch finding's "(N viewport)" count/location
+// must reflect rows with a VALID measurement, not the raw row count -- a row with a
+// missing/invalid height still occupied a slot in the raw array.
+test('touch dedup: a row with an invalid measurement does not inflate the merged viewport count', () => {
+  const { file, cleanup } = writeFindings([
+    { category: 'touch', key: 'tier2-touch-target-advisory', check: 'review', severity: 'tip',
+      title: 'Touch target 30x30px meets the 24px floor but is below the 44px best practice',
+      selector: '#x', viewport: '320x720', computed: { width: 30, height: 30 } },
+    { category: 'touch', key: 'tier2-touch-target-advisory', check: 'review', severity: 'tip',
+      title: 'Touch target 32x32px meets the 24px floor but is below the 44px best practice',
+      selector: '#x', viewport: '1280x900', computed: { width: 32 } }, // height missing -- invalid row
+  ]);
+  try {
+    const { audit } = run({ args: ['--date', '2020-01-01', '--merge-findings', file] });
+    const f = audit.findings.find((x) => x.key === 'tier2-touch-target-advisory');
+    assert.ok(f, 'the merged finding must exist');
+    assert.match(f.title, /\(1 viewport\)/, 'title count must reflect the ONE row with a valid measurement');
+    assert.match(f.location, /\(1 viewport: 320x720\)/, 'location must list only the valid viewport');
+    assert.equal(f.computed.byViewport.length, 1, 'sanitizeComputed must drop the invalid row');
+  } finally { cleanup(); }
+});
+
+// hakuso medium-a (2026-08-29): a touch finding with no `viewport` string can't be
+// viewport-labeled once merged -- it must be left OUT of grouping entirely and render
+// through the original single-instance computed shape, not silently lose its measurement.
+test('touch dedup: a finding with no viewport string is not merged, keeps plain computed as before', () => {
+  const { file, cleanup } = writeFindings([
+    { category: 'touch', key: 'tier2-touch-target-advisory', check: 'review', severity: 'tip',
+      title: 'Touch target 30x30px meets the 24px floor but is below the 44px best practice',
+      selector: '#x', computed: { width: 30, height: 30 } }, // no viewport field at all
+  ]);
+  try {
+    const { audit } = run({ args: ['--date', '2020-01-01', '--merge-findings', file] });
+    const f = audit.findings.find((x) => x.key === 'tier2-touch-target-advisory');
+    assert.ok(f, 'the finding must still exist, unmerged');
+    assert.equal(typeof f.computed.width, 'number', 'computed.width stays a plain number, not wrapped in byViewport');
+    assert.equal(f.computed.width, 30);
+    assert.equal(f.computed.byViewport, undefined);
   } finally { cleanup(); }
 });
 

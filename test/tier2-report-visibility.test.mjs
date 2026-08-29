@@ -134,6 +134,40 @@ test('tier-2 evidence renders honestly: provenance + measured values + unresolva
   }
 });
 
+// hakuso CRITICAL (2026-08-29 judgment-precision review): a merged touch finding's
+// per-viewport label comes straight from --merge-findings' untrusted JSON input and was
+// interpolated into report.html raw (sanitizeComputed only checked it WAS a string, never
+// that it was safe). Runs the REAL pipeline with a hostile viewport label and proves it
+// never reaches the page unescaped.
+test('a hostile viewport string in --merge-findings input never reaches report.html raw (XSS)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-tier2-xss-'));
+  try {
+    const payload = '<img src=x onerror=alert(1)>';
+    const external = join(dir, 'external.json');
+    const merged = join(dir, 'merged.json');
+    const report = join(dir, 'report.html');
+    const page = join(dir, 'page.html');
+    writeFileSync(page, '<html><head><title>t</title></head><body><main><a href="#">x</a></main></body></html>');
+    // Two instances, same selector, two hostile-but-distinct viewport labels -> exercises
+    // the multi-viewport merge path (groupTouchFindingsBySelector), not the single-instance one.
+    writeFileSync(external, JSON.stringify([
+      { category: 'touch', key: 'tier2-touch-target-advisory', severity: 'tip', check: 'review',
+        title: 'Touch target 30x30px meets the 24px floor but is below the 44px best practice',
+        selector: '#x', viewport: payload, computed: { width: 30, height: 30 }, source: 'beacon-tier2-audit@2' },
+      { category: 'touch', key: 'tier2-touch-target-advisory', severity: 'tip', check: 'review',
+        title: 'Touch target 32x32px meets the 24px floor but is below the 44px best practice',
+        selector: '#x', viewport: `${payload}2`, computed: { width: 32, height: 32 }, source: 'beacon-tier2-audit@2' },
+    ]));
+    execFileSync('node', [STATIC_AUDIT, '--scope', 'xss-probe', '--date', '2026-01-01', '--merge-findings', external, '--output', merged, page]);
+    execFileSync('node', [REPORT, merged, '--output', report]);
+    const html = readFileSync(report, 'utf8');
+    assert.doesNotMatch(html, /<img src=x onerror=alert\(1\)>/, 'raw hostile viewport string must never reach the page');
+    assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/, 'the viewport label must render escaped');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // HIGH-1 (2026-07-26 merge audit): the test above hand-writes an audit JSON with `computed`
 // and `audit.tier2` already attached -- a shape no producer in the repo actually emits. This
 // is the missing assertion: run the REAL documented pipeline (tier2-audit.mjs ->

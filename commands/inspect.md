@@ -607,6 +607,19 @@ node scripts/static-audit.mjs --scope "<scope>" \
   --output audit-results.json <file-or-dir>...
 ```
 
+Every emitted finding also carries an `action` field, derived by `addFinding()` from
+`check` (and, for `check:'review'`, from the finding's `key`) — you never set it yourself:
+
+- `direct-fix` — `check:'fail'`: a confirmed violation with a known remedy.
+- `design-judgment` — `check:'review'` and a `key` ending in `-advisory` (e.g.
+  `tier2-touch-target-advisory`): a non-normative best-practice suggestion, not a
+  violation — a designer's call, nothing to verify.
+- `human-verify` — everything else under `check:'review'`: a heuristic or otherwise
+  unconfirmed signal that needs a human (or a live browser) to confirm before it is
+  treated as a real defect. If your merged finding is this kind of advisory recommendation
+  rather than an unconfirmed heuristic, name its `key` with an `-advisory` suffix so it is
+  classified `design-judgment` instead.
+
 **Warning — merging moves the score, it is not a free "add more evidence" step.** Since
 engine `@17`, a category with ANY merged evidence (pass + fail >= 1) leaves
 `not-machine-checkable` and becomes `scored` immediately — `THIN_EVIDENCE_MIN` (3) only

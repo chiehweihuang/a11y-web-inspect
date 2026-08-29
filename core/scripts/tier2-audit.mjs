@@ -210,6 +210,26 @@ export function analyzeContrastSamples(samples, viewport) {
   return findings;
 }
 
+// hakuso CRITICAL (2026-08-29): the raw `contrast_samples` capture count (samples.length)
+// includes samples this analyzer SKIPS as "nothing to measure" (no visible ink — line 187
+// above) — not a pass, not a fail, not text at all. static-audit.mjs's --merge-findings
+// derives an implicit "clean pass" count from the capture total minus itemized findings;
+// using the raw total let invisible/transparent samples silently inflate that pass count,
+// violating VALIDATION.md's rule that absence/undecided never reads as pass. This mirrors
+// analyzeContrastSamples' own skip predicate exactly (kept next to it on purpose, so the
+// two can't drift) and returns only the count that was actually DECIDED one way or another
+// (unresolvable, fail, or a genuine pass) — the correct denominator for that derivation.
+export function countDecidedContrastSamples(samples) {
+  let decided = 0;
+  for (const s of samples) {
+    if (s.bgUnresolved) { decided += 1; continue; } // decided: unresolvable, never a pass
+    const fg = parseColor(s.fgStr);
+    if (!fg || fg.a === 0) continue; // nothing to measure -- excluded entirely
+    decided += 1; // decided: resolved (fail, itemized, or implicit pass)
+  }
+  return decided;
+}
+
 // targets: [{ selector, rect: {x,y,width,height} }]
 export function analyzeTouchTargets(targets, viewport) {
   const findings = [];
@@ -581,6 +601,11 @@ export async function runTier2Audit({ url, viewports = TIER2_VIEWPORTS, date, pl
         byViewport.push({
           viewport: vp.label,
           contrast_samples: contrastSamples.length,
+          // Additive field (hakuso CRITICAL 2026-08-29): the decided-outcome subset of
+          // contrast_samples, see countDecidedContrastSamples above. Older tier2.json
+          // artifacts won't carry this field; the merge step falls back to the raw count
+          // for those rather than crashing.
+          contrast_samples_decided: countDecidedContrastSamples(contrastSamples),
           touch_targets: touchTargets.length,
           findings: contrastFindings.length + touchFindings.length,
         });
