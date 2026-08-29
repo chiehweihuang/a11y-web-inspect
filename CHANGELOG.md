@@ -2,18 +2,12 @@
 
 ## [3.6.0] — 2026-08-29
 
-### Features
-
-- jurisdiction mapping 6→23 with primary-source verification (specific-law/framework/no-law tiers) (0720446)
-- reader task audit module (WIP from parallel session) (94dfacb)
-
-### Documentation
-
-- merge the duplicate 3.5.0 sections into one curated entry (2945e33)
-
-## [Unreleased]
-
 ### Added
+
+- **Reader task audit module** (`core/scripts/reader-task-audit.mjs`): browser/agent task
+  evidence — site intent, task outcomes, non-visual surface — kept structurally out of
+  scoring and the summary. Originated in a parallel session; shipped as-is with green
+  tests in the combined suite.
 
 - **Jurisdiction data module** (`core/scripts/jurisdictions.mjs`, primary-source research
   dated 2026-08-29 in `plans/2026-08-29-jurisdiction-expansion/`, including a same-day
