@@ -16,7 +16,11 @@
     { "file": "README.id.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
     { "file": "README.vi.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
     { "file": "README.th.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
-    { "file": "README.hi.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." }
+    { "file": "README.hi.md", "pattern": "Plugin facts: `beacon`, version `{VERSION}`, MIT, repository `chiehweihuang/beacon`." },
+    { "file": "docs/index.html", "pattern": "\"softwareVersion\": \"{VERSION}\"" },
+    { "file": "docs/index.html", "pattern": "MIT · v{VERSION}" },
+    { "file": "docs/zh-Hant.html", "pattern": "\"softwareVersion\": \"{VERSION}\"" },
+    { "file": "docs/zh-Hant.html", "pattern": "MIT · v{VERSION}" }
   ],
   "prePublish": ["gh auth switch --user chiehweihuang"],
   "postRelease": [

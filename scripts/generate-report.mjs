@@ -9,9 +9,39 @@
  * Output: Interactive HTML report (Lighthouse-style)
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { resolve, dirname, basename } from 'path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { resolve, dirname, basename, join } from 'path';
+import { fileURLToPath } from 'node:url';
 import { JURISDICTIONS, legalExposureFor } from './jurisdictions.mjs';
+
+// Product version, read at RUNTIME from wherever this script actually lives -- never
+// injected at build time (the known release trap: a version-stamped generated file lags
+// one version behind the next bump, since build.mjs only re-copies files that changed).
+// Walks up from this file's own directory looking for a plugin manifest; one loop covers
+// every deployment shape (repo checkout at core/scripts or the propagated scripts/ /
+// adapters/codex/scripts/ copies, or a plugin-cache install) instead of three hardcoded
+// relative paths, since `.claude-plugin/` or `.codex-plugin/` always sits a small, fixed
+// number of directories above wherever this script happens to be mounted.
+function readProductVersion() {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 6; i++) {
+    for (const manifest of ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json']) {
+      const p = join(dir, manifest);
+      if (existsSync(p)) {
+        try {
+          const v = JSON.parse(readFileSync(p, 'utf8')).version;
+          if (v) return v;
+        } catch { /* malformed manifest -- keep walking, never guess */ }
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break; // reached filesystem root
+    dir = parent;
+  }
+  return null; // render nothing rather than a wrong number
+}
+
+const productVersion = readProductVersion();
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
@@ -2576,7 +2606,7 @@ function buildFooterHTML(audit) {
       <div class="wrap">
         <p><span class="lang-zh" lang="zh-Hant">Beacon 是免費開源工具，評分背後的驗證資料全數公開。維護者提供無障礙 AI 檢測與修復的顧問服務：<a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span><span class="lang-en" lang="en">Beacon is free and open source, and the validation data behind its scores is public. The maintainer offers accessibility consulting for AI-assisted development: <a href="https://chiehweihuang.github.io/beacon/#services">chiehweihuang.github.io/beacon#services</a></span></p>
         <p style="margin-top:.6rem;font-size:.82rem;color:var(--ink-muted)">${bi('Beacon 產生的 audit artifacts 留在本機，除非你明確分享。', 'Beacon keeps audit artifacts local unless you explicitly share them.')}</p>
-        <p class="foot-engine">engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')} &middot; ${escapeHtml(audit.metadata?.audit_tier || '')} &middot; confidence ${escapeHtml(audit.metadata?.confidence_level || '')}</p>
+        <p class="foot-engine">${productVersion ? `Beacon ${escapeHtml(productVersion)} &middot; ` : ''}engine ${escapeHtml(audit.metadata?.engine_fingerprint || audit.metadata?.tool_version || '')} &middot; ${escapeHtml(audit.metadata?.audit_tier || '')} &middot; confidence ${escapeHtml(audit.metadata?.confidence_level || '')}</p>
       </div>
     </footer>`;
 }
