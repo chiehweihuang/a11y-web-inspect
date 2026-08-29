@@ -107,6 +107,14 @@ test('build --check fails (exit 1) when a generated output is hand-edited, then 
 test('build --check fails when the CC version bumps without regenerating the codex plugin manifest, then passes after rebuild', () => {
   const versionFile = resolve(ROOT, '.claude-plugin/plugin.json');
   const original = readFileSync(versionFile, 'utf8');
+  // ponytail: a killed test run (process killed mid-test, before `finally` below runs) can
+  // leave the sentinel version written with no real original left to restore to — `original`
+  // read above would just be the poisoned value. Fail loudly instead of silently "restoring"
+  // to 999.999.999; a real crash-safe restore (temp-file swap, exit handler) is overkill for
+  // one test fixture when `git checkout` fixes it in one command.
+  if (JSON.parse(original).version === '999.999.999') {
+    throw new Error(`${versionFile} is stuck at the test sentinel version 999.999.999 (a previous test run was likely killed mid-test). Run: git checkout -- ${versionFile}`);
+  }
   try {
     const bumped = JSON.stringify({ ...JSON.parse(original), version: '999.999.999' }, null, 2) + '\n';
     writeFileSync(versionFile, bumped); // canonical version moves; codex plugin.json is now stale

@@ -2,12 +2,6 @@
 
 ## [3.5.0] — 2026-08-29
 
-### Features
-
-- judgment-precision overhaul — actionability tiers, heuristic demote, decided-sample evidence (engine @19) (037b06e)
-
-## [Unreleased]
-
 ### Changed
 
 - **Engine bumped `beacon-static-audit@18` → `@19`**: detection behavior changed
