@@ -82,7 +82,7 @@ Plugin facts：`beacon`、version `3.5.0`、MIT、repository `chiehweihuang/beac
 
 ## 司法管辖区语境
 
-Beacon 会把 finding 对照到 US ADA、EU EAA、Japan JIS、Taiwan、Canada ACA、Australia DDA 等语境中的 WCAG 相关条件。这不是法律意见，也不是逐法域机械风险分数；若要宣称合规，仍需确认当地当前有效的要求。
+Beacon 会把 finding 对照到 23 个追踪法域（`core/scripts/jurisdictions.mjs`，一手来源研究）中相关的 WCAG 条件——14 个法域有专门的网页无障碍法律（US、EU、Japan、Taiwan、Canada、China、South Korea、Brazil、Argentina、Colombia、Peru、Chile、Uruguay、Ecuador），2 个法域只有一般性反歧视框架、没有网页专属条文（Australia、Hong Kong），另外 7 个法域诚实地记录为查无专门法规（Macau、Mongolia、Venezuela、Bolivia、Paraguay、Guyana、Suriname）。这不是法律意见，也不是逐法域机械风险分数；若要宣称合规，仍需确认当地当前有效的要求。
 
 ## AEO 与 agent readiness 工作流程
 

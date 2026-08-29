@@ -31,6 +31,7 @@ import { execSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+import { legalExposureFor } from './jurisdictions.mjs';
 
 const DETECTOR_VERSION = 'beacon-tier2-audit@2';
 
@@ -118,12 +119,16 @@ function centerOf(rect) {
 // Analyze (pure): captured samples -> findings, same shape as static-audit.mjs
 // ---------------------------------------------------------------------------------------
 
-const LEGAL_EXPOSURE_DEFAULT = 'May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.';
-
+// Jurisdiction-expansion spec (2026-08-29, item 3): derive from the finding's actual WCAG
+// level instead of one identical hardcoded string — every tier2 finding here is AA anyway
+// (1.4.3, 2.5.8), but this keeps the raw un-merged tier2.json output honest too, not just
+// the merged artifact (mergeExternalFindings' addFinding() funnel re-derives it again on
+// merge, since legal_exposure is never forwarded across that boundary).
 function baseFinding(f) {
+  const level = f.level || 'AA';
   return {
-    level: f.level || 'AA',
-    legal_exposure: LEGAL_EXPOSURE_DEFAULT,
+    level,
+    legal_exposure: legalExposureFor(level).en,
     source: DETECTOR_VERSION,
     ...f,
   };

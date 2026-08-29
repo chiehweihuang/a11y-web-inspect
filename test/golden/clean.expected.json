@@ -179,7 +179,7 @@
   "findings": [
     {
       "level": "AAA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This is an AAA-level best-practice criterion; none of the tracked jurisdictions' binding or government-facing technical standards require AAA conformance. Technical mapping only, not a jurisdiction-specific legal determination.",
       "key": "motion-reduced-motion-missing",
       "category": "motion",
       "severity": "warning",
@@ -194,7 +194,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "contrast-not-verified",
       "category": "contrast",
       "severity": "tip",

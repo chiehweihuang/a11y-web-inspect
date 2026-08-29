@@ -82,7 +82,7 @@ Detector 정밀도는 임의로 선택하지 않은 페이지를 대상으로 �
 
 ## Jurisdiction Context
 
-Beacon은 findings를 US ADA, EU EAA, Japan JIS, Taiwan, Canada ACA, Australia DDA context의 WCAG criteria에 연결합니다. 이는 법률 자문이 아니며 관할권별 기계적 risk score도 아닙니다. Compliance claim을 하기 전에는 현재 적용되는 지역 요구사항을 확인해야 합니다.
+Beacon은 23개 추적 대상 법역(`core/scripts/jurisdictions.mjs`, 1차 자료 조사)의 findings를 관련 WCAG criteria에 연결합니다 — 14개 법역은 웹 접근성 전용 법률이 있고(US, EU, Japan, Taiwan, Canada, China, South Korea, Brazil, Argentina, Colombia, Peru, Chile, Uruguay, Ecuador), 2개 법역은 웹 전용 조문이 없는 일반 차별금지 프레임워크만 있으며(Australia, Hong Kong), 나머지 7개 법역은 전용 법률을 찾지 못했다고 정직하게 기록되어 있습니다(Macau, Mongolia, Venezuela, Bolivia, Paraguay, Guyana, Suriname). 이는 법률 자문이 아니며 관할권별 기계적 risk score도 아닙니다. Compliance claim을 하기 전에는 현재 적용되는 지역 요구사항을 확인해야 합니다.
 
 ## AEO And Agent Readiness Workflow
 

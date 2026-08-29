@@ -84,7 +84,7 @@ Plugin facts: `beacon`, version `3.5.0`, MIT, repository `chiehweihuang/beacon`.
 
 ## Jurisdiction Context
 
-Beacon map findings กับ WCAG criteria ที่เกี่ยวข้องในบริบทของ US ADA, EU EAA, Japan JIS, Taiwan, Canada ACA, และ Australia DDA ส่วนนี้ไม่ใช่คำแนะนำทางกฎหมาย และไม่ใช่ risk score แบบอัตโนมัติแยกตาม jurisdiction ควรตรวจข้อกำหนดท้องถิ่นล่าสุดก่อนกล่าวอ้าง compliance
+Beacon map findings กับ WCAG criteria ที่เกี่ยวข้องใน 23 jurisdictions ที่ติดตาม (`core/scripts/jurisdictions.mjs`, งานวิจัยจากแหล่งข้อมูลปฐมภูมิ) — 14 แห่งมีกฎหมายด้าน web accessibility โดยเฉพาะ (US, EU, Japan, Taiwan, Canada, China, South Korea, Brazil, Argentina, Colombia, Peru, Chile, Uruguay, Ecuador), 2 แห่งมีเพียงกรอบกฎหมายต่อต้านการเลือกปฏิบัติทั่วไป ไม่มีข้อความเฉพาะเกี่ยวกับ web (Australia, Hong Kong), และอีก 7 แห่งถูกบันทึกอย่างตรงไปตรงมาว่ายังไม่พบกฎหมายเฉพาะ (Macau, Mongolia, Venezuela, Bolivia, Paraguay, Guyana, Suriname) ส่วนนี้ไม่ใช่คำแนะนำทางกฎหมาย และไม่ใช่ risk score แบบอัตโนมัติแยกตาม jurisdiction ควรตรวจข้อกำหนดท้องถิ่นล่าสุดก่อนกล่าวอ้าง compliance
 
 ## AEO And Agent Readiness Workflow
 

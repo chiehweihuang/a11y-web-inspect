@@ -55,6 +55,8 @@ test('category cards expose completed states as text (never a painted score), an
     assert.match(html, /Machine-checked score/);
     assert.match(html, /已取得機器證據/);
     assert.match(html, /Machine evidence obtained/);
+    assert.match(html, /尚未執行 AI 非視覺任務測試/);
+    assert.match(html, /AI non-visual task test not run/);
     assert.match(html, /固定機器檢查範圍/);
     assert.match(html, /本頁適用範圍/);
     assert.match(html, /適用但尚未驗證/);
@@ -77,6 +79,67 @@ test('category cards expose completed states as text (never a painted score), an
     // Testing recommendations stay bilingual.
     assert.match(html, /中文測試建議/);
     assert.match(html, /English testing recommendation/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('reader evidence report shows site intent, task result, direct sources, and actual AT status', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-reader-report-'));
+  try {
+    const audit = join(dir, 'audit.json');
+    const report = join(dir, 'report.html');
+    writeFileSync(audit, JSON.stringify({
+      metadata: { date: '2026-01-01', scope: 'reader test', url: 'https://example.com/', standard: 'WCAG 2.2 AA' },
+      summary: { overall_score: 80, coverage_percent: 20, total_findings: 1, critical: 0, warnings: 1, tips: 0, categories: [] },
+      findings: [],
+      legal_risk: {},
+      testing_recommendations: [],
+      reader_evidence: {
+        metadata: { date: '2026-01-01', scored: false },
+        intent: {
+          purpose: { zh: '申請服務', en: 'Apply for a service' },
+          audience: { zh: '申請人', en: 'Applicants' },
+          source: 'owner',
+          confidence: 'high',
+          sources: [{ type: 'page', label: { zh: '服務頁', en: 'Service page' }, url: 'https://example.com/service' }],
+        },
+        tasks: [{
+          id: 'start-application',
+          goal: { zh: '開始申請', en: 'Start an application' },
+          success_criteria: [{ zh: '找到開始按鈕', en: 'Find the start button' }],
+          outcome: 'ambiguous',
+          interpretation: { zh: '按鈕目的不夠清楚', en: 'The button purpose is unclear' },
+          evidence: [{ label: 'captured task page', url: 'https://example.com/service#start' }],
+        }],
+        reader_surface: {
+          status: 'captured',
+          channel: ['accessibility-tree', 'keyboard'],
+          snapshot: { format: 'test-tree', content: 'button "Start application"' },
+          keyboard: { stop_count: 2, max_tabs: 8 },
+        },
+        assistive_technology: {
+          nvda: { status: 'not-tested', note: { zh: '未啟動', en: 'Not started' } },
+          voiceover: { status: 'blocked' },
+          talkback: { status: 'not-tested' },
+        },
+      },
+    }));
+    execFileSync('node', [join(ROOT, 'core/scripts/generate-report.mjs'), audit, '--output', report]);
+    const html = readFileSync(report, 'utf8');
+    assert.match(html, /申請服務/);
+    assert.match(html, /Apply for a service/);
+    assert.match(html, /開始申請/);
+    assert.match(html, /Start an application/);
+    assert.match(html, /意圖有歧義/);
+    assert.match(html, /Intent was ambiguous/);
+    assert.match(html, /href="https:\/\/example\.com\/service#start" target="_blank" rel="noopener noreferrer"/);
+    assert.match(html, /button &quot;Start application&quot;/);
+    assert.match(html, /NVDA/);
+    assert.match(html, /尚未測試/);
+    assert.match(html, /Not tested/);
+    assert.match(html, /不計入機器分數/);
+    assert.match(html, /excluded from the machine score/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -3,8 +3,10 @@ description: >-
   Lighthouse-style accessibility inspection: 0-100 scoring across 10 categories (contrast,
   keyboard, screen reader, forms, media, motion, touch, cognitive, responsive, AEO),
   interactive HTML report with score rings and code diffs, before/after comparison with
-  previous inspections, legal context mapping for 6 jurisdictions (US ADA, EU EAA, Japan JIS,
-  Taiwan, Canada ACA, Australia DDA), framework-specific fix patterns (React/Vue/Angular/
+  previous inspections, legal context mapping for 23 tracked jurisdictions (14 with a
+  specific web-accessibility law, 2 general anti-discrimination frameworks with no
+  web-specific text, 7 tracked as no specific law found — see
+  core/scripts/jurisdictions.mjs), framework-specific fix patterns (React/Vue/Angular/
   Svelte/HTML), and CI/CD pipeline integration. Validated against committed benchmark data.
   Three-tier architecture: static analysis → Playwright browser audit → manual testing
   recommendations. Handles CSR/SPA detection and pedagogical demo exclusion.
@@ -93,7 +95,7 @@ npx eslint --rule 'jsx-a11y/*' src/
 
 **Contrast verification gate (do not skip):** Color contrast is the single largest real-world gap a static scan cannot see (18 of 50 sites in the 2026-05-31 survey). Before writing `audit-results.json`, answer explicitly: was contrast actually exercised by a rendering engine this run — Beacon-native `tier2-audit.mjs` OR axe-core? If NEITHER ran, whether because no browser was available or because the run skipped it, you MUST (a) set `"requires_live_audit": true` in metadata, and (b) emit the `contrast` category as an explicit unverified finding (severity tip, title "Contrast not verified, run Tier 2"), not a silent `review` count. Never report a passing contrast score from a static-only run.
 
-Automated coverage varies by page and criterion. Run the available tools, report `coverage_percent`, and reserve cognitive load, screen-reader task completion, and dynamic interaction quality for human or live review. If no browser is available at all, run the static scanner + manual analysis AND record `"requires_live_audit": true` in metadata.
+Automated coverage varies by page and criterion. Run the available tools, report `coverage_percent`, and reserve cognitive load, actual assistive-technology behaviour, and dynamic interaction quality for human or live review. The reader-oriented layer below can make site intent, task goals, and a browser's non-visual surface explicit, but it does not replace those checks. If no browser is available at all, run the static scanner + manual analysis AND record `"requires_live_audit": true` in metadata.
 
 ### Step 2a: Three-Tier Audit Architecture
 
@@ -121,6 +123,8 @@ Tier 3: Manual Testing (human, recommended in report)
   Confidence: VERIFIED
 ```
 
+The three WCAG evidence tiers remain unchanged. Reader-oriented task evidence is a cross-cutting extension between live browser capture and manual testing: it makes a page's purpose, task contract, accessibility tree, and keyboard path inspectable to an AI agent, but it does not claim the coverage or confidence of actual assistive-technology use.
+
 **Tier 2 — Beacon-native browser harness (default):**
 
 `scripts/tier2-audit.mjs` is Beacon's own Tier 2 browser layer: plain Playwright, no axe-core, measuring contrast (WCAG 1.4.3) and touch-target size (WCAG 2.5.8) at 320px and 1280px viewports. This is the default way to get real, browser-rendered contrast/touch evidence — no Playwright MCP tools needed.
@@ -132,6 +136,58 @@ node scripts/tier2-audit.mjs --url <url-or-file> --output tier2-results.json
 Playwright availability is detected in order: an explicit `PLAYWRIGHT_MODULE_PATH` env override (authoritative — a bad value fails immediately, no silent fallthrough), then `require.resolve('playwright')` from the caller's own project, then known global npm installs. If none resolves, the script fails LOUDLY with an actionable error (`npm i -g playwright` then `npx playwright install chromium`, or set the env var) — it never degrades silently.
 
 `tier2-results.json` is a SEPARATE artifact from `audit-results.json`: findings and evidence only, each finding carrying its own engine provenance (`source: beacon-tier2-audit@2`). Read and summarize it for the human (Step 3). Whether these categories automatically enter `audit-results.json`'s score and coverage is an intentionally undecided product question — this skill does not do that today. If a specific tier-2 finding should count toward the score anyway, feed it through the SAME `--merge-findings` mechanism already used for axe/manual findings (Step 6) — that is the existing, generic, manual mechanism, not new scoring machinery.
+
+**Reader-oriented task evidence (separate from the score):**
+
+`scripts/reader-task-audit.mjs` connects the site's purpose to one or more concrete tasks. It captures the accessibility tree and keyboard focus path with the same runtime Playwright discovery used by Tier 2. An agent or human can then record whether the task was completed, failed, ambiguous, or blocked. This is a non-visual browser surface, not NVDA, VoiceOver, TalkBack, or human testing; no model is invoked by the script itself, and task outcomes never enter `summary`, `findings`, `coverage_percent`, or `overall_score`.
+
+Start with a small intent/task contract. Use public `http(s)` links when citing the page, schema, `llms.txt`, owner brief, or review used to understand intent:
+
+```json
+{
+  "intent": {
+    "purpose": { "zh": "申請服務", "en": "Apply for a service" },
+    "audience": { "zh": "申請人", "en": "Applicants" },
+    "source": "page",
+    "confidence": "medium",
+    "sources": [
+      { "type": "page", "label": { "zh": "服務頁", "en": "Service page" }, "url": "https://example.com/service" }
+    ]
+  },
+  "tasks": [
+    {
+      "id": "start-application",
+      "goal": { "zh": "開始申請", "en": "Start an application" },
+      "success_criteria": [
+        { "zh": "找到開始按鈕", "en": "Find the start button" }
+      ],
+      "max_tabs": 24
+    }
+  ]
+}
+```
+
+Run the reader capture, optionally attach an agent/human task assessment, then attach the result to the authoritative static audit:
+
+```bash
+node scripts/reader-task-audit.mjs \
+  --url <url-or-file> \
+  --task intent-task.json \
+  [--assessment task-assessment.json] \
+  --output reader-results.json
+
+node scripts/static-audit.mjs \
+  --scope "<scope>" \
+  --url <url> \
+  --merge-findings tier2-results.json \
+  --reader-evidence reader-results.json \
+  --output audit-results.json \
+  <file-or-dir>...
+
+node scripts/generate-report.mjs audit-results.json --output a11y-report.html
+```
+
+The report displays the intent source, task goal, success criteria, outcome, direct evidence links, captured surface, and the actual NVDA/VoiceOver/TalkBack status. Missing reader evidence is shown as “not run”; missing AT evidence is shown as “not tested”. A `completed` task means the supplied assessment recorded that outcome — it is not a machine accessibility pass and does not certify the site.
 
 **Tier 2 — Playwright MCP Integration (optional, richer interactive checks):**
 
@@ -607,6 +663,17 @@ node scripts/static-audit.mjs --scope "<scope>" \
   --output audit-results.json <file-or-dir>...
 ```
 
+Attach reader-oriented evidence with its dedicated option, not `--merge-findings`:
+
+```bash
+node scripts/static-audit.mjs --scope "<scope>" \
+  --merge-findings tier2-results.json \
+  --reader-evidence reader-results.json \
+  --output audit-results.json <file-or-dir>...
+```
+
+`--reader-evidence` validates and carries the non-scored `reader_evidence` block after the script has calculated the authoritative machine result. Do not turn a task outcome into a synthetic `pass` or `fail` finding: task completion, intent ambiguity, and actual AT status are different evidence questions.
+
 Every emitted finding also carries an `action` field, derived by `addFinding()` from
 `check` (and, for `check:'review'`, from the finding's `key`) — you never set it yourself:
 
@@ -619,6 +686,11 @@ Every emitted finding also carries an `action` field, derived by `addFinding()` 
   treated as a real defect. If your merged finding is this kind of advisory recommendation
   rather than an unconfirmed heuristic, name its `key` with an `-advisory` suffix so it is
   classified `design-judgment` instead.
+
+`legal_exposure` is derived by `legalExposureFor(level)` in `jurisdictions.mjs`, which
+internally computes both a `.zh` and `.en` sentence, but only `.en` is ever stored on the
+finding — the field is a plain string, JSON-only (nothing in `generate-report.mjs` renders
+it), and the `.zh` half currently has no consumer.
 
 **Warning — merging moves the score, it is not a free "add more evidence" step.** Since
 engine `@17`, a category with ANY merged evidence (pass + fail >= 1) leaves
@@ -710,7 +782,7 @@ The script emits this shape (reference — do not author it by hand):
       "location": "style.css:42",
       "description": "The body text color #777 on #fff background has a contrast ratio of 3.8:1, below the 4.5:1 minimum.",
       "fix": "Change to #595959 or darker for 4.5:1 ratio.",
-      "legal_exposure": "Violates WCAG 2.2 AA. Top-7 litigated criterion in US ADA lawsuits.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: ... . This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "code_before": "color: #777;",
       "code_after": "color: #595959;"
     }

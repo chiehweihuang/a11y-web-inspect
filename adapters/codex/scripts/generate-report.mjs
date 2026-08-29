@@ -11,6 +11,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
+import { JURISDICTIONS, legalExposureFor } from './jurisdictions.mjs';
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
@@ -502,14 +503,11 @@ const FINDING_I18N = {
   },
 };
 
-const DEFAULT_JURISDICTIONS = [
-  { name: 'US ADA', law: 'ADA Title III / Section 508 context', detail: 'Use the mapped WCAG criteria as technical evidence; legal exposure depends on business model, sector, and jurisdiction-specific facts.' },
-  { name: 'EU EAA', law: 'European Accessibility Act', detail: 'Use the mapped WCAG criteria as technical evidence for consumer digital-service accessibility planning.' },
-  { name: 'Japan JIS', law: 'JIS X 8341-3 context', detail: 'Use the mapped WCAG criteria as technical evidence; confirm procurement or sector requirements separately.' },
-  { name: 'Taiwan', law: 'Taiwan accessibility context', detail: 'Use the mapped WCAG criteria as technical evidence only; confirm current local program, certification, and seal requirements before making a compliance claim.' },
-  { name: 'Canada ACA', law: 'Accessible Canada Act context', detail: 'Use the mapped WCAG criteria as technical evidence; applicability depends on organization type and regulated context.' },
-  { name: 'Australia DDA', law: 'Disability Discrimination Act context', detail: 'Use the mapped WCAG criteria as technical evidence; legal assessment requires local context and counsel.' },
-];
+// static-audit.mjs's audit.legal_risk.jurisdictions still emits the original six short
+// labels (unchanged, out of this expansion's scope) — map them to the expanded dataset's
+// ids so the exec-summary's compact chip row stays audit-scoped while the full legal
+// section (below) renders the complete jurisdictions.mjs reference.
+const LEGACY_NAME_TO_ID = { 'US ADA': 'us', 'EU EAA': 'eu', 'Japan JIS': 'jp', 'Taiwan': 'tw', 'Canada ACA': 'ca', 'Australia DDA': 'au' };
 
 const WCAG_CRITERIA = {
   '1.1.1': { title: 'Non-text Content', url: 'https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html' },
@@ -835,7 +833,7 @@ function normalizeAxeNode(node) {
 
 function axeViolationToFinding(rule, index) {
   const nodes = asArray(rule.nodes);
-  const criteria = criterionIdsFromTags(rule.tags || []);
+  const level = levelFromAxeRule(rule);
   return {
     id: `axe-${rule.id || index}`,
     key: rule.id || undefined,
@@ -844,15 +842,16 @@ function axeViolationToFinding(rule, index) {
     category: categoryFromAxeRule(rule),
     severity: severityFromAxeRule(rule),
     wcag: wcagFromAxeRule(rule),
-    level: levelFromAxeRule(rule),
+    level,
     title: rule.help || rule.description || rule.id || 'axe-core finding',
     affected_users: 'Users of assistive technology, keyboard navigation, low-vision settings, or other access adaptations depending on the failed rule.',
     location: nodes.length ? `${nodes.length} affected DOM element(s)` : 'Runtime DOM',
     description: rule.description || rule.help || `axe-core rule ${rule.id || index} failed.`,
     fix: rule.help ? `Resolve the axe-core rule "${rule.help}" for every listed DOM element.` : 'Review and remediate every listed DOM element.',
-    legal_exposure: criteria.length
-      ? `Technical mapping: ${criteriaLabel(criteria)}. This is not a legal conclusion.`
-      : 'Technical accessibility finding. Legal exposure depends on site context and jurisdiction.',
+    // hakuso BLOCK (2026-08-29, item 5): route through the same jurisdiction-aware
+    // derivation every other finding uses, instead of a second ad-hoc legal_exposure
+    // string with its own vocabulary.
+    legal_exposure: legalExposureFor(level).en,
     helpUrl: rule.helpUrl,
     tags: rule.tags || [],
     axe_node_count: nodes.length,
@@ -916,12 +915,8 @@ function collectCriteria(findings) {
 }
 
 function buildJurisdictions(legal) {
-  const byName = new Map(DEFAULT_JURISDICTIONS.map(j => [j.name, j]));
-  for (const j of asArray(legal?.jurisdictions)) {
-    if (!j?.name) continue;
-    byName.set(j.name, { ...(byName.get(j.name) || {}), ...j });
-  }
-  return [...byName.values()];
+  const ids = new Set(asArray(legal?.jurisdictions).map(j => LEGACY_NAME_TO_ID[j?.name]).filter(Boolean));
+  return JURISDICTIONS.filter(j => ids.has(j.id));
 }
 
 const reportFindings = buildReportFindings(audit);
@@ -1706,7 +1701,7 @@ function buildExecSummaryHTML(audit, groups) {
     ${reviewGroups.length ? `<h3>${bi('需判斷／需驗證', 'Needs judgment or verification')}</h3>${prioListHTML(reviewGroups)}` : ''}`;
 
   const jurisdictions = buildJurisdictions(audit.legal_risk);
-  const jurisdictionChips = jurisdictions.map(j => `<span class="chip review">${escapeHtml(j.name)}</span>`).join('');
+  const jurisdictionChips = jurisdictions.map(j => `<span class="chip review">${bi(escapeHtml(j.name.zh), escapeHtml(j.name.en))}</span>`).join('');
 
   const nmcCats = audit.summary.categories.filter(c => c.state === 'not-machine-checkable');
   const nmcZh = nmcCats.map(c => I18N.zh[`cat_${c.id}`] || c.name).join('、');
@@ -1832,6 +1827,134 @@ function buildManualChecksHTML(audit) {
             <p><strong>${bi('怎麼檢查：', 'How to check:')}</strong> ${manualCheckText(check, 'How')}</p>
           </article>
         `).join('')}
+      </div>
+    </section>`;
+}
+
+const READER_OUTCOME_LABELS = {
+  completed: ['已完成任務', 'Task completed'],
+  failed: ['任務失敗', 'Task failed'],
+  ambiguous: ['意圖有歧義', 'Intent was ambiguous'],
+  blocked: ['任務受阻', 'Task blocked'],
+  'not-assessed': ['尚未判定任務結果', 'Task outcome not assessed'],
+};
+
+const AT_STATUS_LABELS = {
+  pass: ['已提供通過紀錄', 'Verified pass recorded'],
+  fail: ['已提供失敗紀錄', 'Verified failure recorded'],
+  blocked: ['測試受阻', 'Test blocked'],
+  'not-tested': ['尚未測試', 'Not tested'],
+};
+
+const READER_SURFACE_LABELS = {
+  captured: ['已擷取 accessibility tree 與鍵盤路徑', 'Accessibility tree and keyboard path captured'],
+  failed: ['非視覺瀏覽器擷取失敗', 'Non-visual browser capture failed'],
+  'not-captured': ['尚未擷取非視覺瀏覽器表面', 'Non-visual browser surface not captured'],
+};
+
+function readerOutcomeLabel(outcome) {
+  const [zh, en] = READER_OUTCOME_LABELS[outcome] || READER_OUTCOME_LABELS['not-assessed'];
+  return bi(zh, en);
+}
+
+function atStatusLabel(status) {
+  const [zh, en] = AT_STATUS_LABELS[status] || AT_STATUS_LABELS['not-tested'];
+  return bi(zh, en);
+}
+
+function readerSurfaceLabel(status) {
+  const [zh, en] = READER_SURFACE_LABELS[status] || READER_SURFACE_LABELS['not-captured'];
+  return bi(zh, en);
+}
+
+function safeReaderSourceUrl(value) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function readerEvidenceSourceHTML(source) {
+  const label = localizedText(source.label || source.note || source.type || 'source');
+  const url = safeReaderSourceUrl(source.url);
+  return url
+    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+    : label;
+}
+
+function buildReaderTaskEvidenceHTML(audit) {
+  const evidence = audit.reader_evidence;
+  if (!evidence) {
+    return `
+      <section class="reader-task-evidence" aria-labelledby="reader-task-title">
+        <h3 id="reader-task-title">${bi('網站意圖與 AI 非視覺任務', 'Site intent &amp; AI non-visual task')}</h3>
+        <div class="reader-status reader-status-missing">
+          <strong>${bi('尚未執行 AI 非視覺任務測試', 'AI non-visual task test not run')}</strong>
+          <span>${bi('目前沒有網站意圖、任務理解或非視覺操作證據。這一層不計入機器分數。', 'No site-intent, task-understanding, or non-visual interaction evidence is attached. This layer is excluded from the machine score.')}</span>
+        </div>
+        <p class="section-intro">${bi('NVDA、VoiceOver、TalkBack 與真人使用測試也尚未由這份 JSON 證明。', 'This JSON also does not prove NVDA, VoiceOver, TalkBack, or human testing.')}</p>
+      </section>`;
+  }
+
+  const intent = evidence.intent || {};
+  const tasks = asArray(evidence.tasks);
+  const surface = evidence.reader_surface || {};
+  const keyboard = surface.keyboard;
+  const snapshot = surface.snapshot;
+  const at = evidence.assistive_technology || {};
+  const sourceList = asArray(intent.sources);
+  const surfaceStatus = surface.status || 'not-captured';
+  const surfaceMissing = surfaceStatus !== 'captured' ? ' reader-status-missing' : '';
+  const taskRows = tasks.length
+    ? tasks.map((task) => `
+        <article class="reader-task-row">
+          <div class="reader-task-heading">
+            <strong>${escapeHtml(task.id || '')}</strong>
+            <span class="reader-outcome">${readerOutcomeLabel(task.outcome)}</span>
+          </div>
+          <p><strong>${bi('任務：', 'Goal:')}</strong> ${localizedText(task.goal)}</p>
+          ${task.success_criteria?.length ? `<p><strong>${bi('成功條件：', 'Success criteria:')}</strong></p><ul>${task.success_criteria.map((criterion) => `<li>${localizedText(criterion)}</li>`).join('')}</ul>` : ''}
+          ${task.interpretation ? `<p><strong>${bi('AI／測試者理解：', 'Agent / tester interpretation:')}</strong> ${localizedText(task.interpretation)}</p>` : ''}
+          ${task.observations?.length ? `<p><strong>${bi('觀察：', 'Observations:')}</strong></p><ul>${task.observations.map((observation) => `<li>${localizedText(observation)}</li>`).join('')}</ul>` : ''}
+          ${task.evidence?.length ? `<p><strong>${bi('證據：', 'Evidence:')}</strong> ${task.evidence.map(readerEvidenceSourceHTML).join(' · ')}</p>` : ''}
+        </article>`).join('')
+    : `<p class="empty">${bi('沒有任務定義。', 'No task definition was supplied.')}</p>`;
+  const atRows = ['nvda', 'voiceover', 'talkback'].map((name) => {
+    const item = at[name] || {};
+    const title = { nvda: 'NVDA', voiceover: 'VoiceOver', talkback: 'TalkBack' }[name];
+    return `<li><strong>${title}</strong><span class="reader-at-status">${atStatusLabel(item.status)}</span>${item.note ? `<span>${localizedText(item.note)}</span>` : ''}</li>`;
+  }).join('');
+  const snapshotHTML = snapshot?.content
+    ? `<details class="reader-snapshot"><summary>${bi('檢視 accessibility tree 擷取內容', 'View captured accessibility tree')}</summary><pre>${escapeHtml(snapshot.content)}</pre></details>`
+    : '';
+
+  return `
+    <section class="reader-task-evidence" aria-labelledby="reader-task-title">
+      <h3 id="reader-task-title">${bi('網站意圖與 AI 非視覺任務', 'Site intent &amp; AI non-visual task')}</h3>
+      <div class="reader-status${surfaceMissing}">
+        <strong>${readerSurfaceLabel(surfaceStatus)}</strong>
+        <span>${bi('這不是 NVDA、VoiceOver、TalkBack 或真人測試；任務判定不計入機器分數。', 'This is not NVDA, VoiceOver, TalkBack, or human testing; task judgements are excluded from the machine score.')}</span>
+      </div>
+      <div class="reader-intent-grid">
+        <div><span class="reader-label">${bi('網站目的', 'Site purpose')}</span><span class="reader-value">${localizedText(intent.purpose) || bi('未提供', 'Not provided')}</span></div>
+        <div><span class="reader-label">${bi('目標使用者', 'Audience')}</span><span class="reader-value">${localizedText(intent.audience) || bi('未提供', 'Not provided')}</span></div>
+        <div><span class="reader-label">${bi('意圖來源', 'Intent source')}</span><span class="reader-value">${escapeHtml(intent.source || 'inferred')} · ${escapeHtml(intent.confidence || 'medium')}</span></div>
+        ${sourceList.length ? `<div><span class="reader-label">${bi('參考來源', 'Reference sources')}</span><span class="reader-value">${sourceList.map(readerEvidenceSourceHTML).join(' · ')}</span></div>` : ''}
+      </div>
+      <div class="reader-task-list">
+        <h4>${bi('主要任務與結果', 'Primary tasks and outcomes')}</h4>
+        ${taskRows}
+      </div>
+      <div class="reader-surface-summary">
+        <h4>${bi('擷取範圍', 'Captured surface')}</h4>
+        <p>${bi(`通道：${asArray(surface.channel).join('、') || '未提供'}${keyboard ? `；鍵盤停點 ${keyboard.stop_count || 0} / ${keyboard.max_tabs || 0}` : ''}${snapshot ? `；${snapshot.format || 'accessibility tree'} 已擷取` : ''}`, `Channels: ${asArray(surface.channel).join(', ') || 'not provided'}${keyboard ? `; ${keyboard.stop_count || 0} / ${keyboard.max_tabs || 0} keyboard stops` : ''}${snapshot ? `; ${snapshot.format || 'accessibility tree'} captured` : ''}`)}</p>
+        ${snapshotHTML}
+      </div>
+      <div class="reader-at">
+        <h4>${bi('實際輔助科技狀態', 'Actual assistive-technology status')}</h4>
+        <ul>${atRows}</ul>
       </div>
     </section>`;
 }
@@ -2135,10 +2258,115 @@ function buildLegalSectionHTML(audit) {
     </section>`;
 }
 
+// Jurisdiction-expansion spec (2026-08-29, item 3): cards now render straight from
+// jurisdictions.mjs by tier/cardStyle instead of six near-identical hardcoded strings.
+// A source string may carry a trailing annotation after the URL (e.g. "https://x (法規原文)")
+// — split on whitespace for the href, keep the full string as the visible label.
+function sourceLinkHTML(s) {
+  const href = String(s).split(/\s/)[0];
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s)}</a>`;
+}
+
+const CONFIDENCE_LABEL = {
+  high: ['高信心', 'high confidence'], verified: ['高信心（已驗證）', 'verified'],
+  medium: ['中信心', 'medium confidence'], low: ['低信心', 'low confidence'],
+  uncertain: ['不確定', 'uncertain'],
+};
+
+const TIER_NOTE = {
+  'framework-no-web-specifics': bi(
+    '<strong>屬一般性框架，非網頁專屬立法</strong>——法規本身沒有網站／ICT 專屬條文，任何 WCAG 對照都來自行政指引，不是法規條文本身。',
+    '<strong>General framework, not web-specific legislation</strong> — the statute itself has no website/ICT-specific text; any WCAG reference comes from administrative guidance, not the statute.'
+  ),
+  'no-specific-law': bi(
+    '<strong>此法域目前查無網頁無障礙專門法規。</strong>',
+    '<strong>No specific web-accessibility law was found for this jurisdiction.</strong>'
+  ),
+};
+
+function jurisdictionCardHTML(j) {
+  const [confZh, confEn] = CONFIDENCE_LABEL[j.confidence] || [j.confidence, j.confidence];
+  const statuteHTML = j.statute
+    ? `<p><strong>${bi('法規', 'Statute')}:</strong> ${escapeHtml(j.statute.name.original)}${j.statute.name.original !== j.statute.name.en ? ` (${escapeHtml(j.statute.name.en)})` : ''}${j.statute.year ? `, ${j.statute.year}` : ''}${j.statute.provision ? ` — ${escapeHtml(j.statute.provision)}` : ''}</p>`
+    : '';
+  const scopeHTML = `<p><strong>${bi('範圍', 'Scope')}:</strong> ${bi(
+    `公部門${j.scope.public ? '✓' : '✗'}．私部門${j.scope.private ? '✓' : '✗'}`,
+    `Public ${j.scope.public ? 'yes' : 'no'} · Private ${j.scope.private ? 'yes' : 'no'}`
+  )}<br>${bi(escapeHtml(j.scope.text.zh), escapeHtml(j.scope.text.en))}</p>`;
+  const standardHTML = j.standard
+    ? `<p><strong>${bi('技術標準', 'Technical standard')}:</strong> ${escapeHtml(j.standard.name)}${j.standard.binding ? ` — ${escapeHtml(String(j.standard.binding))}` : ''}</p>`
+    : `<p><strong>${bi('技術標準', 'Technical standard')}:</strong> ${bi('無', 'None')}</p>`;
+  const caseHTML = j.enforcement?.realCase
+    ? `<p class="case-note"><strong>${bi('真實案例', 'Real case')}:</strong> ${escapeHtml(j.enforcement.realCase.name)} (${j.enforcement.realCase.year}) — ${escapeHtml(j.enforcement.realCase.outcome)}</p>`
+    : '';
+  const enforcementHTML = j.enforcement?.mechanism
+    ? `<p><strong>${bi('執法機制', 'Enforcement')}:</strong> ${bi(escapeHtml(j.enforcement.mechanism.zh), escapeHtml(j.enforcement.mechanism.en))}</p>${caseHTML}`
+    : '';
+  const sourcesHTML = j.sources?.length
+    ? `<p class="sources-line">${bi('來源', 'Sources')}: ${j.sources.map(sourceLinkHTML).join(' &middot; ')}</p>`
+    : '';
+  return `
+    <div class="risk-card" data-tier="${escapeHtml(j.tier)}">
+      <div class="risk-header">
+        <strong>${bi(escapeHtml(j.name.zh), escapeHtml(j.name.en))}</strong>
+        <span class="context-badge">${bi(confZh, confEn)}</span>
+      </div>
+      ${TIER_NOTE[j.tier] ? `<p class="tier-note">${TIER_NOTE[j.tier]}</p>` : ''}
+      ${statuteHTML}
+      ${scopeHTML}
+      ${standardHTML}
+      ${enforcementHTML}
+      ${sourcesHTML}
+    </div>`;
+}
+
+// south-america.md's "regional-tier note" countries (Chile/Peru/Uruguay/Ecuador): real
+// research, but a comparison table rather than four more full cards.
+function jurisdictionGroupedTableHTML(list) {
+  if (!list.length) return '';
+  const rows = list.map(j => {
+    const [confZh, confEn] = CONFIDENCE_LABEL[j.confidence] || [j.confidence, j.confidence];
+    const scopeZh = [j.scope.public ? '公部門' : '', j.scope.private ? '私部門' : ''].filter(Boolean).join('＋') || '無';
+    const scopeEn = [j.scope.public ? 'Public' : '', j.scope.private ? 'Private' : ''].filter(Boolean).join(' + ') || 'None';
+    return `<tr>
+      <td>${bi(escapeHtml(j.name.zh), escapeHtml(j.name.en))}</td>
+      <td>${j.statute ? escapeHtml(j.statute.name.en) : bi('無', 'None')}</td>
+      <td>${j.standard ? escapeHtml(j.standard.name) : bi('無', 'None')}</td>
+      <td>${bi(scopeZh, scopeEn)}</td>
+      <td>${bi(confZh, confEn)}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="jurisdiction-group">
+      <h3>${bi('南美其他法域比較', 'Other South American jurisdictions (comparison)')}</h3>
+      <table class="summary-table">
+        <thead><tr><th>${bi('法域', 'Jurisdiction')}</th><th>${bi('法規', 'Statute')}</th><th>${bi('技術標準', 'Standard')}</th><th>${bi('範圍', 'Scope')}</th><th>${bi('信心度', 'Confidence')}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// Thin/low-confidence honest-nulls (Venezuela/Bolivia/Paraguay/Guyana/Suriname): one
+// compact line each, not a full card — the research itself is thinner here.
+function jurisdictionOnelineListHTML(list) {
+  if (!list.length) return '';
+  const items = list.map(j => {
+    const [confZh, confEn] = CONFIDENCE_LABEL[j.confidence] || [j.confidence, j.confidence];
+    return `<li><strong>${bi(escapeHtml(j.name.zh), escapeHtml(j.name.en))}:</strong> ${bi(escapeHtml(j.scope.text.zh), escapeHtml(j.scope.text.en))} <span class="rule-id">(${bi(confZh, confEn)})</span></li>`;
+  }).join('');
+  return `
+    <div class="jurisdiction-onelines">
+      <h3>${bi('其他查無專門法規的法域', 'Other jurisdictions with no specific law found')}</h3>
+      <ul>${items}</ul>
+    </div>`;
+}
+
 function buildLegalRiskHTML(legal, findings) {
   const criteria = collectCriteria(findings);
   const criteriaText = criteria.length ? criteriaLabel(criteria) : 'No WCAG criteria were mapped by this audit.';
-  const jurisdictions = buildJurisdictions(legal);
+  const fullCards = JURISDICTIONS.filter(j => j.cardStyle === 'full');
+  const groupedCards = JURISDICTIONS.filter(j => j.cardStyle === 'grouped');
+  const onelineCards = JURISDICTIONS.filter(j => j.cardStyle === 'oneline');
   return `
     <div class="legal-risk-panel">
       <div class="legal-context-note">
@@ -2152,17 +2380,10 @@ function buildLegalRiskHTML(legal, findings) {
         </div>
       </div>
       <div class="risk-grid">
-        ${jurisdictions.map(j => `
-          <div class="risk-card">
-            <div class="risk-header">
-              <strong>${escapeHtml(j.name || '')}</strong>
-              <span class="context-badge">Context</span>
-            </div>
-            <p>${escapeHtml(j.law || '')} &mdash; ${escapeHtml(j.detail || '')}</p>
-            ${j.deadline ? `<p class="deadline">${t('legal_deadline')}: ${escapeHtml(j.deadline)}</p>` : ''}
-            <p class="criteria-map"><strong>WCAG:</strong> ${escapeHtml(criteriaText)}</p>
-          </div>`).join('')}
+        ${fullCards.map(jurisdictionCardHTML).join('')}
       </div>
+      ${jurisdictionGroupedTableHTML(groupedCards)}
+      ${jurisdictionOnelineListHTML(onelineCards)}
     </div>`;
 }
 
@@ -2753,6 +2974,31 @@ footer a{font-weight:600}
 .manual-check-card h4{margin:.2rem 0 .45rem;font-size:.98rem}
 .manual-check-card p{margin:.35rem 0;font-size:.86rem}
 .manual-check-meta{color:var(--text-soft);font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+.reader-task-evidence{margin:1.2rem 0 1.6rem;padding:1rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-left:6px solid var(--accent);border-radius:8px;line-height:1.65}
+.reader-task-evidence h3{margin:.1rem 0 .7rem;color:var(--accent)}
+.reader-task-evidence h4{margin:1rem 0 .45rem;color:var(--text)}
+.reader-status{display:flex;flex-wrap:wrap;gap:.35rem .9rem;align-items:baseline;padding:.7rem .85rem;background:var(--surface-2);border:1px solid var(--border);border-radius:6px}
+.reader-status strong{color:var(--text)}
+.reader-status span{color:var(--text-muted)}
+.reader-status-missing{border-left:4px solid var(--warn)}
+.reader-intent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(20rem,100%),1fr));gap:.7rem;margin:.9rem 0}
+.reader-intent-grid>div{min-width:0;padding:.65rem .8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg)}
+.reader-label{display:block;color:var(--text-muted);font-size:.78rem;font-weight:700}
+.reader-value{display:block;overflow-wrap:anywhere}
+.reader-task-row{padding:.75rem 0;border-top:1px solid var(--border)}
+.reader-task-row:first-of-type{border-top:0}
+.reader-task-heading{display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:baseline}
+.reader-task-heading strong{overflow-wrap:anywhere}
+.reader-outcome,.reader-at-status{display:inline-block;padding:.08rem .45rem;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:.78rem}
+.reader-task-row p{margin:.35rem 0}
+.reader-task-row ul{margin:.25rem 0 .55rem 1.25rem}
+.reader-surface-summary{margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border)}
+.reader-snapshot{margin-top:.7rem}
+.reader-snapshot summary{cursor:pointer;color:var(--accent);font-weight:600}
+.reader-snapshot pre{margin:.6rem 0 0;padding:.8rem;background:var(--bg);border:1px solid var(--border);white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--mono);font-size:.78rem;line-height:1.5}
+.reader-at{margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border)}
+.reader-at ul{list-style:none;margin:.3rem 0 0;padding:0}
+.reader-at li{display:flex;flex-wrap:wrap;gap:.35rem .9rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--border-soft)}
 .axe-evidence{margin:1.2rem 0}
 .axe-outcome-list{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem .85rem;margin:.6rem 0}
 .axe-outcome-list summary{cursor:pointer;font-weight:700;color:var(--text)}
@@ -2821,6 +3067,7 @@ ${buildHeroHTML(audit, previous, allGroups)}
     <p class="eyebrow"><span class="num">02</span> ${bi('證據層', 'Evidence')}</p>
     <h2 class="layer-h" id="h-evidence">${bi('每個分數旁邊都標出它背後有多少證據', 'Every score shows how much evidence stands behind it')}</h2>
     <p class="layer-sub">${bi('一個低分從大量檢查算出來，是確鑿的問題；一個低分只從一次檢查算出來，只是證據不足的旗標。密度條讓兩者一眼可辨。', 'A low score from many checks is a proven problem; a low score from one check is a thin-evidence flag, not a verdict. The density meter makes the difference visible at a glance.')}</p>
+    ${buildReaderTaskEvidenceHTML(audit)}
     ${buildCategoryGridHTML(audit.summary.categories, previous?.summary?.categories, groupsByCat, tier2Evidence)}
   </div>
 </section>

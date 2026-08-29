@@ -84,7 +84,7 @@ Industri umumnya memperkirakan alat otomatis mencakup ~30-40% kriteria WCAG. Bea
 
 ## Jurisdiction Context
 
-Beacon memetakan findings ke WCAG criteria yang relevan dalam konteks US ADA, EU EAA, Japan JIS, Taiwan, Canada ACA, dan Australia DDA. Ini bukan nasihat hukum dan bukan risk score mekanis per yurisdiksi. Konfirmasi aturan lokal yang berlaku sebelum membuat klaim kepatuhan.
+Beacon memetakan findings ke WCAG criteria yang relevan di 23 yurisdiksi yang dilacak (`core/scripts/jurisdictions.mjs`, riset sumber primer) — 14 punya undang-undang aksesibilitas web spesifik (US, EU, Japan, Taiwan, Canada, China, South Korea, Brazil, Argentina, Colombia, Peru, Chile, Uruguay, Ecuador), 2 hanya punya kerangka anti-diskriminasi umum tanpa teks statuta khusus web (Australia, Hong Kong), dan 7 dilacak sebagai tidak ada undang-undang spesifik yang ditemukan, secara jujur (Macau, Mongolia, Venezuela, Bolivia, Paraguay, Guyana, Suriname). Ini bukan nasihat hukum dan bukan risk score mekanis per yurisdiksi. Konfirmasi aturan lokal yang berlaku sebelum membuat klaim kepatuhan.
 
 ## AEO And Agent Readiness Workflow
 

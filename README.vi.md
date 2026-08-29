@@ -84,7 +84,7 @@ Ngành công nghiệp thường ước tính công cụ tự động bao phủ ~
 
 ## Jurisdiction Context
 
-Beacon map findings với WCAG criteria liên quan trong bối cảnh US ADA, EU EAA, Japan JIS, Taiwan, Canada ACA, và Australia DDA. Đây không phải tư vấn pháp lý và không phải risk score cơ học theo từng jurisdiction. Hãy xác nhận yêu cầu địa phương hiện hành trước khi tuyên bố compliance.
+Beacon map findings với WCAG criteria liên quan trong 23 jurisdictions được theo dõi (`core/scripts/jurisdictions.mjs`, nghiên cứu từ nguồn sơ cấp) — 14 jurisdiction có luật riêng về web accessibility (US, EU, Japan, Taiwan, Canada, China, South Korea, Brazil, Argentina, Colombia, Peru, Chile, Uruguay, Ecuador), 2 jurisdiction chỉ có khung chống phân biệt đối xử chung, không có điều luật riêng về web (Australia, Hong Kong), và 7 jurisdiction được ghi nhận trung thực là chưa tìm thấy luật riêng (Macau, Mongolia, Venezuela, Bolivia, Paraguay, Guyana, Suriname). Đây không phải tư vấn pháp lý và không phải risk score cơ học theo từng jurisdiction. Hãy xác nhận yêu cầu địa phương hiện hành trước khi tuyên bố compliance.
 
 ## AEO And Agent Readiness Workflow
 

@@ -179,7 +179,7 @@
   "findings": [
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "html-lang-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -196,7 +196,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "document-title-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -211,7 +211,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "main-landmark-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -226,7 +226,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "heading-level-skipped",
       "category": "screenreader",
       "severity": "critical",
@@ -241,7 +241,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "image-alt-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -257,7 +257,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "image-alt-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -273,7 +273,7 @@
     },
     {
       "level": "A",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "frame-title-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -289,7 +289,7 @@
     },
     {
       "level": "A",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "list-non-li-child",
       "category": "screenreader",
       "severity": "critical",
@@ -305,7 +305,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "button-name-missing",
       "category": "keyboard",
       "severity": "critical",
@@ -321,7 +321,7 @@
     },
     {
       "level": "A",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "link-name-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -337,7 +337,7 @@
     },
     {
       "level": "A",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "link-name-missing",
       "category": "screenreader",
       "severity": "critical",
@@ -353,7 +353,7 @@
     },
     {
       "level": "A",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "clickable-non-button",
       "category": "keyboard",
       "severity": "critical",
@@ -369,7 +369,7 @@
     },
     {
       "level": "A",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "input-label-weak",
       "category": "forms",
       "severity": "warning",
@@ -385,7 +385,7 @@
     },
     {
       "level": "A",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "input-label-missing",
       "category": "forms",
       "severity": "critical",
@@ -401,7 +401,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "viewport-zoom-disabled",
       "category": "responsive",
       "severity": "warning",
@@ -462,7 +462,7 @@
     },
     {
       "level": "AA",
-      "legal_exposure": "May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.",
+      "legal_exposure": "This criterion is at A/AA level, within the range most tracked jurisdictions' technical standards cover (e.g. WCAG 2.1 AA, EN 301 549, JIS X 8341-3, KWCAG 2.2, GB/T 37668), including: United States, European Union, Japan, Taiwan, Canada, Australia, China (Mainland), South Korea, Hong Kong SAR, Argentina, Chile, Uruguay, Ecuador. This is a summary-level technical mapping, not a jurisdiction-by-jurisdiction legal determination; actual exposure depends on deployment context, target market, and whether that jurisdiction's rule is currently in force.",
       "key": "contrast-not-verified",
       "category": "contrast",
       "severity": "tip",

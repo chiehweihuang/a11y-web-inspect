@@ -164,14 +164,13 @@ Their value is cross-cutting root causes: one cause (such as an oversized DOM) m
 
 ## Jurisdiction Context Coverage
 
-Beacon maps findings to WCAG-linked context across six legal and regulatory environments:
-
-- US ADA
-- EU EAA
-- Japan JIS
-- Taiwan accessibility standards
-- Canada ACA
-- Australia DDA
+Beacon maps findings to WCAG-linked context across 23 tracked jurisdictions
+(`core/scripts/jurisdictions.mjs`, primary-source research): 14 have a specific
+web-accessibility law with a named technical standard (US, EU, Japan, Taiwan, Canada,
+China, South Korea, Brazil, Argentina, Colombia, Peru, Chile, Uruguay, Ecuador), 2 have
+only a general anti-discrimination framework with no web-specific statutory text
+(Australia, Hong Kong), and 7 are tracked as no specific law found, honestly, rather than
+omitted (Macau, Mongolia, Venezuela, Bolivia, Paraguay, Guyana, Suriname).
 
 These notes are not legal advice and are not a mechanical per-jurisdiction risk score. Use them to understand which WCAG criteria are relevant in each context, then confirm current local requirements before making a compliance claim.
 

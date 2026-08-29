@@ -14,6 +14,8 @@ import { assessPdf } from './pdf-detect.mjs';
 import { detectQualityFlags } from './quality-detect.mjs';
 import { parseColor, relLuminance, contrastRatio } from './tier2-audit.mjs';
 import { attrState, parseStartTag } from './attr-scan.mjs';
+import { normalizeReaderEvidence } from './reader-task-audit.mjs';
+import { legalExposureFor } from './jurisdictions.mjs';
 
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.nuxt', 'coverage']);
@@ -137,12 +139,12 @@ function resolveDate(optDate) {
 }
 
 function usage() {
-  console.error('Usage: node static-audit.mjs [--scope name] [--url url] [--output audit-results.json] <file-or-dir>...');
+  console.error('Usage: node static-audit.mjs [--scope name] [--url url] [--output audit-results.json] [--merge-findings findings.json] [--llm-judgment judgment.json] [--reader-evidence reader-results.json] <file-or-dir>...');
   process.exit(1);
 }
 
 function parseArgs(argv) {
-  const opts = { scope: 'Static UI audit', url: null, output: 'audit-results.json', date: null, mergeFindings: null, llmJudgment: null, paths: [] };
+  const opts = { scope: 'Static UI audit', url: null, output: 'audit-results.json', date: null, mergeFindings: null, llmJudgment: null, readerEvidence: null, paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--scope') opts.scope = argv[++i] || usage();
@@ -151,6 +153,7 @@ function parseArgs(argv) {
     else if (arg === '--date') opts.date = argv[++i] || usage();
     else if (arg === '--merge-findings') opts.mergeFindings = argv[++i] || usage();
     else if (arg === '--llm-judgment') opts.llmJudgment = argv[++i] || usage();
+    else if (arg === '--reader-evidence') opts.readerEvidence = argv[++i] || usage();
     else opts.paths.push(arg);
   }
   if (opts.paths.length === 0) usage();
@@ -746,9 +749,15 @@ function addFinding(findings, stats, f) {
   const action = check === 'fail'
     ? 'direct-fix'
     : (String(rest.key || '').endsWith('-advisory') ? 'design-judgment' : 'human-verify');
+  const effectiveLevel = rest.level || 'AA';
+  // Jurisdiction-expansion spec (2026-08-29, item 3): the old default was one identical
+  // "May affect ADA / EAA / JIS / Taiwan..." string on every finding regardless of its
+  // actual WCAG level — an AAA best-practice item read exactly like a confirmed AA
+  // violation. Derive from the finding's real level instead (jurisdictions.mjs is the
+  // single source for which tracked jurisdictions' technical standards reach that level).
   findings.push({
-    level: rest.level || 'AA',
-    legal_exposure: rest.legal_exposure || 'May affect ADA / EAA / JIS / Taiwan accessibility expectations depending on deployment context.',
+    level: effectiveLevel,
+    legal_exposure: rest.legal_exposure || legalExposureFor(effectiveLevel).en,
     ...rest,
     check,
     severity,
@@ -2118,6 +2127,16 @@ function loadLlmJudgment(file) {
   };
 }
 
+// Reader-oriented task evidence is a separate, non-scored artifact. Validate it at this
+// trust boundary, then carry only its normalized shape into the authoritative audit JSON.
+function loadReaderEvidence(file) {
+  let raw;
+  try { raw = JSON.parse(readFileSync(file, 'utf8')); }
+  catch (e) { console.error(`--reader-evidence: cannot read/parse ${file}: ${e.message}`); process.exit(1); }
+  try { return normalizeReaderEvidence(raw); }
+  catch (e) { console.error(`--reader-evidence: ${file} is invalid: ${e.message}`); process.exit(1); }
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   const root = process.cwd();
@@ -2294,6 +2313,10 @@ function main() {
   // Attach the quarantined LLM-judgment block AFTER scoring — it is never folded into
   // findings, stats, or any score (P8 structural separation).
   if (opts.llmJudgment) audit.llm_judgment = loadLlmJudgment(opts.llmJudgment);
+  // Reader evidence is stronger than a prose recommendation but still not a machine
+  // score: the browser surface is reproducible, while task interpretation and AT use
+  // remain explicitly separate evidence streams.
+  if (opts.readerEvidence) audit.reader_evidence = loadReaderEvidence(opts.readerEvidence);
   if (tier2) audit.tier2 = tier2;
 
   mkdirSync(dirname(opts.output), { recursive: true });

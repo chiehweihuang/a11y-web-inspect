@@ -84,7 +84,7 @@ Industry में आमतौर पर अनुमान लगाया ज
 
 ## Jurisdiction Context
 
-Beacon findings को US ADA, EU EAA, Japan JIS, Taiwan, Canada ACA, और Australia DDA context में relevant WCAG criteria से map करता है। यह legal advice नहीं है और per-jurisdiction mechanical risk score भी नहीं है। Compliance claim करने से पहले current local requirements confirm करें।
+Beacon findings को 23 tracked jurisdictions (`core/scripts/jurisdictions.mjs`, primary-source research) के relevant WCAG criteria से map करता है — 14 में specific web-accessibility law है (US, EU, Japan, Taiwan, Canada, China, South Korea, Brazil, Argentina, Colombia, Peru, Chile, Uruguay, Ecuador), 2 में सिर्फ general anti-discrimination framework है, कोई web-specific statute नहीं (Australia, Hong Kong), और 7 को honestly no-specific-law-found के रूप में track किया गया है (Macau, Mongolia, Venezuela, Bolivia, Paraguay, Guyana, Suriname)। यह legal advice नहीं है और per-jurisdiction mechanical risk score भी नहीं है। Compliance claim करने से पहले current local requirements confirm करें।
 
 ## AEO And Agent Readiness Workflow
 

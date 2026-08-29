@@ -41,7 +41,7 @@ These appear in both installed surfaces but are generated from one source under
 |---|---|---|---|
 | WCAG criteria reference | `references/wcag-quick.md` | `adapters/codex/references/wcag-quick.md` | generated from `core/references/` |
 | Component patterns | `references/patterns.md` | `adapters/codex/references/patterns.md` | shared |
-| Legal brief (6 jurisdictions) | `references/legal-brief.md` | `adapters/codex/references/legal-brief.md` | shared |
+| Legal brief (23 tracked jurisdictions: 14 specific-law, 2 framework-only, 7 no-specific-law) | `references/legal-brief.md` | `adapters/codex/references/legal-brief.md` | shared; full per-jurisdiction data lives in `core/scripts/jurisdictions.mjs` |
 | Disability categories | `references/disabilities.md` | `adapters/codex/references/disabilities.md` | shared |
 | Case studies | `references/cases.md` | `adapters/codex/references/cases.md` | shared |
 | Document a11y | `references/documents.md` | `adapters/codex/references/documents.md` | shared |

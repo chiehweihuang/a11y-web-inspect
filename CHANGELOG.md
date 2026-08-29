@@ -1,5 +1,69 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Jurisdiction data module** (`core/scripts/jurisdictions.mjs`, primary-source research
+  dated 2026-08-29 in `plans/2026-08-29-jurisdiction-expansion/`, including a same-day
+  verification pass): expands legal-section coverage from 6 hardcoded jurisdiction
+  strings to 23 jurisdictions across three tiers (`specific-law` /
+  `framework-no-web-specifics` / `no-specific-law`) and three presentation styles
+  (full card / regional-comparison group / one-line honest-null) — China, South Korea,
+  Hong Kong SAR, Macau SAR, and Mongolia (East Asia); Brazil, Argentina, Colombia, and
+  Peru as full cards (Peru's private-sector clause was upgraded to primary-quoted in the
+  verification pass, promoting it out of the comparison group) plus Chile/Uruguay/Ecuador
+  as a South American comparison group and Venezuela/Bolivia/Paraguay/Guyana/Suriname as
+  one-line honest-nulls (South America), on top of the corrected existing six.
+- **Verification pass incorporated**: South Korea's cited statute (지능정보화기본법
+  제46조) was superseded — repealed 2025-01-21, replaced with 디지털포용법
+  (Digital Inclusion Act) 제19조, in force 2026-01-22; the data module cites the new
+  law. Hong Kong's Digital Policy Office handbook now targets WCAG 2.2 A/AA (was cited
+  as 2.0, now stale). Still-open flags (Macau gazette exhaustiveness, Mongolia article
+  number, Colombia WCAG level, Brazil ABNT NBR 17225 mandatory status, Ecuador's exact
+  article number) render with explicit uncertainty markers, never as bare fact.
+
+### Fixed
+
+- **Six wrong or misleadingly incomplete jurisdiction claims corrected** (primary-source
+  research, `plans/2026-08-29-jurisdiction-expansion/existing-six-deepened.md`):
+  - US: `core/references/cases.md`'s Domino's v. Robles entry said "Supreme Court
+    confirmed ADA applies to websites/apps" — the Supreme Court denied certiorari
+    (2019-10-07) without ruling on the merits; the Ninth Circuit ruling stands as binding
+    precedent in that circuit, not a nationwide holding.
+  - Canada: the ACA has no binding digital/ICT technical standard yet — EN 301 549 was
+    adopted voluntarily (May 2024); the binding Digital Technologies Accessibility
+    Regulations don't come into force until 2027 (federal public sector) / 2028 (large
+    federally-regulated private sector).
+  - Taiwan: 身心障礙者權益保障法第52條之2 binds government agencies and schools only —
+    zero general private-sector obligation, now stated explicitly rather than hedged.
+  - Japan: JIS X 8341-3 conformance is not itself a legal mandate for private business —
+    only the 2024-04-01 reasonable-accommodation duty (case-by-case, on request) is a
+    legal duty; JIS sits under 環境の整備 (preparatory groundwork), not a standalone
+    violation trigger.
+  - EU: the EAA's actual technical standard is EN 301 549 (which embeds WCAG 2.1/2.2 AA
+    for web content, plus non-web ICT requirements), not WCAG alone; scope is enumerated
+    products/services (not a general website law) with a microenterprise carve-out and a
+    transition to 2030 for pre-2025 service contracts.
+  - Australia: WCAG 2.1 AA is AHRC 2014 advisory guidance, not a statutory requirement —
+    the DDA itself names no technical standard; added Maguire v. SOCOG (2000), the actual
+    landmark web-accessibility case (AUD 20,000 damages), replacing the absence of any
+    real case citation.
+- **Per-finding `legal_exposure` derives from the finding's actual WCAG level** instead
+  of one identical hardcoded string ("May affect ADA / EAA / JIS / Taiwan accessibility
+  expectations depending on deployment context.") on every finding regardless of level —
+  an AAA-level best-practice item now correctly states that no tracked jurisdiction's
+  binding standard requires AAA, while A/AA findings get a jurisdiction list derived from
+  the data module plus an explicit "summary-level technical mapping, not a legal
+  determination" caveat. Fixed in both `static-audit.mjs`'s `addFinding()` default and
+  `tier2-audit.mjs`'s `baseFinding()` default (the merge funnel never forwards
+  `legal_exposure` across the boundary, so this also fixes every merged tier-2 finding).
+- **Report legal section (§06) renders per-jurisdiction cards from the data module**
+  instead of six near-identical hardcoded risk-cards sharing one templated hedge
+  sentence and one duplicated WCAG-criteria line per card; the duplicated line is now
+  stated once in the shared context note. Design gates unchanged (bilingual, no
+  color-alone signaling, explicit font stacks).
+
 ## [3.5.0] — 2026-08-29
 
 ### Changed

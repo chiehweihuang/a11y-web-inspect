@@ -672,3 +672,36 @@ test('P8: --llm-judgment is quarantined verbatim and never touches the score', (
     assert.equal(audit.summary.overall_score, baseOverall, 'llm_judgment must NOT change the machine score');
   } finally { cleanup(); }
 });
+
+test('reader evidence is attached after scoring and cannot change machine findings or score', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beacon-reader-evidence-'));
+  const file = join(dir, 'reader-results.json');
+  writeFileSync(file, JSON.stringify({
+    metadata: { date: '2020-01-01', url: 'https://example.com/page' },
+    intent: {
+      purpose: { zh: '展示內容', en: 'Present content' },
+      source: 'owner',
+      confidence: 'high',
+    },
+    tasks: [{
+      id: 'read-page',
+      goal: { zh: '讀取頁面標題', en: 'Read the page heading' },
+      success_criteria: [{ zh: '找到 h1', en: 'Find the h1' }],
+      outcome: 'completed',
+    }],
+    reader_surface: {
+      status: 'captured',
+      channel: ['accessibility-tree', 'keyboard'],
+      snapshot: { format: 'test-tree', content: 'heading "x"' },
+      keyboard: { max_tabs: 8, stop_count: 1, stopped_reason: 'test', stops: [] },
+    },
+  }));
+  try {
+    const base = run({ args: ['--date', '2020-01-01'] }).audit;
+    const withReader = run({ args: ['--date', '2020-01-01', '--reader-evidence', file] }).audit;
+    assert.deepEqual(withReader.summary, base.summary);
+    assert.deepEqual(withReader.findings, base.findings);
+    assert.equal(withReader.reader_evidence.metadata.scored, false);
+    assert.equal(withReader.reader_evidence.tasks[0].outcome, 'completed');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

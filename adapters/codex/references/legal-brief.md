@@ -1,29 +1,18 @@
 # Accessibility Legal Quick Reference
 
-Full reference: _yorozuya/research/international-accessibility-laws-reference.md
-
-## By Jurisdiction
-
-| Jurisdiction | Law | Standard | Covers | Penalty | Key Date |
-|-------------|-----|----------|--------|---------|----------|
-| US (federal) | Section 508 | WCAG 2.0 AA | Government ICT | Administrative complaint | Active |
-| US (state/local gov) | ADA Title II | WCAG 2.1 AA | State/local gov websites | DOJ enforcement | **Apr 2026** (pop ≥50K) |
-| US (private) | ADA Title III | WCAG 2.1 AA (de facto) | "Public accommodations" | Lawsuits (8,667 in 2025) | Active |
-| EU | EAA + EN 301 549 | WCAG 2.1 AA+ | Public + private | Up to €1,000,000 | **Jun 2025** (in force) |
-| Japan | 障害者差別解消法 | JIS X 8341-3 (≈WCAG 2.0 AA) | Public + **private (mandatory since 2024)** | ¥200,000 max | **Apr 2024** |
-| Taiwan | 身心障礙者權益保障法 | WCAG 2.1-based | Government only | Administrative | Active |
-| Canada | ACA + AODA | EN 301 549 v3.2.1 (federal), WCAG 2.0 AA (Ontario) | Public + large private | Up to CAD $250,000 | **Jun 2026** (large orgs report) |
-| Australia | DDA | WCAG 2.2 AA (2025 guidance) | Public + private | Complaint → tribunal | Active |
-| Kenya | KS 2952-1:2022 | First African national ICT a11y standard | Government ICT | TBD | Active |
-
-## Risk by Numbers
-
-- **8,667** ADA Title III lawsuits in US in 2025 (+37% vs 2024)
-- **40%** increase in pro se (self-filed) lawsuits — AI tools help write complaints
-- **69%** of US accessibility lawsuits target e-commerce
-- **$6M+** NFB v. Target settlement (2008)
-- **$1M** FTC fine against accessiBe for deceptive marketing (2025)
-- Top 7 WCAG violations in lawsuits: missing alt text, empty links, missing form labels, low contrast, empty buttons, missing document language, missing skip links
+**Superseded (2026-08-29): the jurisdiction table and litigation-statistics below predate
+the jurisdiction-expansion primary-source research and disagree with it on specifics (e.g.
+this file's US lawsuit count and Canada's ACA/AODA/penalty framing do not match the
+verified figures) — do not cite them.** The canonical, verification-passed source is
+`core/scripts/jurisdictions.mjs` (research: `plans/2026-08-29-jurisdiction-expansion/`):
+23 tracked jurisdictions — 14 with a specific web-accessibility law and a named technical
+standard, 2 with only a general anti-discrimination framework and no web-specific
+statutory text, 7 tracked as no specific law found (never silently omitted). Each record
+carries statute/scope/standard/enforcement detail, sources, and an explicit confidence
+label; `legalExposureFor(level)` is the single source for the level-aware legal-exposure
+sentence `generate-report.mjs` renders. The "When to Flag" and "One-Line Summaries"
+sections below are still-valid judgment heuristics, not jurisdiction-specific facts, and
+remain in force.
 
 ## When to Flag Legal Risk
 

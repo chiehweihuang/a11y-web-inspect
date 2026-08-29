@@ -5,8 +5,8 @@ Full reference: _yorozuya/research/accessibility-legal-cases-研究.md
 ## Landmark Cases (cite when relevant)
 
 ### Domino's v. Robles (2019)
-Supreme Court confirmed ADA applies to websites/apps. Litigation lasted 6 years. Cost far exceeded fixing accessibility upfront.
-**Lesson**: There is no "websites aren't covered" defense anymore.
+Ninth Circuit ruled the ADA applies to Domino's website/app; the Supreme Court denied certiorari (Oct 7, 2019) without ruling on the merits, leaving that ruling as binding precedent in the Ninth Circuit and persuasive elsewhere. Litigation lasted 6 years. Cost far exceeded fixing accessibility upfront.
+**Lesson**: There is no nationwide Supreme Court holding, and the "nexus to a physical place" question still splits circuits outside the Ninth — "websites aren't covered" is a weaker defense than before, not a settled non-defense everywhere.
 **Violated**: 1.1.1, 2.1.1, 4.1.2
 
 ### NFB v. Target ($6M + $3.7M settlement, 2008)

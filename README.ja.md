@@ -82,7 +82,7 @@ Detector の精度は、誰も恣意的に選んでいないページ群を対�
 
 ## Jurisdiction Context
 
-Beacon は US ADA、EU EAA、Japan JIS、Taiwan、Canada ACA、Australia DDA という各 context に findings を WCAG criteria として対応づけます。これは法律助言ではなく、管轄区域ごとの機械的な risk score でもありません。Compliance claim を出す前に、現在有効な地域要件を確認してください。
+Beacon は 23 の追跡対象法域（`core/scripts/jurisdictions.mjs`、一次資料に基づく調査）の findings を関連する WCAG criteria に対応づけます——14 法域には web アクセシビリティ専門法があり（US、EU、Japan、Taiwan、Canada、China、South Korea、Brazil、Argentina、Colombia、Peru、Chile、Uruguay、Ecuador）、2 法域は web 専用の条文を持たない一般的な差別禁止枠組みのみ（Australia、Hong Kong）、残り 7 法域は専門法が見つからなかったことを正直に記録しています（Macau、Mongolia、Venezuela、Bolivia、Paraguay、Guyana、Suriname）。これは法律助言ではなく、管轄区域ごとの機械的な risk score でもありません。Compliance claim を出す前に、現在有効な地域要件を確認してください。
 
 ## AEO And Agent Readiness Workflow
 
